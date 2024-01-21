@@ -19,7 +19,7 @@ public:
 
     sensor::Sensor* compressor_frequency_sensor;
     binary_sensor::BinarySensor* iSee_sensor;
-    select::Select* van_orientation;
+    select::Select* vane;
 
     //text_sensor::TextSensor* last_sent_packet_sensor;
     //text_sensor::TextSensor* last_received_packet_sensor;
@@ -86,18 +86,6 @@ public:
     heatpumpFunctions getFunctions();
     bool setFunctions(heatpumpFunctions const& functions);
 
-    // helpers
-
-    float FahrenheitToCelsius(int tempF) {
-        float temp = (tempF - 32) / 1.8;
-        return ((float)round(temp * 2)) / 2;                 //Round to nearest 0.5C
-    }
-
-    int CelsiusToFahrenheit(float tempC) {
-        float temp = (tempC * 1.8) + 32;                //round up if heat, down if cool or any other mode
-        return (int)(temp + 0.5);
-    }
-
 protected:
     // HeatPump object using the underlying Arduino library.
     // same as PolingComponent
@@ -158,7 +146,6 @@ private:
     void statusChanged();
     void updateAction();
     void setActionIfOperatingTo(climate::ClimateAction action);
-    void setActionIfOperatingAndCompressorIsActiveTo(climate::ClimateAction action);
     void hpPacketDebug(uint8_t* packet, unsigned int length, const char* packetDirection);
 
     void debugSettings(const char* settingName, heatpumpSettings settings);

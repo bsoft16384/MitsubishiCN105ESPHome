@@ -30,7 +30,6 @@ void CN105Climate::generateExtraComponents() {
     this->compressor_frequency_sensor->set_accuracy_decimals(0);
     this->compressor_frequency_sensor->publish_state(0);
 
-    // Enregistrer le capteur pour que ESPHome le gère
     App.register_sensor(compressor_frequency_sensor);
 
     this->iSee_sensor = new binary_sensor::BinarySensor();
@@ -38,25 +37,11 @@ void CN105Climate::generateExtraComponents() {
     this->iSee_sensor->publish_initial_state(false);
     App.register_binary_sensor(this->iSee_sensor);
 
-    this->van_orientation = new  VaneOrientationSelect(this);
-    this->van_orientation->set_name("Van orientation");
+    this->vane = new VaneOrientationSelect(this);
+    this->vane->set_name("Vane");
 
-    //this->van_orientation->traits.set_options({ "AUTO", "1", "2", "3", "4", "5", "SWING" });    
     std::vector<std::string> vaneOptions(std::begin(VANE_MAP), std::end(VANE_MAP));
-    this->van_orientation->traits.set_options(vaneOptions);
+    this->vane->traits.set_options(vaneOptions);
 
-    App.register_select(this->van_orientation);
-
-    /*this->last_sent_packet_sensor = new TextSensor();
-    this->last_sent_packet_sensor->set_name("Last Sent Packet");
-    this->last_sent_packet_sensor->set_entity_category(esphome::EntityCategory::ENTITY_CATEGORY_DIAGNOSTIC);
-    App.register_text_sensor(this->last_sent_packet_sensor);
-
-
-    this->last_received_packet_sensor = new text_sensor::TextSensor();
-    this->last_received_packet_sensor->set_name("Last Received Packet");
-    this->last_received_packet_sensor->set_entity_category(esphome::EntityCategory::ENTITY_CATEGORY_DIAGNOSTIC);
-    App.register_text_sensor(this->last_received_packet_sensor);*/
-
-
+    App.register_select(this->vane);
 }
