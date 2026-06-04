@@ -191,6 +191,11 @@ namespace esphome {
             return hasChanged(std::string(before).c_str(), now, field, checkNotNull);
         }
 
+        template <typename T>
+        inline bool hasChanged(T before, T now, const char* field, bool checkNotNull = false) {
+            return before != now;
+        }
+
 
         float get_setup_priority() const override {
             return setup_priority::AFTER_WIFI;  // Configurez ce composant aprÃÂ¨s le WiFi
@@ -377,6 +382,16 @@ namespace esphome {
         int lookupByteMapValue(const int valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue, const char* debugInfo = "");
         int lookupByteMapIndex(const char* valuesMap[], int len, const char* lookupValue, const char* debugInfo = "");
         int lookupByteMapIndex(const int valuesMap[], int len, int lookupValue, const char* debugInfo = "");
+        template <typename T>
+        int lookupByteMapIndex(const T valuesMap[], int len, T lookupValue, const char* debugInfo = "") {
+            int idx = cn105_protocol::lookup_index(valuesMap, len, lookupValue);
+            if (idx < 0) {
+                ESP_LOGW("lookup", "%s caution: value not found, returning -1", debugInfo);
+            }
+            return idx;
+        }
+
+
 
         void writePacket(uint8_t* packet, int length, bool checkIsActive = true);
         void prepareInfoPacket(uint8_t* packet, int length);

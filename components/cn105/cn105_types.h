@@ -3,6 +3,9 @@
 #include <cmath>
 #include <cstring>
 #include <string>
+#include <optional>
+#include <array>
+#include "cn105_protocol.h"
 
 #define MAX_DATA_BYTES     64         
 #define MAX_DELAY_RESPONSE_FACTOR 10  
@@ -68,60 +71,12 @@ static const uint8_t CONTROL_PACKET_1[5] = { 0x01,    0x02,  0x04,  0x08, 0x10 }
 static const uint8_t CONTROL_PACKET_2[1] = { 0x01 };
 static const uint8_t RUN_STATE_PACKET_1[5] = { 0x01, 0x04, 0x08, 0x10, 0x20 };
 static const uint8_t RUN_STATE_PACKET_2[5] = { 0x02, 0x04, 0x08, 0x10, 0x20 };
-static const uint8_t POWER[2] = { 0x00, 0x01 };
-static const char* POWER_MAP[2] = { "OFF", "ON" };
-static const uint8_t MODE[5] = { 0x01,   0x02,  0x03, 0x07, 0x08 };
-static const char* MODE_MAP[5] = { "HEAT", "DRY", "COOL", "FAN", "AUTO" };
 static const uint8_t TEMP[16] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
 static const int TEMP_MAP[16] = { 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16 };
-static const uint8_t FAN[6] = { 0x00,  0x01,   0x02, 0x03, 0x05, 0x06 };
-static const char* FAN_MAP[6] = { "AUTO", "QUIET", "1", "2", "3", "4" };
-static const uint8_t VANE[7] = { 0x00,  0x01, 0x02, 0x03, 0x04, 0x05, 0x07 };
-static const char* VANE_MAP[7] = { "AUTO", "↑↑", "↑", "—", "↓", "↓↓", "SWING" };
-static const uint8_t WIDEVANE[8] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x08, 0x0c, 0x00 };
-static const char* WIDEVANE_MAP[8] = { "←←", "←", "|", "→", "→→", "←→", "SWING", "AIRFLOW CONTROL" };
 static const uint8_t ROOM_TEMP[32] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
                                   0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f };
 static const int ROOM_TEMP_MAP[32] = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
                                   26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41 };
-static const uint8_t TIMER_MODE[4] = { 0x00,  0x01,  0x02, 0x03 };
-static const char* TIMER_MODE_MAP[4] = { "NONE", "OFF", "ON", "BOTH" };
-
-static const uint8_t AIRFLOW_CONTROL[3] = { 0x00, 0x01, 0x02 };
-static const char* AIRFLOW_CONTROL_MAP[3] = { "EVEN", "INDIRECT", "DIRECT" };
-
-static const uint8_t STAGE[7] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 };
-static const char* STAGE_MAP[7] = { "IDLE", "LOW", "GENTLE", "MEDIUM", "MODERATE", "HIGH", "DIFFUSE" };
-
-// 0x10 = OFF state, observed on MFZ-KX09NL / MFZ-KJ18NA when the unit is
-// powered off (data[3] of the 0x09 packet). Confirmed by correlation with
-// 0x02 data[3] (power) = 0x00 across every powered-off cycle.
-static const uint8_t SUB_MODE[6] = { 0x00, 0x01, 0x02, 0x04, 0x08, 0x10 };
-static const char* SUB_MODE_MAP[6] = { "NORMAL", "WARMUP", "DEFROST", "PREHEAT", "STANDBY", "OFF" };
-
-// 0x40 / 0x41 / 0x43 added for newer MFZ units, where data[5] of the 0x09
-// packet is a bitfield rather than the older 0x00..0x03 enum:
-//   bit 0 (0x01) is set when AUTO climate mode is selected
-//   bit 1 (0x02) is set once the compressor has engaged in this AUTO
-//                session (i.e. the unit has identified the room needs
-//                active heating or cooling and acted on it). Sticky:
-//                stays set after the compressor cycles back off.
-//   bit 6 (0x40) is constantly set (purpose unknown, observed in every state
-//                including OFF, HEAT, COOL, DRY, FAN, AUTO across many cycles)
-//   bits 2..5  : unprobed
-// Observed states:
-//   0x40 AUTO_INACTIVE — AUTO mode not selected
-//   0x41 AUTO_IDLE     — AUTO selected, compressor not engaged
-//                        (e.g. room already at setpoint, no action needed)
-//   0x43 AUTO_ACTIVE   — AUTO selected, compressor has engaged at least
-//                        once in this session (sticky)
-// Note that 0x43 does NOT distinguish current cool-vs-heat direction; on these
-// units that has to be inferred from setpoint vs room temperature in 0x02.
-// These labels are distinct from the older AUTO_COOL/AUTO_HEAT/AUTO_LEADER
-// labels which appear to belong to a different protocol revision (older units
-// where this byte was a 4-state enum rather than a bitfield).
-static const uint8_t AUTO_SUB_MODE[7] = { 0x00, 0x01, 0x02, 0x03, 0x40, 0x41, 0x43 };
-static const char* AUTO_SUB_MODE_MAP[7] = { "AUTO_OFF", "AUTO_COOL", "AUTO_HEAT", "AUTO_LEADER", "AUTO_INACTIVE", "AUTO_IDLE", "AUTO_ACTIVE" };
 
 static const int TIMER_INCREMENT_MINUTES = 10;
 
@@ -134,33 +89,301 @@ const uint8_t ESPMHP_MIN_TEMPERATURE = 16;
 const uint8_t ESPMHP_MAX_TEMPERATURE = 26;
 const float ESPMHP_TEMPERATURE_STEP = 0.5;
 
+enum class HPPower : uint8_t {
+    OFF = 0,
+    ON = 1,
+    UNKNOWN = 2
+};
+
+enum class HPMode : uint8_t {
+    HEAT = 0,
+    DRY = 1,
+    COOL = 2,
+    FAN = 3,
+    AUTO = 4,
+    UNKNOWN = 5
+};
+
+enum class HPFanMode : uint8_t {
+    AUTO = 0,
+    QUIET = 1,
+    F1 = 2,
+    F2 = 3,
+    F3 = 4,
+    F4 = 5,
+    UNKNOWN = 6
+};
+
+enum class HPVaneMode : uint8_t {
+    AUTO = 0,
+    V1 = 1,
+    V2 = 2,
+    V3 = 3,
+    V4 = 4,
+    V5 = 5,
+    SWING = 6,
+    UNKNOWN = 7
+};
+
+enum class HPWideVaneMode : uint8_t {
+    LEFT_LEFT = 0,
+    LEFT = 1,
+    CENTER = 2,
+    RIGHT = 3,
+    RIGHT_RIGHT = 4,
+    LEFT_RIGHT = 5,
+    SWING = 6,
+    AIRFLOW_CONTROL = 7,
+    UNKNOWN = 8
+};
+
+enum class HPStage : uint8_t {
+    IDLE = 0,
+    LOW = 1,
+    GENTLE = 2,
+    MEDIUM = 3,
+    MODERATE = 4,
+    HIGH = 5,
+    DIFFUSE = 6,
+    UNKNOWN = 7
+};
+
+enum class HPSubMode : uint8_t {
+    NORMAL = 0,
+    WARMUP = 1,
+    DEFROST = 2,
+    PREHEAT = 3,
+    STANDBY = 4,
+    OFF = 5,
+    UNKNOWN = 6
+};
+
+enum class HPAutoSubMode : uint8_t {
+    AUTO_OFF = 0,
+    AUTO_COOL = 1,
+    AUTO_HEAT = 2,
+    AUTO_LEADER = 3,
+    AUTO_INACTIVE = 4,
+    AUTO_IDLE = 5,
+    AUTO_ACTIVE = 6,
+    UNKNOWN = 7
+};
+
+enum class HPTimerMode : uint8_t {
+    NONE = 0,
+    OFF = 1,
+    ON = 2,
+    BOTH = 3,
+    UNKNOWN = 4
+};
+
+enum class HPAirflowControl : uint8_t {
+    EVEN = 0,
+    INDIRECT = 1,
+    DIRECT = 2,
+    UNKNOWN = 3
+};
+
+// ════════════════════════════════════════════════════════════════
+// Generic enum ↔ string / byte mapping infrastructure
+// ════════════════════════════════════════════════════════════════
+
+template <typename E>
+struct EnumEntry {
+    E value;
+    uint8_t protocol_byte;
+    const char* label;
+};
+
+template <typename E, std::size_t N>
+using EnumTable = std::array<EnumEntry<E>, N>;
+
+/// Look up the string label for an enum value. Returns "UNKNOWN" if not found.
+template <typename E, std::size_t N>
+inline const char* enum_to_str(const EnumTable<E, N>& table, E val) {
+    for (const auto& entry : table) {
+        if (entry.value == val) return entry.label;
+    }
+    return "UNKNOWN";
+}
+
+/// Look up an enum value from a string label (case-insensitive). Returns fallback if not found.
+template <typename E, std::size_t N>
+inline E enum_from_str(const EnumTable<E, N>& table, const char* str, E fallback) {
+    if (!str) return fallback;
+    for (const auto& entry : table) {
+        if (strcasecmp(entry.label, str) == 0) return entry.value;
+    }
+    return fallback;
+}
+
+/// Find the index of an enum value in a table. Returns -1 if not found.
+template <typename E, std::size_t N>
+inline int enum_index(const EnumTable<E, N>& table, E val) {
+    for (std::size_t i = 0; i < N; i++) {
+        if (table[i].value == val) return static_cast<int>(i);
+    }
+    return -1;
+}
+
+/// Decode a wire protocol byte to an enum value.
+/// Returns std::nullopt if the byte is not found in the table.
+template <typename E, std::size_t N>
+inline std::optional<E> wire_to_enum(const EnumTable<E, N>& table, uint8_t byteValue) {
+    for (const auto& entry : table) {
+        if (entry.protocol_byte == byteValue) return entry.value;
+    }
+    return std::nullopt;
+}
+
+/// Encode an enum value to a wire protocol byte.
+/// Returns std::nullopt if the enum value is not found in the table.
+template <typename E, std::size_t N>
+inline std::optional<uint8_t> enum_to_wire(const EnumTable<E, N>& table, E val) {
+    for (const auto& entry : table) {
+        if (entry.value == val) return entry.protocol_byte;
+    }
+    return std::nullopt;
+}
+
+// ════════════════════════════════════════════════════════════════
+// Enum tables — single source of truth for enum ↔ string mapping
+// ════════════════════════════════════════════════════════════════
+
+static constexpr EnumTable<HPPower, 2> POWER_TABLE = {{
+    {HPPower::OFF, 0x00, "OFF"}, {HPPower::ON, 0x01, "ON"},
+}};
+
+static constexpr EnumTable<HPMode, 5> MODE_TABLE = {{
+    {HPMode::HEAT, 0x01, "HEAT"}, {HPMode::DRY, 0x02, "DRY"}, {HPMode::COOL, 0x03, "COOL"},
+    {HPMode::FAN, 0x07, "FAN"}, {HPMode::AUTO, 0x08, "AUTO"},
+}};
+
+static constexpr EnumTable<HPFanMode, 6> FAN_TABLE = {{
+    {HPFanMode::AUTO, 0x00, "AUTO"}, {HPFanMode::QUIET, 0x01, "QUIET"},
+    {HPFanMode::F1, 0x02, "1"}, {HPFanMode::F2, 0x03, "2"}, {HPFanMode::F3, 0x05, "3"}, {HPFanMode::F4, 0x06, "4"},
+}};
+
+static constexpr EnumTable<HPVaneMode, 7> VANE_TABLE = {{
+    {HPVaneMode::AUTO, 0x00, "AUTO"}, {HPVaneMode::V1, 0x01, "↑↑"}, {HPVaneMode::V2, 0x02, "↑"},
+    {HPVaneMode::V3, 0x03, "—"}, {HPVaneMode::V4, 0x04, "↓"}, {HPVaneMode::V5, 0x05, "↓↓"},
+    {HPVaneMode::SWING, 0x07, "SWING"},
+}};
+
+static constexpr EnumTable<HPWideVaneMode, 8> WIDEVANE_TABLE = {{
+    {HPWideVaneMode::LEFT_LEFT, 0x01, "←←"}, {HPWideVaneMode::LEFT, 0x02, "←"},
+    {HPWideVaneMode::CENTER, 0x03, "|"}, {HPWideVaneMode::RIGHT, 0x04, "→"},
+    {HPWideVaneMode::RIGHT_RIGHT, 0x05, "→→"}, {HPWideVaneMode::LEFT_RIGHT, 0x08, "←→"},
+    {HPWideVaneMode::SWING, 0x0c, "SWING"}, {HPWideVaneMode::AIRFLOW_CONTROL, 0x00, "AIRFLOW CONTROL"},
+}};
+
+static constexpr EnumTable<HPStage, 7> STAGE_TABLE = {{
+    {HPStage::IDLE, 0x00, "IDLE"}, {HPStage::LOW, 0x01, "LOW"}, {HPStage::GENTLE, 0x02, "GENTLE"},
+    {HPStage::MEDIUM, 0x03, "MEDIUM"}, {HPStage::MODERATE, 0x04, "MODERATE"},
+    {HPStage::HIGH, 0x05, "HIGH"}, {HPStage::DIFFUSE, 0x06, "DIFFUSE"},
+}};
+
+static constexpr EnumTable<HPSubMode, 6> SUB_MODE_TABLE = {{
+    {HPSubMode::NORMAL, 0x00, "NORMAL"}, {HPSubMode::WARMUP, 0x01, "WARMUP"},
+    {HPSubMode::DEFROST, 0x02, "DEFROST"}, {HPSubMode::PREHEAT, 0x04, "PREHEAT"},
+    {HPSubMode::STANDBY, 0x08, "STANDBY"}, {HPSubMode::OFF, 0x10, "OFF"},
+}};
+
+static constexpr EnumTable<HPAutoSubMode, 7> AUTO_SUB_MODE_TABLE = {{
+    {HPAutoSubMode::AUTO_OFF, 0x00, "AUTO_OFF"}, {HPAutoSubMode::AUTO_COOL, 0x01, "AUTO_COOL"},
+    {HPAutoSubMode::AUTO_HEAT, 0x02, "AUTO_HEAT"}, {HPAutoSubMode::AUTO_LEADER, 0x03, "AUTO_LEADER"},
+    {HPAutoSubMode::AUTO_INACTIVE, 0x40, "AUTO_INACTIVE"}, {HPAutoSubMode::AUTO_IDLE, 0x41, "AUTO_IDLE"},
+    {HPAutoSubMode::AUTO_ACTIVE, 0x43, "AUTO_ACTIVE"},
+}};
+
+static constexpr EnumTable<HPTimerMode, 4> TIMER_MODE_TABLE = {{
+    {HPTimerMode::NONE, 0x00, "NONE"}, {HPTimerMode::OFF, 0x01, "OFF"},
+    {HPTimerMode::ON, 0x02, "ON"}, {HPTimerMode::BOTH, 0x03, "BOTH"},
+}};
+
+static constexpr EnumTable<HPAirflowControl, 3> AIRFLOW_CONTROL_TABLE = {{
+    {HPAirflowControl::EVEN, 0x00, "EVEN"}, {HPAirflowControl::INDIRECT, 0x01, "INDIRECT"},
+    {HPAirflowControl::DIRECT, 0x02, "DIRECT"},
+}};
+
+// ════════════════════════════════════════════════════════════════
+// Convenience wrappers — thin inline aliases for type safety
+// ════════════════════════════════════════════════════════════════
+
+inline const char* hp_power_to_str(HPPower val) { return enum_to_str(POWER_TABLE, val); }
+inline const char* hp_mode_to_str(HPMode val) { return enum_to_str(MODE_TABLE, val); }
+inline const char* hp_fan_to_str(HPFanMode val) { return enum_to_str(FAN_TABLE, val); }
+inline const char* hp_vane_to_str(HPVaneMode val) { return enum_to_str(VANE_TABLE, val); }
+inline const char* hp_wide_vane_to_str(HPWideVaneMode val) { return enum_to_str(WIDEVANE_TABLE, val); }
+inline const char* hp_stage_to_str(HPStage val) { return enum_to_str(STAGE_TABLE, val); }
+inline const char* hp_sub_mode_to_str(HPSubMode val) { return enum_to_str(SUB_MODE_TABLE, val); }
+inline const char* hp_auto_sub_mode_to_str(HPAutoSubMode val) { return enum_to_str(AUTO_SUB_MODE_TABLE, val); }
+inline const char* hp_timer_mode_to_str(HPTimerMode val) { return enum_to_str(TIMER_MODE_TABLE, val); }
+inline const char* hp_airflow_control_to_str(HPAirflowControl val) { return enum_to_str(AIRFLOW_CONTROL_TABLE, val); }
+
+inline HPPower hp_power_from_str(const char* str) { return enum_from_str(POWER_TABLE, str, HPPower::UNKNOWN); }
+inline HPMode hp_mode_from_str(const char* str) { return enum_from_str(MODE_TABLE, str, HPMode::UNKNOWN); }
+inline HPFanMode hp_fan_from_str(const char* str) { return enum_from_str(FAN_TABLE, str, HPFanMode::UNKNOWN); }
+inline HPVaneMode hp_vane_from_str(const char* str) { return enum_from_str(VANE_TABLE, str, HPVaneMode::UNKNOWN); }
+inline HPWideVaneMode hp_wide_vane_from_str(const char* str) { return enum_from_str(WIDEVANE_TABLE, str, HPWideVaneMode::UNKNOWN); }
+inline HPStage hp_stage_from_str(const char* str) { return enum_from_str(STAGE_TABLE, str, HPStage::UNKNOWN); }
+inline HPSubMode hp_sub_mode_from_str(const char* str) { return enum_from_str(SUB_MODE_TABLE, str, HPSubMode::UNKNOWN); }
+inline HPAutoSubMode hp_auto_sub_mode_from_str(const char* str) { return enum_from_str(AUTO_SUB_MODE_TABLE, str, HPAutoSubMode::UNKNOWN); }
+inline HPTimerMode hp_timer_mode_from_str(const char* str) { return enum_from_str(TIMER_MODE_TABLE, str, HPTimerMode::UNKNOWN); }
+inline HPAirflowControl hp_airflow_control_from_str(const char* str) { return enum_from_str(AIRFLOW_CONTROL_TABLE, str, HPAirflowControl::UNKNOWN); }
+
+inline std::optional<HPPower> hp_power_from_wire(uint8_t byte) { return wire_to_enum(POWER_TABLE, byte); }
+inline std::optional<HPMode> hp_mode_from_wire(uint8_t byte) { return wire_to_enum(MODE_TABLE, byte); }
+inline std::optional<HPFanMode> hp_fan_from_wire(uint8_t byte) { return wire_to_enum(FAN_TABLE, byte); }
+inline std::optional<HPVaneMode> hp_vane_from_wire(uint8_t byte) { return wire_to_enum(VANE_TABLE, byte); }
+inline std::optional<HPWideVaneMode> hp_wide_vane_from_wire(uint8_t byte) { return wire_to_enum(WIDEVANE_TABLE, byte); }
+inline std::optional<HPStage> hp_stage_from_wire(uint8_t byte) { return wire_to_enum(STAGE_TABLE, byte); }
+inline std::optional<HPSubMode> hp_sub_mode_from_wire(uint8_t byte) { return wire_to_enum(SUB_MODE_TABLE, byte); }
+inline std::optional<HPAutoSubMode> hp_auto_sub_mode_from_wire(uint8_t byte) { return wire_to_enum(AUTO_SUB_MODE_TABLE, byte); }
+inline std::optional<HPTimerMode> hp_timer_mode_from_wire(uint8_t byte) { return wire_to_enum(TIMER_MODE_TABLE, byte); }
+inline std::optional<HPAirflowControl> hp_airflow_control_from_wire(uint8_t byte) { return wire_to_enum(AIRFLOW_CONTROL_TABLE, byte); }
+
+inline std::optional<uint8_t> hp_power_to_wire(HPPower val) { return enum_to_wire(POWER_TABLE, val); }
+inline std::optional<uint8_t> hp_mode_to_wire(HPMode val) { return enum_to_wire(MODE_TABLE, val); }
+inline std::optional<uint8_t> hp_fan_to_wire(HPFanMode val) { return enum_to_wire(FAN_TABLE, val); }
+inline std::optional<uint8_t> hp_vane_to_wire(HPVaneMode val) { return enum_to_wire(VANE_TABLE, val); }
+inline std::optional<uint8_t> hp_wide_vane_to_wire(HPWideVaneMode val) { return enum_to_wire(WIDEVANE_TABLE, val); }
+inline std::optional<uint8_t> hp_stage_to_wire(HPStage val) { return enum_to_wire(STAGE_TABLE, val); }
+inline std::optional<uint8_t> hp_sub_mode_to_wire(HPSubMode val) { return enum_to_wire(SUB_MODE_TABLE, val); }
+inline std::optional<uint8_t> hp_auto_sub_mode_to_wire(HPAutoSubMode val) { return enum_to_wire(AUTO_SUB_MODE_TABLE, val); }
+inline std::optional<uint8_t> hp_timer_mode_to_wire(HPTimerMode val) { return enum_to_wire(TIMER_MODE_TABLE, val); }
+inline std::optional<uint8_t> hp_airflow_control_to_wire(HPAirflowControl val) { return enum_to_wire(AIRFLOW_CONTROL_TABLE, val); }
+
+
 struct heatpumpSettings {
-    const char* power = nullptr;
-    const char* mode = nullptr;
+    HPPower power = HPPower::UNKNOWN;
+    HPMode mode = HPMode::UNKNOWN;
     float temperature = -1.0f;
     float dual_low_target = -100.0f;
     float dual_high_target = -100.0f;
-    const char* fan = nullptr;
-    const char* vane = nullptr;
-    const char* wideVane = nullptr;
+    HPFanMode fan = HPFanMode::UNKNOWN;
+    HPVaneMode vane = HPVaneMode::UNKNOWN;
+    HPWideVaneMode wideVane = HPWideVaneMode::UNKNOWN;
     bool iSee = false;
     bool connected = false;
-    const char* stage = nullptr;
-    const char* sub_mode = nullptr;
-    const char* auto_sub_mode = nullptr;
+    HPStage stage = HPStage::UNKNOWN;
+    HPSubMode sub_mode = HPSubMode::UNKNOWN;
+    HPAutoSubMode auto_sub_mode = HPAutoSubMode::UNKNOWN;
 
     void resetSettings() {
-        power = nullptr;
-        mode = nullptr;
+        power = HPPower::UNKNOWN;
+        mode = HPMode::UNKNOWN;
         temperature = -1.0f;
         dual_low_target = -100.0f;
         dual_high_target = -100.0f;
-        fan = nullptr;
-        vane = nullptr;
-        wideVane = nullptr;
+        fan = HPFanMode::UNKNOWN;
+        vane = HPVaneMode::UNKNOWN;
+        wideVane = HPWideVaneMode::UNKNOWN;
+        stage = HPStage::UNKNOWN;
+        sub_mode = HPSubMode::UNKNOWN;
+        auto_sub_mode = HPAutoSubMode::UNKNOWN;
     }
 
-    // Trivial copy — all members are scalars/pointers
     heatpumpSettings& operator=(const heatpumpSettings& other) = default;
 
     bool operator==(const heatpumpSettings& other) const {
@@ -189,7 +412,6 @@ struct wantedHeatpumpSettings : heatpumpSettings {
         hasBeenSent = false;
     }
 
-    // Trivial copy — all members are scalars
     wantedHeatpumpSettings& operator=(const wantedHeatpumpSettings& other) = default;
 
     wantedHeatpumpSettings& operator=(const heatpumpSettings& other) {
@@ -201,13 +423,12 @@ struct wantedHeatpumpSettings : heatpumpSettings {
 };
 
 struct heatpumpTimers {
-    const char* mode = nullptr;
+    HPTimerMode mode = HPTimerMode::UNKNOWN;
     int onMinutesSet = 0;
     int onMinutesRemaining = 0;
     int offMinutesSet = 0;
     int offMinutesRemaining = 0;
 
-    // Trivial copy — all members are scalars/pointers
     heatpumpTimers& operator=(const heatpumpTimers& other) = default;
 
     bool operator==(const heatpumpTimers& other) const {
@@ -252,16 +473,15 @@ struct heatpumpRunStates {
     int8_t air_purifier = -1;
     int8_t night_mode = -1;
     int8_t circulator = -1;
-    const char* airflow_control = nullptr;
+    HPAirflowControl airflow_control = HPAirflowControl::UNKNOWN;
 
     void resetSettings() {
         air_purifier = -1;
         night_mode = -1;
         circulator = -1;
-        airflow_control = nullptr;
+        airflow_control = HPAirflowControl::UNKNOWN;
     }
 
-    // Trivial copy — all members are scalars/pointers
     heatpumpRunStates& operator=(const heatpumpRunStates& other) = default;
 
     bool operator==(const heatpumpRunStates& other) const {
@@ -287,7 +507,6 @@ struct wantedHeatpumpRunStates : heatpumpRunStates {
         hasBeenSent = false;
     }
 
-    // Trivial copy — all members are scalars
     wantedHeatpumpRunStates& operator=(const wantedHeatpumpRunStates& other) = default;
 
     wantedHeatpumpRunStates& operator=(const heatpumpRunStates& other) {

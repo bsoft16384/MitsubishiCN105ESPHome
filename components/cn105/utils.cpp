@@ -168,12 +168,12 @@ void CN105Climate::updateTargetTemperaturesFromSettings(float temperature) {
 void CN105Climate::debugSettings(const char* settingName, wantedHeatpumpSettings& settings) {
     ESP_LOGD(LOG_ACTION_EVT_TAG, "[%s]-> [power: %s, target °C: %.1f, mode: %s, fan: %s, vane: %s, wvane: %s, hasChanged ? -> %s, hasBeenSent ? -> %s]",
         getIfNotNull(settingName, "unnamed"),
-        getIfNotNull(settings.power, "-"),
+        hp_power_to_str(settings.power),
         settings.temperature,
-        getIfNotNull(settings.mode, "-"),
-        getIfNotNull(settings.fan, "-"),
-        getIfNotNull(settings.vane, "-"),
-        getIfNotNull(settings.wideVane, "-"),
+        hp_mode_to_str(settings.mode),
+        hp_fan_to_str(settings.fan),
+        hp_vane_to_str(settings.vane),
+        hp_wide_vane_to_str(settings.wideVane),
         settings.hasChanged ? "YES" : " NO",
         settings.hasBeenSent ? "YES" : " NO"
     );
@@ -288,12 +288,12 @@ void CN105Climate::debugClimate(const char* settingName) {
 void CN105Climate::debugSettings(const char* settingName, heatpumpSettings& settings) {
     ESP_LOGD(LOG_SETTINGS_TAG, "[%s]-> [power: %s, target °C: %.1f, mode: %s, fan: %s, vane: %s, wvane: %s]",
         getIfNotNull(settingName, "unnamed"),
-        getIfNotNull(settings.power, "-"),
+        hp_power_to_str(settings.power),
         settings.temperature,
-        getIfNotNull(settings.mode, "-"),
-        getIfNotNull(settings.fan, "-"),
-        getIfNotNull(settings.vane, "-"),
-        getIfNotNull(settings.wideVane, "-")
+        hp_mode_to_str(settings.mode),
+        hp_fan_to_str(settings.fan),
+        hp_vane_to_str(settings.vane),
+        hp_wide_vane_to_str(settings.wideVane)
     );
 }
 

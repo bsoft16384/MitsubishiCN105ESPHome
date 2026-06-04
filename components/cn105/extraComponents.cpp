@@ -18,14 +18,16 @@ void CN105Climate::set_vertical_vane_select(
 
     this->vertical_vane_select_ = vertical_vane_select;
 
-    // builds option list from SwiCago vaneMap
+    // builds option list from VANE_TABLE labels
     this->vertical_vane_select_->traits.set_options({
-        VANE_MAP[0], VANE_MAP[1], VANE_MAP[2], VANE_MAP[3], VANE_MAP[4], VANE_MAP[5], VANE_MAP[6]
+        VANE_TABLE[0].label, VANE_TABLE[1].label, VANE_TABLE[2].label,
+        VANE_TABLE[3].label, VANE_TABLE[4].label, VANE_TABLE[5].label,
+        VANE_TABLE[6].label
         });
 
     this->vertical_vane_select_->setCallbackFunction([this](const char* setting) {
 
-        ESP_LOGD("EVT", "vane.control() -> Demande un chgt de rÃ©glage de la vane: %s", setting);
+        ESP_LOGD("EVT", "vane.control() -> Demande un chgt de réglage de la vane: %s", setting);
 
         this->setVaneSetting(setting);
         this->wantedSettings.hasChanged = true;
@@ -39,17 +41,27 @@ void CN105Climate::set_horizontal_vane_select(
     VaneOrientationSelect* horizontal_vane_select, const std::vector<std::string>& options) {
     this->horizontal_vane_select_ = horizontal_vane_select;
 
-    // Use provided options if not empty, and filter out any options that are not in WIDEVANE_MAP to ensure validity,
-    // otherwise use all options from WIDEVANE_MAP
+    // Use provided options if not empty, and filter out any options that are not in WIDEVANE_TABLE to ensure validity,
+    // otherwise use all options from WIDEVANE_TABLE
     if (!options.empty()) {
         this->horizontal_vane_options_strings_.clear();
         for (const auto& option : options) {
-            if (std::find(std::begin(WIDEVANE_MAP), std::end(WIDEVANE_MAP), option) != std::end(WIDEVANE_MAP)) {
+            bool found = false;
+            for (const auto& entry : WIDEVANE_TABLE) {
+                if (option == entry.label) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
                 this->horizontal_vane_options_strings_.push_back(option);
             }
         }
     } else {
-        this->horizontal_vane_options_strings_.assign(std::begin(WIDEVANE_MAP), std::end(WIDEVANE_MAP));
+        this->horizontal_vane_options_strings_.clear();
+        for (const auto& entry : WIDEVANE_TABLE) {
+            this->horizontal_vane_options_strings_.push_back(entry.label);
+        }
     }
 
     // Build FixedVector of const char* for set_options
@@ -61,7 +73,7 @@ void CN105Climate::set_horizontal_vane_select(
     this->horizontal_vane_select_->traits.set_options(fixedOptions);
 
     this->horizontal_vane_select_->setCallbackFunction([this](const char* setting) {
-        ESP_LOGD("EVT", "wideVane.control() -> Demande un chgt de rÃ©glage de la wideVane: %s", setting);
+        ESP_LOGD("EVT", "wideVane.control() -> Demande un chgt de réglage de la wideVane: %s", setting);
 
         this->setWideVaneSetting(setting);
         this->wantedSettings.hasChanged = true;
@@ -76,11 +88,11 @@ void CN105Climate::set_airflow_control_select(
     this->airflow_control_select_ = airflow_control_select;
 
     this->airflow_control_select_->traits.set_options({
-        AIRFLOW_CONTROL_MAP[0], AIRFLOW_CONTROL_MAP[1], AIRFLOW_CONTROL_MAP[2]
+        AIRFLOW_CONTROL_TABLE[0].label, AIRFLOW_CONTROL_TABLE[1].label, AIRFLOW_CONTROL_TABLE[2].label
         });
 
     this->airflow_control_select_->setCallbackFunction([this](const char* setting) {
-        if (strcmp(this->currentSettings.wideVane, lookupByteMapValue(WIDEVANE_MAP, WIDEVANE, 8, 0x80 & 0x0F)) == 0) {
+        if (this->currentSettings.wideVane == HPWideVaneMode::AIRFLOW_CONTROL) {
             ESP_LOGD("EVT", "airFlow -> Request for change of airflow control setting: %s", setting);
 
             this->setAirflowControlSetting(setting);
@@ -88,7 +100,7 @@ void CN105Climate::set_airflow_control_select(
             this->wantedRunStates.hasBeenSent = false;
             this->wantedRunStates.lastChange = CUSTOM_MILLIS;
         } else {
-            this->airflow_control_select_->publish_state(this->currentRunStates.airflow_control);
+            this->airflow_control_select_->publish_state(hp_airflow_control_to_str(this->currentRunStates.airflow_control));
         }
         });
 }

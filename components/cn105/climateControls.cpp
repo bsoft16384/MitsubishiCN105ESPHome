@@ -296,8 +296,8 @@ void CN105Climate::control(const esphome::climate::ClimateCall& call) {
 void CN105Climate::controlSwing() {
     // Check if horizontal vane (wideVane) is supported by this unit at the beginning.
     bool wideVaneSupported = this->traits_.supports_swing_mode(climate::CLIMATE_SWING_HORIZONTAL);
-    bool vane_is_swing = (this->currentSettings.vane != nullptr) && (strcmp(this->currentSettings.vane, "SWING") == 0);
-    bool wide_is_swing = (this->currentSettings.wideVane != nullptr) && (strcmp(this->currentSettings.wideVane, "SWING") == 0);
+    bool vane_is_swing = this->currentSettings.vane == HPVaneMode::SWING;
+    bool wide_is_swing = this->currentSettings.wideVane == HPWideVaneMode::SWING;
 
     switch (this->swing_mode) {
     case climate::CLIMATE_SWING_OFF:
@@ -533,13 +533,13 @@ void CN105Climate::setActionIfOperatingTo(climate::ClimateAction action_if_opera
 
     // Determine if stage indicates activity (for fallback logic)
     bool stage_is_active = this->use_stage_for_operating_status_ &&
-        this->currentSettings.stage != nullptr &&
-        strcmp(this->currentSettings.stage, STAGE_MAP[0 /*IDLE*/]) != 0;
+        this->currentSettings.stage != HPStage::IDLE &&
+        this->currentSettings.stage != HPStage::UNKNOWN;
 
     ESP_LOGD(LOG_OPERATING_STATUS_TAG, "Setting action (operating: %s, stage_fallback_enabled: %s, stage: %s, stage_is_active: %s)",
         this->currentStatus.operating ? "true" : "false",
         this->use_stage_for_operating_status_ ? "yes" : "no",
-        getIfNotNull(this->currentSettings.stage, "N/A"),
+        hp_stage_to_str(this->currentSettings.stage),
         stage_is_active ? "yes" : "no");
 
     // True fallback logic: operating OR (fallback enabled AND stage is active)
@@ -551,7 +551,7 @@ void CN105Climate::setActionIfOperatingTo(climate::ClimateAction action_if_opera
     } else if (stage_is_active) {
         // Fallback: compressor not running but stage indicates activity (e.g., gas heating)
         this->action = action_if_operating;
-        ESP_LOGD(LOG_OPERATING_STATUS_TAG, "Action set by stage fallback (stage: %s)", this->currentSettings.stage);
+        ESP_LOGD(LOG_OPERATING_STATUS_TAG, "Action set by stage fallback (stage: %s)", hp_stage_to_str(this->currentSettings.stage));
     } else {
         // Neither operating nor stage indicates activity
         this->action = climate::CLIMATE_ACTION_IDLE;
@@ -676,57 +676,27 @@ climate::ClimateTraits& CN105Climate::config_traits() {
 
 
 void CN105Climate::setModeSetting(const char* setting) {
-    int index = lookupByteMapIndex(MODE_MAP, 5, setting);
-    if (index > -1) {
-        wantedSettings.mode = MODE_MAP[index];
-    } else {
-        wantedSettings.mode = MODE_MAP[0];
-    }
+    wantedSettings.mode = hp_mode_from_str(setting);
 }
 
 void CN105Climate::setPowerSetting(const char* setting) {
-    int index = lookupByteMapIndex(POWER_MAP, 2, setting);
-    if (index > -1) {
-        wantedSettings.power = POWER_MAP[index];
-    } else {
-        wantedSettings.power = POWER_MAP[0];
-    }
+    wantedSettings.power = hp_power_from_str(setting);
 }
 
 void CN105Climate::setFanSpeed(const char* setting) {
-    int index = lookupByteMapIndex(FAN_MAP, 6, setting);
-    if (index > -1) {
-        wantedSettings.fan = FAN_MAP[index];
-    } else {
-        wantedSettings.fan = FAN_MAP[0];
-    }
+    wantedSettings.fan = hp_fan_from_str(setting);
 }
 
 void CN105Climate::setVaneSetting(const char* setting) {
-    int index = lookupByteMapIndex(VANE_MAP, 7, setting);
-    if (index > -1) {
-        wantedSettings.vane = VANE_MAP[index];
-    } else {
-        wantedSettings.vane = VANE_MAP[0];
-    }
+    wantedSettings.vane = hp_vane_from_str(setting);
 }
 
 void CN105Climate::setWideVaneSetting(const char* setting) {
-    int index = lookupByteMapIndex(WIDEVANE_MAP, 8, setting);
-    if (index > -1) {
-        wantedSettings.wideVane = WIDEVANE_MAP[index];
-    } else {
-        wantedSettings.wideVane = WIDEVANE_MAP[0];
-    }
+    wantedSettings.wideVane = hp_wide_vane_from_str(setting);
 }
 
 void CN105Climate::setAirflowControlSetting(const char* setting) {
-    int index = lookupByteMapIndex(AIRFLOW_CONTROL_MAP, 3, setting);
-    if (index > -1) {
-        wantedRunStates.airflow_control = AIRFLOW_CONTROL_MAP[index];
-    } else {
-        wantedRunStates.airflow_control = AIRFLOW_CONTROL_MAP[0];
-    }
+    wantedRunStates.airflow_control = hp_airflow_control_from_str(setting);
 }
 
 void CN105Climate::set_remote_temperature(float setting) {
@@ -792,7 +762,7 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
                 target_physical_mode = climate::CLIMATE_MODE_HEAT;
             } else {
                 // Inside hysteresis deadband, maintain current physical state
-                if (this->currentSettings.power != nullptr && strcmp(this->currentSettings.power, "OFF") == 0) {
+                if (this->currentSettings.power == HPPower::OFF) {
                     target_physical_mode = climate::CLIMATE_MODE_OFF;
                 } else {
                     target_physical_mode = climate::CLIMATE_MODE_HEAT;
@@ -805,7 +775,7 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
                 target_physical_mode = climate::CLIMATE_MODE_COOL;
             } else {
                 // Inside hysteresis deadband, maintain current physical state
-                if (this->currentSettings.power != nullptr && strcmp(this->currentSettings.power, "OFF") == 0) {
+                if (this->currentSettings.power == HPPower::OFF) {
                     target_physical_mode = climate::CLIMATE_MODE_OFF;
                 } else {
                     target_physical_mode = climate::CLIMATE_MODE_COOL;
@@ -813,27 +783,27 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
             }
         }
     }
-
+ 
     // 2. Perform command if mismatch exists
     bool mode_mismatch = false;
     bool temp_mismatch = false;
-
+ 
     // Check power/mode mismatch
     if (target_physical_mode == climate::CLIMATE_MODE_OFF) {
-        if (this->currentSettings.power == nullptr || strcmp(this->currentSettings.power, "OFF") != 0) {
+        if (this->currentSettings.power != HPPower::OFF) {
             mode_mismatch = true;
         }
     } else {
-        if (this->currentSettings.power == nullptr || strcmp(this->currentSettings.power, "ON") != 0) {
+        if (this->currentSettings.power != HPPower::ON) {
             mode_mismatch = true;
         }
-        const char* target_mode_str = "AUTO";
-        if (target_physical_mode == climate::CLIMATE_MODE_HEAT) target_mode_str = "HEAT";
-        else if (target_physical_mode == climate::CLIMATE_MODE_COOL) target_mode_str = "COOL";
-        else if (target_physical_mode == climate::CLIMATE_MODE_DRY) target_mode_str = "DRY";
-        else if (target_physical_mode == climate::CLIMATE_MODE_FAN_ONLY) target_mode_str = "FAN";
+        HPMode target_mode_enum = HPMode::AUTO;
+        if (target_physical_mode == climate::CLIMATE_MODE_HEAT) target_mode_enum = HPMode::HEAT;
+        else if (target_physical_mode == climate::CLIMATE_MODE_COOL) target_mode_enum = HPMode::COOL;
+        else if (target_physical_mode == climate::CLIMATE_MODE_DRY) target_mode_enum = HPMode::DRY;
+        else if (target_physical_mode == climate::CLIMATE_MODE_FAN_ONLY) target_mode_enum = HPMode::FAN;
         
-        if (this->currentSettings.mode == nullptr || strcmp(this->currentSettings.mode, target_mode_str) != 0) {
+        if (this->currentSettings.mode != target_mode_enum) {
             mode_mismatch = true;
         }
     }
@@ -880,7 +850,7 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
         if (this->ltp_active_) {
             status = "Low Temp Protection";
         } else if (this->fan_stop_switch_ != nullptr && this->fan_stop_switch_->state &&
-                   this->currentSettings.power != nullptr && strcmp(this->currentSettings.power, "OFF") == 0 &&
+                   this->currentSettings.power == HPPower::OFF &&
                    this->desired_mode_ != climate::CLIMATE_MODE_OFF) {
             status = "Fan Stop Active";
         }

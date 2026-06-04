@@ -106,6 +106,16 @@ inline T lookup_value(const T valuesMap[], const uint8_t byteMap[], int len, uin
 /// @param len         Number of entries.
 /// @param lookupValue The value to search for.
 /// @return            Index of the match, or -1 if not found.
+template <typename T>
+inline int lookup_index(const T valuesMap[], int len, T lookupValue) {
+    for (int i = 0; i < len; i++) {
+        if (valuesMap[i] == lookupValue) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 inline int lookup_index(const int valuesMap[], int len, int lookupValue) {
     for (int i = 0; i < len; i++) {
         if (valuesMap[i] == lookupValue) {

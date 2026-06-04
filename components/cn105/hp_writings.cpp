@@ -131,48 +131,35 @@ void CN105Climate::try_write_pending_packet() {
 }
 
 const char* CN105Climate::getModeSetting() {
-    if (this->wantedSettings.mode) {
-        return this->wantedSettings.mode;
-    } else {
-        return this->currentSettings.mode;
-    }
+    HPMode m = (this->wantedSettings.mode != HPMode::UNKNOWN) ? this->wantedSettings.mode : this->currentSettings.mode;
+    return hp_mode_to_str(m);
 }
-
+ 
 const char* CN105Climate::getPowerSetting() {
-    if (this->wantedSettings.power) {
-        return this->wantedSettings.power;
-    } else {
-        return this->currentSettings.power;
-    }
+    HPPower p = (this->wantedSettings.power != HPPower::UNKNOWN) ? this->wantedSettings.power : this->currentSettings.power;
+    return hp_power_to_str(p);
 }
-
+ 
 const char* CN105Climate::getVaneSetting() {
-    if (this->wantedSettings.vane) {
-        return this->wantedSettings.vane;
-    } else {
-        return this->currentSettings.vane;
-    }
+    HPVaneMode v = (this->wantedSettings.vane != HPVaneMode::UNKNOWN) ? this->wantedSettings.vane : this->currentSettings.vane;
+    return hp_vane_to_str(v);
 }
-
+ 
 const char* CN105Climate::getWideVaneSetting() {
-    if (this->wantedSettings.wideVane) {
-        if (strcmp(this->wantedSettings.wideVane, lookupByteMapValue(WIDEVANE_MAP, WIDEVANE, 8, 0x80 & 0x0F)) == 0 && !this->currentSettings.iSee) {
-            this->wantedSettings.wideVane = this->currentSettings.wideVane;
+    HPWideVaneMode wv = (this->wantedSettings.wideVane != HPWideVaneMode::UNKNOWN) ? this->wantedSettings.wideVane : this->currentSettings.wideVane;
+    if (this->wantedSettings.wideVane != HPWideVaneMode::UNKNOWN) {
+        if (this->wantedSettings.wideVane == HPWideVaneMode::AIRFLOW_CONTROL && !this->currentSettings.iSee) {
+            wv = this->currentSettings.wideVane;
         }
-        return this->wantedSettings.wideVane;
-    } else {
-        return this->currentSettings.wideVane;
     }
+    return hp_wide_vane_to_str(wv);
 }
-
+ 
 const char* CN105Climate::getFanSpeedSetting() {
-    if (this->wantedSettings.fan) {
-        return this->wantedSettings.fan;
-    } else {
-        return this->currentSettings.fan;
-    }
+    HPFanMode f = (this->wantedSettings.fan != HPFanMode::UNKNOWN) ? this->wantedSettings.fan : this->currentSettings.fan;
+    return hp_fan_to_str(f);
 }
-
+ 
 float CN105Climate::getTemperatureSetting() {
     if (this->wantedSettings.temperature != -1.0) {
         return this->wantedSettings.temperature;
@@ -181,11 +168,8 @@ float CN105Climate::getTemperatureSetting() {
     }
 }
 const char* CN105Climate::getAirflowControlSetting() {
-    if (this->wantedRunStates.airflow_control) {
-        return this->wantedRunStates.airflow_control;
-    } else {
-        return this->currentRunStates.airflow_control;
-    }
+    HPAirflowControl ac = (this->wantedRunStates.airflow_control != HPAirflowControl::UNKNOWN) ? this->wantedRunStates.airflow_control : this->currentRunStates.airflow_control;
+    return hp_airflow_control_to_str(ac);
 }
 bool CN105Climate::getAirPurifierRunState() {
     if (this->wantedRunStates.air_purifier != this->currentRunStates.air_purifier) {
@@ -216,18 +200,18 @@ void CN105Climate::createPacket(uint8_t* packet) {
     //ESP_LOGD(TAG, "checking differences bw asked settings and current ones...");
     ESP_LOGD(TAG, "building packet for writing...");
 
-    if (this->wantedSettings.power != nullptr) {
+    if (this->wantedSettings.power != HPPower::UNKNOWN) {
         ESP_LOGD(TAG, "power -> %s", getPowerSetting());
-        int idx = lookupByteMapIndex(POWER_MAP, 2, getPowerSetting(), "power (write)");
-        if (idx >= 0) { packet[8] = POWER[idx]; packet[6] += CONTROL_PACKET_1[0]; } else { ESP_LOGW(TAG, "Ignoring invalid power setting while building packet"); }
+        auto val_opt = hp_power_to_wire(wantedSettings.power);
+        if (val_opt) { packet[8] = *val_opt; packet[6] += CONTROL_PACKET_1[0]; } else { ESP_LOGW(TAG, "Ignoring invalid power setting while building packet"); }
     }
-
-    if (this->wantedSettings.mode != nullptr) {
+ 
+    if (this->wantedSettings.mode != HPMode::UNKNOWN) {
         ESP_LOGD(TAG, "heatpump mode -> %s", getModeSetting());
-        int idx = lookupByteMapIndex(MODE_MAP, 5, getModeSetting(), "mode (write)");
-        if (idx >= 0) { packet[9] = MODE[idx]; packet[6] += CONTROL_PACKET_1[1]; } else { ESP_LOGW(TAG, "Ignoring invalid mode setting while building packet"); }
+        auto val_opt = hp_mode_to_wire(wantedSettings.mode);
+        if (val_opt) { packet[9] = *val_opt; packet[6] += CONTROL_PACKET_1[1]; } else { ESP_LOGW(TAG, "Ignoring invalid mode setting while building packet"); }
     }
-
+ 
     if (wantedSettings.temperature != -1) {
         if (!use_temperature_encoding_b_) {
             ESP_LOGD(TAG, "temperature (tempmode is false) -> %f", getTemperatureSetting());
@@ -240,24 +224,24 @@ void CN105Climate::createPacket(uint8_t* packet) {
             packet[6] += CONTROL_PACKET_1[2];
         }
     }
-
-    if (this->wantedSettings.fan != nullptr) {
+ 
+    if (this->wantedSettings.fan != HPFanMode::UNKNOWN) {
         ESP_LOGD(TAG, "heatpump fan -> %s", getFanSpeedSetting());
-        int idx = lookupByteMapIndex(FAN_MAP, 6, getFanSpeedSetting(), "fan (write)");
-        if (idx >= 0) { packet[11] = FAN[idx]; packet[6] += CONTROL_PACKET_1[3]; } else { ESP_LOGW(TAG, "Ignoring invalid fan setting while building packet"); }
+        auto val_opt = hp_fan_to_wire(wantedSettings.fan);
+        if (val_opt) { packet[11] = *val_opt; packet[6] += CONTROL_PACKET_1[3]; } else { ESP_LOGW(TAG, "Ignoring invalid fan setting while building packet"); }
     }
-
-    if (this->wantedSettings.vane != nullptr) {
+ 
+    if (this->wantedSettings.vane != HPVaneMode::UNKNOWN) {
         ESP_LOGD(TAG, "heatpump vane -> %s", getVaneSetting());
-        int idx = lookupByteMapIndex(VANE_MAP, 7, getVaneSetting(), "vane (write)");
-        if (idx >= 0) { packet[12] = VANE[idx]; packet[6] += CONTROL_PACKET_1[4]; } else { ESP_LOGW(TAG, "Ignoring invalid vane setting while building packet"); }
+        auto val_opt = hp_vane_to_wire(wantedSettings.vane);
+        if (val_opt) { packet[12] = *val_opt; packet[6] += CONTROL_PACKET_1[4]; } else { ESP_LOGW(TAG, "Ignoring invalid vane setting while building packet"); }
     }
-
-    if (this->wantedSettings.wideVane != nullptr) {
+ 
+    if (this->wantedSettings.wideVane != HPWideVaneMode::UNKNOWN) {
         ESP_LOGD(TAG, "heatpump widevane -> %s", getWideVaneSetting());
-        int idx = lookupByteMapIndex(WIDEVANE_MAP, 8, getWideVaneSetting(), "wideVane (write)");
-        if (idx >= 0) {
-            packet[18] = WIDEVANE[idx] | (this->wideVaneAdj ? 0x80 : 0x00);
+        auto val_opt = hp_wide_vane_to_wire(wantedSettings.wideVane);
+        if (val_opt) {
+            packet[18] = *val_opt | (this->wideVaneAdj ? 0x80 : 0x00);
             packet[7] += CONTROL_PACKET_2[0];
 
 
@@ -266,13 +250,13 @@ void CN105Climate::createPacket(uint8_t* packet) {
                     // Experimental: Left Horizontal Vane support for dual vane units (Type A)
                     // Byte 16 is used in IR protocol for Left Vane (which corresponds to Horizontal/Wide Vane on these units)
                     // Copy the base WIDEVANE value (without adjustment bit) to Byte 16
-                    packet[16] = WIDEVANE[idx];
+                    packet[16] = *val_opt;
                     break;
                 case VaneType::SPLIT_VERTICAL:
                     // Experimental: Split Vertical Vane support (Type B)
                     // TODO: Reverse engineering required for Byte 12 or other control bytes.
                     // For now, logging to help debugging.
-                    ESP_LOGD(TAG, "Split Vertical Vane: WideVane set to %s (Index %d). Packet[12] (Vertical) is %02X", getWideVaneSetting(), idx, packet[12]);
+                    ESP_LOGD(TAG, "Split Vertical Vane: WideVane set to %s. Packet[12] (Vertical) is %02X", getWideVaneSetting(), packet[12]);
                     break;
                 case VaneType::STANDARD:
                 default:
@@ -296,21 +280,21 @@ void CN105Climate::createPacket(uint8_t* packet) {
 
 void CN105Climate::publishWantedSettingsStateToHA() {
 
-    if ((this->wantedSettings.mode != nullptr) || (this->wantedSettings.power != nullptr)) {
+    if ((this->wantedSettings.mode != HPMode::UNKNOWN) || (this->wantedSettings.power != HPPower::UNKNOWN)) {
         checkPowerAndModeSettings(this->wantedSettings, false);
         this->updateAction();       // update action info on HA climate component
     }
-
-    if (this->wantedSettings.fan != nullptr) {
+ 
+    if (this->wantedSettings.fan != HPFanMode::UNKNOWN) {
         checkFanSettings(this->wantedSettings, false);
     }
-
-
-    if ((this->wantedSettings.vane != nullptr) || (this->wantedSettings.wideVane != nullptr)) {
-        if (this->wantedSettings.vane == nullptr) { // to prevent a nullpointer error
+ 
+ 
+    if ((this->wantedSettings.vane != HPVaneMode::UNKNOWN) || (this->wantedSettings.wideVane != HPWideVaneMode::UNKNOWN)) {
+        if (this->wantedSettings.vane == HPVaneMode::UNKNOWN) { // to prevent a nullpointer error
             this->wantedSettings.vane = this->currentSettings.vane;
         }
-        if (this->wantedSettings.wideVane == nullptr) { // to prevent a nullpointer error
+        if (this->wantedSettings.wideVane == HPWideVaneMode::UNKNOWN) { // to prevent a nullpointer error
             this->wantedSettings.wideVane = this->currentSettings.wideVane;
         }
 
@@ -329,13 +313,12 @@ void CN105Climate::publishWantedSettingsStateToHA() {
 }
 
 void CN105Climate::publishWantedRunStatesStateToHA() {
-    if (this->wantedRunStates.airflow_control != nullptr) {
-        if (this->wantedRunStates.airflow_control == nullptr) {
-            this->wantedRunStates.airflow_control = this->currentRunStates.airflow_control;
-        }
-        if (this->hasChanged(this->airflow_control_select_->current_option(), this->wantedRunStates.airflow_control, "select airflow control")) {
-            ESP_LOGI(TAG, "airflow control setting changed");
-            this->airflow_control_select_->publish_state(wantedRunStates.airflow_control);
+    if (this->wantedRunStates.airflow_control != HPAirflowControl::UNKNOWN) {
+        if (this->airflow_control_select_ != nullptr) {
+            if (this->hasChanged(this->airflow_control_select_->current_option(), hp_airflow_control_to_str(this->wantedRunStates.airflow_control), "select airflow control")) {
+                ESP_LOGI(TAG, "airflow control setting changed");
+                this->airflow_control_select_->publish_state(hp_airflow_control_to_str(wantedRunStates.airflow_control));
+            }
         }
     }
     if (this->wantedRunStates.air_purifier > -1) {
@@ -554,10 +537,13 @@ void CN105Climate::sendWantedRunStates() {
     prepareSetPacket(packet, PACKET_LEN);
 
     packet[5] = 0x08;
-    if (this->wantedRunStates.airflow_control != nullptr) {
+    if (this->wantedRunStates.airflow_control != HPAirflowControl::UNKNOWN) {
         ESP_LOGD(TAG, "airflow control -> %s", getAirflowControlSetting());
-        packet[11] = AIRFLOW_CONTROL[lookupByteMapIndex(AIRFLOW_CONTROL_MAP, 3, getAirflowControlSetting(), "run state (write)")];
-        packet[6] += RUN_STATE_PACKET_1[4];
+        auto val_opt = hp_airflow_control_to_wire(wantedRunStates.airflow_control);
+        if (val_opt) {
+            packet[11] = *val_opt;
+            packet[6] += RUN_STATE_PACKET_1[4];
+        }
     }
     if (this->wantedRunStates.air_purifier > -1) {
         if (getAirPurifierRunState() != currentRunStates.air_purifier) {

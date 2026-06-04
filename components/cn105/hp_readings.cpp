@@ -89,48 +89,48 @@ void CN105Climate::getPowerFromResponsePacket() {
     ESP_LOGD("Decoder", "[0x09 is sub modes]");
 
     heatpumpSettings receivedSettings{};
-
+ 
     // Use std::optional lookups — keep previous value on unknown bytes
-    auto stage_opt = cn105_protocol::lookup_value_opt(STAGE_MAP, STAGE, 7, data[4]);
+    auto stage_opt = hp_stage_from_wire(data[4]);
     if (stage_opt) {
         receivedSettings.stage = *stage_opt;
     } else {
         ESP_LOGW("Decoder", "Unknown stage byte 0x%02X — keeping previous value", data[4]);
-        receivedSettings.stage = this->currentSettings.stage
+        receivedSettings.stage = (this->currentSettings.stage != HPStage::UNKNOWN)
             ? this->currentSettings.stage
-            : STAGE_MAP[0];  // default to "IDLE" when no prior value exists
+            : HPStage::IDLE;  // default to "IDLE" when no prior value exists
     }
-
-    auto sub_mode_opt = cn105_protocol::lookup_value_opt(SUB_MODE_MAP, SUB_MODE, 6, data[3]);
+ 
+    auto sub_mode_opt = hp_sub_mode_from_wire(data[3]);
     if (sub_mode_opt) {
         receivedSettings.sub_mode = *sub_mode_opt;
     } else {
         ESP_LOGW("Decoder", "Unknown sub_mode byte 0x%02X — keeping previous value", data[3]);
-        receivedSettings.sub_mode = this->currentSettings.sub_mode
+        receivedSettings.sub_mode = (this->currentSettings.sub_mode != HPSubMode::UNKNOWN)
             ? this->currentSettings.sub_mode
-            : SUB_MODE_MAP[0];  // default to "NORMAL" when no prior value exists
+            : HPSubMode::NORMAL;  // default to "NORMAL" when no prior value exists
     }
-
-    auto auto_sub_mode_opt = cn105_protocol::lookup_value_opt(AUTO_SUB_MODE_MAP, AUTO_SUB_MODE, 7, data[5]);
+ 
+    auto auto_sub_mode_opt = hp_auto_sub_mode_from_wire(data[5]);
     if (auto_sub_mode_opt) {
         receivedSettings.auto_sub_mode = *auto_sub_mode_opt;
     } else {
         ESP_LOGW("Decoder", "Unknown auto_sub_mode byte 0x%02X — keeping previous value", data[5]);
-        receivedSettings.auto_sub_mode = this->currentSettings.auto_sub_mode
+        receivedSettings.auto_sub_mode = (this->currentSettings.auto_sub_mode != HPAutoSubMode::UNKNOWN)
             ? this->currentSettings.auto_sub_mode
-            : AUTO_SUB_MODE_MAP[0];  // default to "AUTO_OFF" when no prior value exists
+            : HPAutoSubMode::AUTO_OFF;  // default to "AUTO_OFF" when no prior value exists
     }
-
-    ESP_LOGD("Decoder", "[Stage : %s]", receivedSettings.stage);
-    ESP_LOGD("Decoder", "[Sub Mode  : %s]", receivedSettings.sub_mode);
-    ESP_LOGD("Decoder", "[Auto Mode Sub Mode  : %s]", receivedSettings.auto_sub_mode);
-
+ 
+    ESP_LOGD("Decoder", "[Stage : %s]", hp_stage_to_str(receivedSettings.stage));
+    ESP_LOGD("Decoder", "[Sub Mode  : %s]", hp_sub_mode_to_str(receivedSettings.sub_mode));
+    ESP_LOGD("Decoder", "[Auto Mode Sub Mode  : %s]", hp_auto_sub_mode_to_str(receivedSettings.auto_sub_mode));
+ 
     //this->heatpumpUpdate(receivedSettings);
     if (this->stage_sensor_ != nullptr) {
-        if (!this->currentSettings.stage || strcmp(receivedSettings.stage, this->currentSettings.stage) != 0) {
+        if (receivedSettings.stage != this->currentSettings.stage) {
             this->currentSettings.stage = receivedSettings.stage;
-            this->stage_sensor_->publish_state(receivedSettings.stage);
-
+            this->stage_sensor_->publish_state(hp_stage_to_str(receivedSettings.stage));
+ 
             // If using stage as operating fallback, update action immediately when stage changes
             // and publish to Home Assistant
             if (this->use_stage_for_operating_status_) {
@@ -139,13 +139,13 @@ void CN105Climate::getPowerFromResponsePacket() {
             }
         }
     }
-    if (this->Sub_mode_sensor_ != nullptr && (!this->currentSettings.sub_mode || strcmp(receivedSettings.sub_mode, this->currentSettings.sub_mode) != 0)) {
+    if (this->Sub_mode_sensor_ != nullptr && receivedSettings.sub_mode != this->currentSettings.sub_mode) {
         this->currentSettings.sub_mode = receivedSettings.sub_mode;
-        this->Sub_mode_sensor_->publish_state(receivedSettings.sub_mode);
+        this->Sub_mode_sensor_->publish_state(hp_sub_mode_to_str(receivedSettings.sub_mode));
     }
-    if (this->Auto_sub_mode_sensor_ != nullptr && (!this->currentSettings.auto_sub_mode || strcmp(receivedSettings.auto_sub_mode, this->currentSettings.auto_sub_mode) != 0)) {
+    if (this->Auto_sub_mode_sensor_ != nullptr && receivedSettings.auto_sub_mode != this->currentSettings.auto_sub_mode) {
         this->currentSettings.auto_sub_mode = receivedSettings.auto_sub_mode;
-        this->Auto_sub_mode_sensor_->publish_state(receivedSettings.auto_sub_mode);
+        this->Auto_sub_mode_sensor_->publish_state(hp_auto_sub_mode_to_str(receivedSettings.auto_sub_mode));
     }
 }
 
@@ -154,34 +154,32 @@ void CN105Climate::getSettingsFromResponsePacket() {
     heatpumpRunStates receivedRunStates{};
     ESP_LOGD("Decoder", "[0x02 is settings]");
 
-    receivedSettings.connected = true;
-
-    auto power_opt = cn105_protocol::lookup_value_opt(POWER_MAP, POWER, 2, data[3]);
+    auto power_opt = hp_power_from_wire(data[3]);
     if (power_opt) {
         receivedSettings.power = *power_opt;
     } else {
         ESP_LOGW("Decoder", "Unknown power byte 0x%02X — keeping previous value", data[3]);
-        receivedSettings.power = this->currentSettings.power
+        receivedSettings.power = (this->currentSettings.power != HPPower::UNKNOWN)
             ? this->currentSettings.power
-            : POWER_MAP[0];  // default to "OFF" when no prior value exists
+            : HPPower::OFF;  // default to "OFF" when no prior value exists
     }
-
+ 
     receivedSettings.iSee = data[4] > 0x08 ? true : false;
     uint8_t modeByte = receivedSettings.iSee ? (data[4] - 0x08) : data[4];
-    auto mode_opt = cn105_protocol::lookup_value_opt(MODE_MAP, MODE, 5, modeByte);
+    auto mode_opt = hp_mode_from_wire(modeByte);
     if (mode_opt) {
         receivedSettings.mode = *mode_opt;
     } else {
         ESP_LOGW("Decoder", "Unknown mode byte 0x%02X — keeping previous value", modeByte);
-        receivedSettings.mode = this->currentSettings.mode
+        receivedSettings.mode = (this->currentSettings.mode != HPMode::UNKNOWN)
             ? this->currentSettings.mode
-            : MODE_MAP[4];  // default to "AUTO" when no prior value exists
+            : HPMode::AUTO;  // default to "AUTO" when no prior value exists
     }
-
-    ESP_LOGD("Decoder", "[Power : %s]", receivedSettings.power);
+ 
+    ESP_LOGD("Decoder", "[Power : %s]", hp_power_to_str(receivedSettings.power));
     ESP_LOGD("Decoder", "[iSee  : %d]", receivedSettings.iSee);
-    ESP_LOGD("Decoder", "[Mode  : %s]", receivedSettings.mode);
-
+    ESP_LOGD("Decoder", "[Mode  : %s]", hp_mode_to_str(receivedSettings.mode));
+ 
     if (data[11] != 0x00) {
         int temp = data[11];
         temp -= 128;
@@ -196,48 +194,45 @@ void CN105Climate::getSettingsFromResponsePacket() {
             receivedSettings.temperature = this->currentSettings.temperature;
         }
     }
-
+ 
     ESP_LOGD("Decoder", "[Temp °C: %f]", receivedSettings.temperature);
-
-    auto fan_opt = cn105_protocol::lookup_value_opt(FAN_MAP, FAN, 6, data[6]);
+ 
+    auto fan_opt = hp_fan_from_wire(data[6]);
     if (fan_opt) {
         receivedSettings.fan = *fan_opt;
     } else {
         ESP_LOGW("Decoder", "Unknown fan byte 0x%02X — keeping previous value", data[6]);
-        receivedSettings.fan = this->currentSettings.fan
+        receivedSettings.fan = (this->currentSettings.fan != HPFanMode::UNKNOWN)
             ? this->currentSettings.fan
-            : FAN_MAP[0];  // default to "AUTO" when no prior value exists
+            : HPFanMode::AUTO;  // default to "AUTO" when no prior value exists
     }
-    ESP_LOGD("Decoder", "[Fan: %s]", receivedSettings.fan);
-
-    auto vane_opt = cn105_protocol::lookup_value_opt(VANE_MAP, VANE, 7, data[7]);
+    ESP_LOGD("Decoder", "[Fan: %s]", hp_fan_to_str(receivedSettings.fan));
+ 
+    auto vane_opt = hp_vane_from_wire(data[7]);
     if (vane_opt) {
         receivedSettings.vane = *vane_opt;
     } else {
         ESP_LOGW("Decoder", "Unknown vane byte 0x%02X — keeping previous value", data[7]);
-        receivedSettings.vane = this->currentSettings.vane
+        receivedSettings.vane = (this->currentSettings.vane != HPVaneMode::UNKNOWN)
             ? this->currentSettings.vane
-            : VANE_MAP[0];  // default to "AUTO" when no prior value exists
+            : HPVaneMode::AUTO;  // default to "AUTO" when no prior value exists
     }
-    ESP_LOGD("Decoder", "[Vane: %s]", receivedSettings.vane);
-
+    ESP_LOGD("Decoder", "[Vane: %s]", hp_vane_to_str(receivedSettings.vane));
+ 
     // --- START OF MODIFIED SECTION - Reverted widevane section back to more or less original state
     if ((data[10] != 0) && (this->traits_.supports_swing_mode(climate::CLIMATE_SWING_HORIZONTAL))) {    // wideVane is not always supported
         uint8_t wideVaneByte = data[10] & 0x0F;
-        auto wideVane_opt = cn105_protocol::lookup_value_opt(WIDEVANE_MAP, WIDEVANE, 8, wideVaneByte);
+        auto wideVane_opt = hp_wide_vane_from_wire(wideVaneByte);
         if (wideVane_opt) {
             receivedSettings.wideVane = *wideVane_opt;
         } else {
             ESP_LOGW("Decoder", "Unknown wideVane byte 0x%02X — keeping previous value", wideVaneByte);
-            // Guard against null: on the first settings packet currentSettings.wideVane
-            // is still nullptr, and an unknown byte here would otherwise propagate a null
-            // pointer into the %s log below (and downstream), panicking the ESP32.
-            receivedSettings.wideVane = this->currentSettings.wideVane
+            receivedSettings.wideVane = (this->currentSettings.wideVane != HPWideVaneMode::UNKNOWN)
                 ? this->currentSettings.wideVane
-                : WIDEVANE_MAP[2];  // default to "|" (center) when no prior value exists
+                : HPWideVaneMode::CENTER;  // default to "|" (center) when no prior value exists
         }
         this->wideVaneAdj = (data[10] & 0xF0) == 0x80 ? true : false;
-        ESP_LOGD("Decoder", "[wideVane: %s (adj:%d)]", receivedSettings.wideVane, this->wideVaneAdj);
+        ESP_LOGD("Decoder", "[wideVane: %s (adj:%d)]", hp_wide_vane_to_str(receivedSettings.wideVane), this->wideVaneAdj);
     } else {
         ESP_LOGD("Decoder", "widevane is not supported");
     }
@@ -269,7 +264,7 @@ void CN105Climate::getSettingsFromResponsePacket() {
     if (this->airflow_control_select_ != nullptr) {
         if (data[10] == 0x80) {
             if (receivedSettings.iSee) {
-                auto airflow_opt = cn105_protocol::lookup_value_opt(AIRFLOW_CONTROL_MAP, AIRFLOW_CONTROL, 3, data[14]);
+                auto airflow_opt = hp_airflow_control_from_wire(data[14]);
                 if (airflow_opt) {
                     receivedRunStates.airflow_control = *airflow_opt;
                 } else {
@@ -281,14 +276,14 @@ void CN105Climate::getSettingsFromResponsePacket() {
                 // Some units let us do this, but the real mode is unknown (might be powersave) and the i-See sensor does not get activated.
                 //receivedRunStates.airflow_control = "N/A";
                 ESP_LOGD("Decoder", "i-See sensor not present/active.");
-                receivedRunStates.airflow_control = AIRFLOW_CONTROL_MAP[0];
+                receivedRunStates.airflow_control = HPAirflowControl::EVEN;
             }
         } else {
-            receivedRunStates.airflow_control = AIRFLOW_CONTROL_MAP[0];
+            receivedRunStates.airflow_control = HPAirflowControl::EVEN;
         }
-        if (!this->currentRunStates.airflow_control || strcmp(receivedRunStates.airflow_control, this->currentRunStates.airflow_control) != 0) {
+        if (receivedRunStates.airflow_control != this->currentRunStates.airflow_control) {
             this->currentRunStates.airflow_control = receivedRunStates.airflow_control;
-            this->airflow_control_select_->publish_state(receivedRunStates.airflow_control);
+            this->airflow_control_select_->publish_state(hp_airflow_control_to_str(receivedRunStates.airflow_control));
         }
     }
 
@@ -469,7 +464,7 @@ void CN105Climate::getDataFromResponsePacket() {
     if (this->scheduler_.process_response(code)) {
         return;
     }
-    // Sinon, switch pour les cas non gÃÂ©rÃÂ©s par l'orchestrateur
+    // Sinon, switch pour les cas non gÃƒÂ©rÃƒÂ©s par l'orchestrateur
     switch (code) {
 
     case 0x04:
@@ -527,7 +522,7 @@ void CN105Climate::processCommand() {
         break;
     case 0x7a:  // Connection success (User / standard)
     case 0x7b:  // Connection success (Installer / extended)
-        // Log en INFO sur le tag dÃÂ©diÃÂ©, dÃÂ©tails en DEBUG via hpPacketDebug
+        // Log en INFO sur le tag dÃƒÂ©diÃƒÂ©, dÃƒÂ©tails en DEBUG via hpPacketDebug
         ESP_LOGI(LOG_CONN_TAG, "--> Heatpump did reply: connection success (%s, 0x%02X)! <--",
             (this->parser_.command() == 0x7b) ? "Installer" : "User",
             this->parser_.command());
@@ -589,21 +584,21 @@ void CN105Climate::statusChanged(heatpumpStatus status) {
 
 void CN105Climate::publishStateToHA(heatpumpSettings& settings) {
 
-    if ((this->wantedSettings.mode == nullptr) && (this->wantedSettings.power == nullptr)) {        // to prevent overwriting a user demand
+    if ((this->wantedSettings.mode == HPMode::UNKNOWN) && (this->wantedSettings.power == HPPower::UNKNOWN)) {        // to prevent overwriting a user demand
         checkPowerAndModeSettings(settings);
     }
 
     this->updateAction();       // update action info on HA climate component
 
-    if (this->wantedSettings.fan == nullptr) {  // to prevent overwriting a user demand
+    if (this->wantedSettings.fan == HPFanMode::UNKNOWN) {  // to prevent overwriting a user demand
         checkFanSettings(settings);
     }
 
-    if (this->wantedSettings.vane == nullptr) { // to prevent overwriting a user demand
+    if (this->wantedSettings.vane == HPVaneMode::UNKNOWN) { // to prevent overwriting a user demand
         checkVaneSettings(settings);
     }
 
-    if (this->wantedSettings.wideVane == nullptr) { // to prevent overwriting a user demand
+    if (this->wantedSettings.wideVane == HPWideVaneMode::UNKNOWN) { // to prevent overwriting a user demand
         checkWideVaneSettings(settings);
     }
 
@@ -661,14 +656,14 @@ void CN105Climate::checkVaneSettings(heatpumpSettings& settings, bool updateCurr
             currentSettings.vane = settings.vane;
         }
 
-        if (strcmp(settings.vane, "SWING") == 0) {
-            if ((currentSettings.wideVane != nullptr) && (strcmp(currentSettings.wideVane, "SWING") == 0)) {
+        if (settings.vane == HPVaneMode::SWING) {
+            if (currentSettings.wideVane == HPWideVaneMode::SWING) {
                 this->swing_mode = climate::CLIMATE_SWING_BOTH;
             } else {
                 this->swing_mode = climate::CLIMATE_SWING_VERTICAL;
             }
         } else {
-            if ((currentSettings.wideVane != nullptr) && (strcmp(currentSettings.wideVane, "SWING") == 0)) {
+            if (currentSettings.wideVane == HPWideVaneMode::SWING) {
                 this->swing_mode = climate::CLIMATE_SWING_HORIZONTAL;
             } else {
                 this->swing_mode = climate::CLIMATE_SWING_OFF;
@@ -697,14 +692,14 @@ void CN105Climate::checkWideVaneSettings(heatpumpSettings& settings, bool update
             currentSettings.wideVane = settings.wideVane;
         }
 
-        if (strcmp(settings.wideVane, "SWING") == 0) {
-            if ((currentSettings.vane != nullptr) && (strcmp(currentSettings.vane, "SWING") == 0)) {
+        if (settings.wideVane == HPWideVaneMode::SWING) {
+            if (currentSettings.vane == HPVaneMode::SWING) {
                 this->swing_mode = climate::CLIMATE_SWING_BOTH;
             } else {
                 this->swing_mode = climate::CLIMATE_SWING_HORIZONTAL;
             }
         } else {
-            if ((currentSettings.vane != nullptr) && (strcmp(currentSettings.vane, "SWING") == 0)) {
+            if (currentSettings.vane == HPVaneMode::SWING) {
                 this->swing_mode = climate::CLIMATE_SWING_VERTICAL;
             } else {
                 this->swing_mode = climate::CLIMATE_SWING_OFF;
@@ -722,15 +717,15 @@ void CN105Climate::checkWideVaneSettings(heatpumpSettings& settings, bool update
 }
 void CN105Climate::updateExtraSelectComponents(heatpumpSettings& settings) {
     if (this->vertical_vane_select_ != nullptr) {
-        if (this->hasChanged(this->vertical_vane_select_->current_option(), settings.vane, "select vane")) {
+        if (this->hasChanged(this->vertical_vane_select_->current_option(), hp_vane_to_str(settings.vane), "select vane")) {
             ESP_LOGI(TAG, "vane setting (extra select component) changed");
-            this->vertical_vane_select_->publish_state(settings.vane);
+            this->vertical_vane_select_->publish_state(hp_vane_to_str(settings.vane));
         }
     }
     if (this->horizontal_vane_select_ != nullptr) {
-        if (this->hasChanged(this->horizontal_vane_select_->current_option(), settings.wideVane, "select wideVane")) {
+        if (this->hasChanged(this->horizontal_vane_select_->current_option(), hp_wide_vane_to_str(settings.wideVane), "select wideVane")) {
             ESP_LOGI(TAG, "widevane setting (extra select component) changed");
-            this->horizontal_vane_select_->publish_state(settings.wideVane);
+            this->horizontal_vane_select_->publish_state(hp_wide_vane_to_str(settings.wideVane));
         }
     }
 }
@@ -748,15 +743,15 @@ void CN105Climate::checkFanSettings(heatpumpSettings& settings, bool updateCurre
             currentSettings.fan = settings.fan;
         }
 
-        if (strcmp(settings.fan, "QUIET") == 0) {
+        if (settings.fan == HPFanMode::QUIET) {
             this->fan_mode = climate::CLIMATE_FAN_QUIET;
-        } else if (strcmp(settings.fan, "1") == 0) {
+        } else if (settings.fan == HPFanMode::F1) {
             this->fan_mode = climate::CLIMATE_FAN_LOW;
-        } else if (strcmp(settings.fan, "2") == 0) {
+        } else if (settings.fan == HPFanMode::F2) {
             this->fan_mode = climate::CLIMATE_FAN_MEDIUM;
-        } else if (strcmp(settings.fan, "3") == 0) {
+        } else if (settings.fan == HPFanMode::F3) {
             this->fan_mode = climate::CLIMATE_FAN_MIDDLE;
-        } else if (strcmp(settings.fan, "4") == 0) {
+        } else if (settings.fan == HPFanMode::F4) {
             this->fan_mode = climate::CLIMATE_FAN_HIGH;
         } else { //case "AUTO" or default:
             this->fan_mode = climate::CLIMATE_FAN_AUTO;
@@ -772,19 +767,17 @@ void CN105Climate::checkFanSettings(heatpumpSettings& settings, bool updateCurre
 
 void CN105Climate::checkPowerAndModeSettings(heatpumpSettings& settings, bool updateCurrentSettings) {
     climate::ClimateMode physical_mode = climate::CLIMATE_MODE_OFF;
-    if (settings.power != nullptr && strcmp(settings.power, "ON") == 0) {
-        if (settings.mode != nullptr) {
-            if (strcmp(settings.mode, "HEAT") == 0) {
-                physical_mode = climate::CLIMATE_MODE_HEAT;
-            } else if (strcmp(settings.mode, "DRY") == 0) {
-                physical_mode = climate::CLIMATE_MODE_DRY;
-            } else if (strcmp(settings.mode, "COOL") == 0) {
-                physical_mode = climate::CLIMATE_MODE_COOL;
-            } else if (strcmp(settings.mode, "FAN") == 0) {
-                physical_mode = climate::CLIMATE_MODE_FAN_ONLY;
-            } else if (strcmp(settings.mode, "AUTO") == 0) {
-                physical_mode = climate::CLIMATE_MODE_AUTO;
-            }
+    if (settings.power == HPPower::ON) {
+        if (settings.mode == HPMode::HEAT) {
+            physical_mode = climate::CLIMATE_MODE_HEAT;
+        } else if (settings.mode == HPMode::DRY) {
+            physical_mode = climate::CLIMATE_MODE_DRY;
+        } else if (settings.mode == HPMode::COOL) {
+            physical_mode = climate::CLIMATE_MODE_COOL;
+        } else if (settings.mode == HPMode::FAN) {
+            physical_mode = climate::CLIMATE_MODE_FAN_ONLY;
+        } else if (settings.mode == HPMode::AUTO) {
+            physical_mode = climate::CLIMATE_MODE_AUTO;
         }
     }
 
@@ -796,7 +789,7 @@ void CN105Climate::checkPowerAndModeSettings(heatpumpSettings& settings, bool up
     if (!this->first_real_state_received_) {
         this->first_real_state_received_ = true;
         ESP_LOGI(TAG, "First physical climate settings received: power=%s, mode=%s, temp=%.1f", 
-                 getIfNotNull(settings.power, "N/A"), getIfNotNull(settings.mode, "N/A"), settings.temperature);
+                 hp_power_to_str(settings.power), hp_mode_to_str(settings.mode), settings.temperature);
         
         bool fan_stop_state = this->fan_stop_switch_ != nullptr ? this->fan_stop_switch_->state : false;
         bool preserve_restored_mode = fan_stop_state && 
