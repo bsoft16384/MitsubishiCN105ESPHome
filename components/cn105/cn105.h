@@ -29,6 +29,8 @@
 #include <esphome/components/sensor/sensor.h>
 #include <esphome/components/button/button.h>
 #include <esphome/components/binary_sensor/binary_sensor.h>
+#include <esphome/components/switch/switch.h>
+#include <esphome/components/text_sensor/text_sensor.h>
 #include "cycle_management.h"
 #include <vector>
 #include <map>
@@ -111,6 +113,13 @@ namespace esphome {
         
         void set_remote_temperature_control_sensor(esphome::binary_sensor::BinarySensor* sensor);
         void set_remote_temperature_margin(float margin);
+        void set_fan_stop_switch(esphome::switch_::Switch* fan_stop_switch) { this->fan_stop_switch_ = fan_stop_switch; }
+        void set_low_temp_protection_switch(esphome::switch_::Switch* low_temp_protection_switch) { this->low_temp_protection_switch_ = low_temp_protection_switch; }
+        void set_diagnostic_sensor(esphome::text_sensor::TextSensor* diagnostic_sensor) { this->diagnostic_sensor_ = diagnostic_sensor; }
+        void set_hysteresis(float hysteresis) { this->hysteresis_ = hysteresis; }
+        void set_low_temp_temp(float low_temp_temp) { this->low_temp_temp_ = low_temp_temp; }
+        void set_low_temp_hysteresis(float low_temp_hysteresis) { this->low_temp_hysteresis_ = low_temp_hysteresis; }
+        void evaluate_fan_stop_and_ltp();
 
         //sensor::Sensor* compressor_frequency_sensor;
         binary_sensor::BinarySensor* iSee_sensor_ = nullptr;
@@ -529,5 +538,22 @@ namespace esphome {
         bool supports_dual_setpoint_ = false;
         int horizontal_vanes_{ 1 }; // Kept for legacy logging if needed, or can be removed if unused.
         VaneType vane_type_{ VaneType::STANDARD };
+
+        esphome::switch_::Switch* fan_stop_switch_{nullptr};
+        esphome::switch_::Switch* low_temp_protection_switch_{nullptr};
+        esphome::text_sensor::TextSensor* diagnostic_sensor_{nullptr};
+        float hysteresis_{0.5f};
+        float low_temp_temp_{8.0f};
+        float low_temp_hysteresis_{4.0f};
+
+        // State tracking
+        climate::ClimateMode desired_mode_{climate::CLIMATE_MODE_OFF};
+        float desired_temp_{22.0f};
+        uint32_t last_mode_command_time_ms_{0};
+        bool first_real_state_received_{false};
+        bool ltp_active_{false};
+
+        climate::ClimateMode last_commanded_real_mode_{climate::CLIMATE_MODE_OFF};
+        float last_commanded_real_temp_{22.0f};
     };
 }

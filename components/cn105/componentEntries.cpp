@@ -45,6 +45,23 @@ void CN105Climate::setup() {
     this->supports_dual_setpoint_ = this->traits_.has_feature_flags(climate::CLIMATE_REQUIRES_TWO_POINT_TARGET_TEMPERATURE);
     ESP_LOGI(TAG, "Dual setpoint support configured: %s", this->supports_dual_setpoint_ ? "YES" : "NO");
     ESP_LOGI(TAG, "Horizontal vanes configured: %d", this->horizontal_vanes_);
+
+    // Restore set points from ESPHome preferences
+    auto restore = this->restore_state_();
+    if (restore.has_value()) {
+        restore->apply(this);
+        this->desired_mode_ = this->mode;
+        if (!std::isnan(this->target_temperature)) {
+            this->desired_temp_ = this->target_temperature;
+        } else {
+            this->desired_temp_ = 22.0f;
+        }
+        ESP_LOGI(TAG, "Restored state: mode=%s, temp=%.1f", climate::climate_mode_to_string(this->desired_mode_), this->desired_temp_);
+    } else {
+        this->desired_mode_ = climate::CLIMATE_MODE_OFF;
+        this->desired_temp_ = 22.0f;
+        ESP_LOGI(TAG, "No restored state found. Defaults used.");
+    }
 }
 
 
@@ -59,6 +76,19 @@ void CN105Climate::loop() {
     // As long as the connection is not successful, we do not launch ANY cycle/write (otherwise it short-circuits the delay).
     // We still continue to read/process the input in order to detect 0x7A/0x7B (connection success).
     const bool can_talk_to_hp = this->isHeatpumpConnected();
+
+    if (can_talk_to_hp) {
+        uint32_t now = CUSTOM_MILLIS;
+        static uint32_t last_evaluation_time = 0;
+        static float last_room_temp = NAN;
+        float current_room_temp = this->current_temperature;
+        bool temp_changed = !std::isnan(current_room_temp) && (std::isnan(last_room_temp) || fabsf(current_room_temp - last_room_temp) >= 0.1f);
+        if (temp_changed || (now - last_evaluation_time >= 5000)) {
+            last_evaluation_time = now;
+            last_room_temp = current_room_temp;
+            this->evaluate_fan_stop_and_ltp();
+        }
+    }
 
     if (!this->processInput()) {                                            // if we don't get any input: no read op
         if (!can_talk_to_hp) {

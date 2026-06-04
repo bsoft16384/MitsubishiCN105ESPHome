@@ -67,8 +67,24 @@ void CN105Climate::controlDelegate(const esphome::climate::ClimateCall& call) {
 
     logCheckWantedSettingsMutex(this->wantedSettings);
 
-    updated = this->processModeChange(call) || updated;
-    updated = this->processTemperatureChange(call) || updated;
+    if (call.get_mode().has_value()) {
+        this->desired_mode_ = *call.get_mode();
+        this->mode = this->desired_mode_;
+        if (this->desired_mode_ != climate::CLIMATE_MODE_OFF && std::isnan(this->desired_temp_)) {
+            this->desired_temp_ = 21.0f; // Safe default fallback
+        }
+        updated = true;
+    }
+    if (call.get_target_temperature().has_value()) {
+        this->desired_temp_ = *call.get_target_temperature();
+        this->target_temperature = this->desired_temp_;
+        updated = true;
+    }
+
+    if (updated) {
+        this->evaluate_fan_stop_and_ltp();
+    }
+
     updated = this->processFanChange(call) || updated;
     updated = this->processSwingChange(call) || updated;
 
@@ -740,5 +756,141 @@ void CN105Climate::set_remote_temperature(float setting) {
     } else {
         // Stop keep-alive when reverting to internal sensor
         this->stopRemoteTempKeepAlive();
+    }
+}
+
+
+void CN105Climate::evaluate_fan_stop_and_ltp() {
+    float current_temp = this->current_temperature;
+
+    // 1. Handle Low Temperature Protection (LTP) state machine
+    if (this->low_temp_protection_switch_ != nullptr && this->low_temp_protection_switch_->state) {
+        if (!this->ltp_active_ && !std::isnan(current_temp) && current_temp < this->low_temp_temp_) {
+            this->ltp_active_ = true;
+            ESP_LOGI("cn105", "Low temperature protection activated (current temp: %.1f°C)", current_temp);
+        }
+        if (this->ltp_active_ && !std::isnan(current_temp) && current_temp > (this->low_temp_temp_ + this->low_temp_hysteresis_)) {
+            this->ltp_active_ = false;
+            ESP_LOGI("cn105", "Low temperature protection deactivated (current temp: %.1f°C)", current_temp);
+        }
+    } else {
+        if (this->ltp_active_) {
+            this->ltp_active_ = false;
+            ESP_LOGI("cn105", "Low temperature protection disabled by switch");
+        }
+    }
+
+    climate::ClimateMode target_physical_mode = this->desired_mode_;
+    float target_physical_temp = this->desired_temp_;
+
+    if (this->ltp_active_) {
+        // LTP has priority. Force heat mode and target temperature of max(low_temp_temp + low_temp_hysteresis, desired_temp_)
+        target_physical_mode = climate::CLIMATE_MODE_HEAT;
+        target_physical_temp = std::max(this->low_temp_temp_ + this->low_temp_hysteresis_, this->desired_temp_);
+    } else if (this->fan_stop_switch_ != nullptr && this->fan_stop_switch_->state && !std::isnan(current_temp) && !std::isnan(this->desired_temp_)) {
+        // Fan stop mode logic
+        if (this->desired_mode_ == climate::CLIMATE_MODE_HEAT) {
+            if (current_temp >= this->desired_temp_ + this->hysteresis_) {
+                target_physical_mode = climate::CLIMATE_MODE_OFF;
+            } else if (current_temp <= this->desired_temp_ - this->hysteresis_) {
+                target_physical_mode = climate::CLIMATE_MODE_HEAT;
+            } else {
+                // Inside hysteresis deadband, maintain current physical state
+                if (this->currentSettings.power != nullptr && strcmp(this->currentSettings.power, "OFF") == 0) {
+                    target_physical_mode = climate::CLIMATE_MODE_OFF;
+                } else {
+                    target_physical_mode = climate::CLIMATE_MODE_HEAT;
+                }
+            }
+        } else if (this->desired_mode_ == climate::CLIMATE_MODE_COOL) {
+            if (current_temp <= this->desired_temp_ - this->hysteresis_) {
+                target_physical_mode = climate::CLIMATE_MODE_OFF;
+            } else if (current_temp >= this->desired_temp_ + this->hysteresis_) {
+                target_physical_mode = climate::CLIMATE_MODE_COOL;
+            } else {
+                // Inside hysteresis deadband, maintain current physical state
+                if (this->currentSettings.power != nullptr && strcmp(this->currentSettings.power, "OFF") == 0) {
+                    target_physical_mode = climate::CLIMATE_MODE_OFF;
+                } else {
+                    target_physical_mode = climate::CLIMATE_MODE_COOL;
+                }
+            }
+        }
+    }
+
+    // 2. Perform command if mismatch exists
+    bool mode_mismatch = false;
+    bool temp_mismatch = false;
+
+    // Check power/mode mismatch
+    if (target_physical_mode == climate::CLIMATE_MODE_OFF) {
+        if (this->currentSettings.power == nullptr || strcmp(this->currentSettings.power, "OFF") != 0) {
+            mode_mismatch = true;
+        }
+    } else {
+        if (this->currentSettings.power == nullptr || strcmp(this->currentSettings.power, "ON") != 0) {
+            mode_mismatch = true;
+        }
+        const char* target_mode_str = "AUTO";
+        if (target_physical_mode == climate::CLIMATE_MODE_HEAT) target_mode_str = "HEAT";
+        else if (target_physical_mode == climate::CLIMATE_MODE_COOL) target_mode_str = "COOL";
+        else if (target_physical_mode == climate::CLIMATE_MODE_DRY) target_mode_str = "DRY";
+        else if (target_physical_mode == climate::CLIMATE_MODE_FAN_ONLY) target_mode_str = "FAN";
+        
+        if (this->currentSettings.mode == nullptr || strcmp(this->currentSettings.mode, target_mode_str) != 0) {
+            mode_mismatch = true;
+        }
+    }
+
+    // Check temperature mismatch
+    if (target_physical_mode != climate::CLIMATE_MODE_OFF) {
+        float normalized_target_temp = this->calculateTemperatureSetting(target_physical_temp);
+        if (std::isnan(this->currentSettings.temperature) || fabsf(this->currentSettings.temperature - normalized_target_temp) >= 0.25f) {
+            temp_mismatch = true;
+        }
+    }
+
+    if (mode_mismatch || temp_mismatch) {
+        ESP_LOGI("cn105", "evaluate_fan_stop_and_ltp: mismatch detected. target_physical_mode: %s, target_physical_temp: %.1f", 
+                 climate::climate_mode_to_string(target_physical_mode), target_physical_temp);
+
+        this->last_mode_command_time_ms_ = CUSTOM_MILLIS;
+        this->last_commanded_real_mode_ = target_physical_mode;
+        this->last_commanded_real_temp_ = target_physical_temp;
+
+        if (target_physical_mode == climate::CLIMATE_MODE_OFF) {
+            this->setPowerSetting("OFF");
+        } else {
+            this->setPowerSetting("ON");
+            const char* target_mode_str = "AUTO";
+            if (target_physical_mode == climate::CLIMATE_MODE_HEAT) target_mode_str = "HEAT";
+            else if (target_physical_mode == climate::CLIMATE_MODE_COOL) target_mode_str = "COOL";
+            else if (target_physical_mode == climate::CLIMATE_MODE_DRY) target_mode_str = "DRY";
+            else if (target_physical_mode == climate::CLIMATE_MODE_FAN_ONLY) target_mode_str = "FAN";
+            this->setModeSetting(target_mode_str);
+
+            float setting = this->calculateTemperatureSetting(target_physical_temp);
+            this->wantedSettings.temperature = setting;
+        }
+
+        this->wantedSettings.hasChanged = true;
+        this->wantedSettings.hasBeenSent = false;
+        this->wantedSettings.lastChange = CUSTOM_MILLIS;
+    }
+
+    // 3. Update diagnostic status text sensor
+    if (this->diagnostic_sensor_ != nullptr) {
+        std::string status = "Normal";
+        if (this->ltp_active_) {
+            status = "Low Temp Protection";
+        } else if (this->fan_stop_switch_ != nullptr && this->fan_stop_switch_->state &&
+                   this->currentSettings.power != nullptr && strcmp(this->currentSettings.power, "OFF") == 0 &&
+                   this->desired_mode_ != climate::CLIMATE_MODE_OFF) {
+            status = "Fan Stop Active";
+        }
+
+        if (this->diagnostic_sensor_->state != status) {
+            this->diagnostic_sensor_->publish_state(status);
+        }
     }
 }

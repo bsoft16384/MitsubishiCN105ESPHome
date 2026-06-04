@@ -625,6 +625,9 @@ void CN105Climate::publishStateToHA(heatpumpSettings& settings) {
 
     this->currentSettings.connected = true;
 
+    this->mode = this->desired_mode_;
+    this->target_temperature = this->desired_temp_;
+
     // publish to HA
     this->publish_state();
 
@@ -768,42 +771,102 @@ void CN105Climate::checkFanSettings(heatpumpSettings& settings, bool updateCurre
 
 
 void CN105Climate::checkPowerAndModeSettings(heatpumpSettings& settings, bool updateCurrentSettings) {
-    // currentSettings.power== NULL is true when it is the first time we get en answer from hp
-    if (this->hasChanged(currentSettings.power, settings.power, "power") ||
-        this->hasChanged(currentSettings.mode, settings.mode, "mode")) {           // mode or power change ?
-
-        ESP_LOGI(TAG, "power or mode changed");
-        if (updateCurrentSettings) {
-            currentSettings.power = settings.power;
-            currentSettings.mode = settings.mode;
-        }
-        if (strcmp(settings.power, "ON") == 0) {
+    climate::ClimateMode physical_mode = climate::CLIMATE_MODE_OFF;
+    if (settings.power != nullptr && strcmp(settings.power, "ON") == 0) {
+        if (settings.mode != nullptr) {
             if (strcmp(settings.mode, "HEAT") == 0) {
-                this->mode = climate::CLIMATE_MODE_HEAT;
+                physical_mode = climate::CLIMATE_MODE_HEAT;
             } else if (strcmp(settings.mode, "DRY") == 0) {
-                this->mode = climate::CLIMATE_MODE_DRY;
+                physical_mode = climate::CLIMATE_MODE_DRY;
             } else if (strcmp(settings.mode, "COOL") == 0) {
-                this->mode = climate::CLIMATE_MODE_COOL;
-                /*if (cool_setpoint != currentSettings.temperature) {
-                    cool_setpoint = currentSettings.temperature;
-                    save(currentSettings.temperature, cool_storage);
-                }*/
+                physical_mode = climate::CLIMATE_MODE_COOL;
             } else if (strcmp(settings.mode, "FAN") == 0) {
-                this->mode = climate::CLIMATE_MODE_FAN_ONLY;
+                physical_mode = climate::CLIMATE_MODE_FAN_ONLY;
             } else if (strcmp(settings.mode, "AUTO") == 0) {
-                // If we were in HEAT_COOL via HA, stay in HEAT_COOL even if HP says AUTO
-                if (this->mode != climate::CLIMATE_MODE_HEAT_COOL) {
-                    this->mode = climate::CLIMATE_MODE_AUTO;
-                }
-            } else {
-                ESP_LOGW(
-                    TAG,
-                    "Unknown climate mode value %s received from HeatPump",
-                    settings.mode
-                );
+                physical_mode = climate::CLIMATE_MODE_AUTO;
             }
-        } else {
-            this->mode = climate::CLIMATE_MODE_OFF;
         }
+    }
+
+    if (updateCurrentSettings) {
+        currentSettings.power = settings.power;
+        currentSettings.mode = settings.mode;
+    }
+
+    if (!this->first_real_state_received_) {
+        this->first_real_state_received_ = true;
+        ESP_LOGI(TAG, "First physical climate settings received: power=%s, mode=%s, temp=%.1f", 
+                 getIfNotNull(settings.power, "N/A"), getIfNotNull(settings.mode, "N/A"), settings.temperature);
+        
+        bool fan_stop_state = this->fan_stop_switch_ != nullptr ? this->fan_stop_switch_->state : false;
+        bool preserve_restored_mode = fan_stop_state && 
+                                      (this->desired_mode_ == climate::CLIMATE_MODE_HEAT || this->desired_mode_ == climate::CLIMATE_MODE_COOL) && 
+                                      (physical_mode == climate::CLIMATE_MODE_OFF);
+        if (preserve_restored_mode) {
+            ESP_LOGI(TAG, "Preserving restored desired mode (%s) because physical unit is OFF under Fan Stop.",
+                     climate::climate_mode_to_string(this->desired_mode_));
+            this->mode = this->desired_mode_;
+            this->target_temperature = this->desired_temp_;
+            this->last_commanded_real_mode_ = climate::CLIMATE_MODE_OFF;
+            this->last_commanded_real_temp_ = this->desired_temp_;
+        } else {
+            this->desired_mode_ = physical_mode;
+            this->mode = physical_mode;
+            if (!std::isnan(settings.temperature)) {
+                this->desired_temp_ = settings.temperature;
+                this->target_temperature = settings.temperature;
+            }
+            this->last_commanded_real_mode_ = physical_mode;
+            this->last_commanded_real_temp_ = settings.temperature;
+        }
+        
+        this->evaluate_fan_stop_and_ltp();
+        return;
+    }
+
+    // Check if we are inside the 5-second lockout window
+    if (CUSTOM_MILLIS - this->last_mode_command_time_ms_ < 5000) {
+        // Ignore setting this->mode from physical update during lockout
+        ESP_LOGD(TAG, "Inside command lockout window, ignoring physical power/mode update");
+        this->mode = this->desired_mode_;
+        this->target_temperature = this->desired_temp_;
+        return;
+    }
+
+    // Outside lockout window - check for external overrides (e.g. IR Remote)
+    if (physical_mode != this->last_commanded_real_mode_) {
+        ESP_LOGI(TAG, "External HVAC mode change detected: from %s to %s. Disabling Fan Stop.",
+                 climate::climate_mode_to_string(this->last_commanded_real_mode_),
+                 climate::climate_mode_to_string(physical_mode));
+                 
+        if (this->fan_stop_switch_ != nullptr && this->fan_stop_switch_->state) {
+            this->fan_stop_switch_->turn_off();
+        }
+        
+        this->desired_mode_ = physical_mode;
+        this->mode = physical_mode;
+        if (!std::isnan(settings.temperature)) {
+            this->desired_temp_ = settings.temperature;
+            this->target_temperature = settings.temperature;
+        }
+        
+        this->last_commanded_real_mode_ = physical_mode;
+        this->last_commanded_real_temp_ = settings.temperature;
+        
+        this->publish_state();
+    } else if (physical_mode != climate::CLIMATE_MODE_OFF && !std::isnan(settings.temperature) && fabsf(settings.temperature - this->last_commanded_real_temp_) >= 0.25f) {
+        ESP_LOGI(TAG, "External target temperature change detected: from %.1f to %.1f.",
+                 this->last_commanded_real_temp_, settings.temperature);
+                 
+        this->desired_temp_ = settings.temperature;
+        this->target_temperature = settings.temperature;
+        this->last_commanded_real_temp_ = settings.temperature;
+        
+        this->publish_state();
+        this->evaluate_fan_stop_and_ltp();
+    } else {
+        // No external override. Force the HA component state to remain aligned with user desired settings.
+        this->mode = this->desired_mode_;
+        this->target_temperature = this->desired_temp_;
     }
 }

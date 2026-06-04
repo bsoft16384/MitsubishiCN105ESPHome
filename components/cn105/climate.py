@@ -107,6 +107,12 @@ CONF_AIRFLOW_CONTROL_SELECT = "airflow_control_select"
 CONF_AIR_PURIFIER_SWITCH = "air_purifier_switch"
 CONF_NIGHT_MODE_SWITCH = "night_mode_switch"
 CONF_CIRCULATOR_SWITCH = "circulator_switch"
+CONF_FAN_STOP_SWITCH = "fan_stop_switch"
+CONF_LOW_TEMP_PROTECTION_SWITCH = "low_temp_protection_switch"
+CONF_DIAGNOSTIC_SENSOR = "diagnostic_sensor"
+CONF_HYSTERESIS = "hysteresis"
+CONF_LOW_TEMP_TEMP = "low_temp_temp"
+CONF_LOW_TEMP_HYSTERESIS = "low_temp_hysteresis"
 CONF_HARDWARE_SETTINGS = "hardware_settings"
 CONF_CODE = "code"
 CONF_OPTIONS = "options"
@@ -432,8 +438,13 @@ CONFIG_SCHEMA = (
             cv.Optional(
                 CONF_REMOTE_TEMPERATURE_CONTROL_SENSOR
             ): REMOTE_TEMPERATURE_CONTROL_SENSOR_SCHEMA,
-            #cv.Optional(CONF_REMOTE_TEMPERATURE_MARGIN, default=0.4): cv.positive_float,
             cv.Optional(CONF_POWER_UNIT_IS_BTU, default=False): cv.boolean,
+            cv.Optional(CONF_FAN_STOP_SWITCH): cv.use_id(switch.Switch),
+            cv.Optional(CONF_LOW_TEMP_PROTECTION_SWITCH): cv.use_id(switch.Switch),
+            cv.Optional(CONF_DIAGNOSTIC_SENSOR): cv.use_id(text_sensor.TextSensor),
+            cv.Optional(CONF_HYSTERESIS, default=0.5): cv.positive_float,
+            cv.Optional(CONF_LOW_TEMP_TEMP, default=8.0): cv.positive_float,
+            cv.Optional(CONF_LOW_TEMP_HYSTERESIS, default=4.0): cv.positive_float,
             cv.Optional(CONF_SUPPORTS, default={}): cv.Schema(
                 {
                     cv.Optional(
@@ -765,6 +776,22 @@ def to_code(config):
             )
 
             cg.add(var.add_hardware_setting(setting_var))
+
+    if CONF_FAN_STOP_SWITCH in config:
+        fan_stop_switch_var = yield cg.get_variable(config[CONF_FAN_STOP_SWITCH])
+        cg.add(var.set_fan_stop_switch(fan_stop_switch_var))
+    if CONF_LOW_TEMP_PROTECTION_SWITCH in config:
+        low_temp_protection_switch_var = yield cg.get_variable(config[CONF_LOW_TEMP_PROTECTION_SWITCH])
+        cg.add(var.set_low_temp_protection_switch(low_temp_protection_switch_var))
+    if CONF_DIAGNOSTIC_SENSOR in config:
+        diagnostic_sensor_var = yield cg.get_variable(config[CONF_DIAGNOSTIC_SENSOR])
+        cg.add(var.set_diagnostic_sensor(diagnostic_sensor_var))
+    if CONF_HYSTERESIS in config:
+        cg.add(var.set_hysteresis(config[CONF_HYSTERESIS]))
+    if CONF_LOW_TEMP_TEMP in config:
+        cg.add(var.set_low_temp_temp(config[CONF_LOW_TEMP_TEMP]))
+    if CONF_LOW_TEMP_HYSTERESIS in config:
+        cg.add(var.set_low_temp_hysteresis(config[CONF_LOW_TEMP_HYSTERESIS]))
 
     yield cg.register_component(var, config)
     yield climate.register_climate(var, config)
