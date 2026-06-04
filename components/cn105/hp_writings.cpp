@@ -401,13 +401,8 @@ void CN105Climate::sendWantedSettings() {
 
             //this->cycleEnded();   // only if we let the cycle be interrupted to send wented settings
 
-#ifdef USE_ESP32
             std::lock_guard<std::mutex> guard(wantedSettingsMutex);
             this->sendWantedSettingsDelegate();
-#else
-            this->emulateMutex("WRITE_SETTINGS", std::bind(&CN105Climate::sendWantedSettingsDelegate, this));
-
-#endif
 
         } else {
             ESP_LOGD(TAG, "will sendWantedSettings later because we've sent one too recently...");

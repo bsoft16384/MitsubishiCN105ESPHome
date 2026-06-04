@@ -280,12 +280,8 @@ void CN105Climate::finalizeControlIfUpdated(bool updated) {
 
 void CN105Climate::control(const esphome::climate::ClimateCall& call) {
 
-#ifdef USE_ESP32
     std::lock_guard<std::mutex> guard(wantedSettingsMutex);
     this->controlDelegate(call);
-#else    
-    this->emulateMutex("CONTROL_WANTED_SETTINGS", std::bind(&CN105Climate::controlDelegate, this, call));
-#endif    
 
 }
 

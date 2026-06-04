@@ -166,7 +166,6 @@ void CN105Climate::updateTargetTemperaturesFromSettings(float temperature) {
 }
 
 void CN105Climate::debugSettings(const char* settingName, wantedHeatpumpSettings& settings) {
-#ifdef USE_ESP32
     ESP_LOGD(LOG_ACTION_EVT_TAG, "[%s]-> [power: %s, target °C: %.1f, mode: %s, fan: %s, vane: %s, wvane: %s, hasChanged ? -> %s, hasBeenSent ? -> %s]",
         getIfNotNull(settingName, "unnamed"),
         getIfNotNull(settings.power, "-"),
@@ -178,19 +177,6 @@ void CN105Climate::debugSettings(const char* settingName, wantedHeatpumpSettings
         settings.hasChanged ? "YES" : " NO",
         settings.hasBeenSent ? "YES" : " NO"
     );
-#else
-    ESP_LOGD(LOG_ACTION_EVT_TAG, "[%-*s]-> [power: %-*s, target °C: %.1f, mode: %-*s, fan: %-*s, vane: %-*s, wvane: %-*s, hasChanged ? -> %s, hasBeenSent ? -> %s]",
-        15, getIfNotNull(settingName, "unnamed"),
-        3, getIfNotNull(settings.power, "-"),
-        settings.temperature,
-        6, getIfNotNull(settings.mode, "-"),
-        6, getIfNotNull(settings.fan, "-"),
-        6, getIfNotNull(settings.vane, "-"),
-        6, getIfNotNull(settings.wideVane, "-"),
-        settings.hasChanged ? "YES" : " NO",
-        settings.hasBeenSent ? "YES" : " NO"
-    );
-#endif
 }
 
 float CN105Climate::getTargetTemperatureInCurrentMode() {
@@ -300,7 +286,6 @@ void CN105Climate::debugClimate(const char* settingName) {
 
 
 void CN105Climate::debugSettings(const char* settingName, heatpumpSettings& settings) {
-#ifdef USE_ESP32
     ESP_LOGD(LOG_SETTINGS_TAG, "[%s]-> [power: %s, target °C: %.1f, mode: %s, fan: %s, vane: %s, wvane: %s]",
         getIfNotNull(settingName, "unnamed"),
         getIfNotNull(settings.power, "-"),
@@ -310,17 +295,6 @@ void CN105Climate::debugSettings(const char* settingName, heatpumpSettings& sett
         getIfNotNull(settings.vane, "-"),
         getIfNotNull(settings.wideVane, "-")
     );
-#else
-    ESP_LOGD(LOG_SETTINGS_TAG, "[%-*s]-> [power: %-*s, target °C: %.1f, mode: %-*s, fan: %-*s, vane: %-*s, wvane: %-*s]",
-        15, getIfNotNull(settingName, "unnamed"),
-        3, getIfNotNull(settings.power, "-"),
-        settings.temperature,
-        6, getIfNotNull(settings.mode, "-"),
-        6, getIfNotNull(settings.fan, "-"),
-        6, getIfNotNull(settings.vane, "-"),
-        6, getIfNotNull(settings.wideVane, "-")
-    );
-#endif
 }
 
 
@@ -329,7 +303,6 @@ void CN105Climate::debugStatus(const char* statusName, heatpumpStatus status) {
     // 6 caractères suffisent pour "-99.9\0"
     static char outside_temp_buffer[6];
 
-#ifdef USE_ESP32
     ESP_LOGI(LOG_STATUS_TAG, "[%s]-> [room C°: %.1f, outside C°: %s, operating: %s, compressor freq: %.1f Hz]",
         statusName,
         status.roomTemperature,
@@ -339,21 +312,6 @@ void CN105Climate::debugStatus(const char* statusName, heatpumpStatus status) {
         : (snprintf(outside_temp_buffer, sizeof(outside_temp_buffer), "%.1f", status.outsideAirTemperature) > 0 ? outside_temp_buffer : "ERR"),
         status.operating ? "YES" : "NO ",
         status.compressorFrequency);
-#else
-    // Le buffer doit être dans la portée pour le bloc #else aussi
-    // Si on veut qu'il soit statique, il faut le définir avant #ifdef
-    // Si la définition est locale, c'est bon :
-
-    ESP_LOGI(LOG_STATUS_TAG, "[%-*s]-> [room C°: %.1f, outside C°: %s, operating: %-*s, compressor freq: %.1f Hz]",
-        15, statusName,
-        status.roomTemperature,
-        // Utilisation de snprintf dans l'expression ternaire
-        isnan(status.outsideAirTemperature)
-        ? "N/A"
-        : (snprintf(outside_temp_buffer, sizeof(outside_temp_buffer), "%.1f", status.outsideAirTemperature) > 0 ? outside_temp_buffer : "ERR"),
-        3, status.operating ? "YES" : "NO ",
-        status.compressorFrequency);
-#endif
 }
 
 
@@ -517,134 +475,4 @@ int CN105Climate::lookupByteMapValue(const int valuesMap[], const uint8_t byteMa
     return result;
 }
 
-#ifndef USE_ESP32
-/**
- * This methode emulates the esp32 lock_guard feature with a boolean variable
- *
-*/
-void CN105Climate::emulateMutex(const char* retryName, std::function<void()>&& f) {
-    auto callback = std::make_shared<std::function<void()>>(std::move(f));
-    auto retry = std::make_shared<std::function<void(uint8_t, uint32_t)>>();
-    std::weak_ptr<std::function<void(uint8_t, uint32_t)>> weak_retry = retry;
-    *retry = [this, retryName, weak_retry, callback](uint8_t retry_count, uint32_t delay_ms) {
-        if (this->wantedSettingsMutex) {
-            if (retry_count >= 10) {
-                ESP_LOGW(retryName, "10 retry calls failed because mutex was locked, forcing unlock...");
-                this->wantedSettingsMutex = true;
-                (*callback)();
-                this->wantedSettingsMutex = false;
-                return;
-            }
-            ESP_LOGI(retryName, "wantedSettingsMutex is already locked, defferring...");
-            const uint32_t next_delay_ms = static_cast<uint32_t>(delay_ms * 1.2f);
-            if (auto retry = weak_retry.lock()) {
-                this->set_timeout(retryName, delay_ms, [retry, retry_count, next_delay_ms]() {
-                    (*retry)(retry_count + 1, next_delay_ms);
-                });
-            }
-            return;
-        } else {
-            this->wantedSettingsMutex = true;
-            ESP_LOGD(retryName, "emulateMutex normal behaviour, locking...");
-            (*callback)();
-            ESP_LOGD(retryName, "emulateMutex unlocking...");
-            this->wantedSettingsMutex = false;
-            return;
-        }
-    };
-    (*retry)(0, 100);
-}
-#ifdef TEST_MODE
 
-void CN105Climate::testEmulateMutex(const char* retryName, std::function<void()>&& f) {
-    auto callback = std::make_shared<std::function<void()>>(std::move(f));
-    auto retry = std::make_shared<std::function<void(uint8_t, uint32_t)>>();
-    std::weak_ptr<std::function<void(uint8_t, uint32_t)>> weak_retry = retry;
-    *retry = [this, retryName, weak_retry, callback](uint8_t retry_count, uint32_t delay_ms) {
-        if (this->esp8266Mutex) {
-            if (retry_count >= 10) {
-                ESP_LOGW(retryName, "10 retry calls failed because mutex was locked, forcing unlock...");
-                this->esp8266Mutex = true;
-                (*callback)();
-                this->esp8266Mutex = false;
-                return;
-            }
-            ESP_LOGI(retryName, "testMutex is already locked, defferring...");
-            const uint32_t next_delay_ms = static_cast<uint32_t>(delay_ms * 1.2f);
-            if (auto retry = weak_retry.lock()) {
-                this->set_timeout(retryName, delay_ms, [retry, retry_count, next_delay_ms]() {
-                    (*retry)(retry_count + 1, next_delay_ms);
-                });
-            }
-            return;
-        } else {
-            this->esp8266Mutex = true;
-            ESP_LOGD(retryName, "emulateMutex normal behaviour, locking...");
-            (*callback)();
-            ESP_LOGD(retryName, "emulateMutex unlocking...");
-            this->esp8266Mutex = false;
-            return;
-        }
-    };
-    (*retry)(0, 100);
-}
-#endif
-#endif
-
-#ifdef TEST_MODE
-void CN105Climate::logDelegate() {
-#ifndef USE_ESP32
-    ESP_LOGI("testMutex", "Delegate exécuté. Mutex est %s", this->esp8266Mutex ? "verrouillé" : "déverrouillé");
-#else
-    if (this->esp32Mutex.try_lock()) {
-        ESP_LOGI("testMutex", "Mutex n'est pas verrouillé");
-    } else {
-        ESP_LOGI("testMutex", "Mutex est déjà verrouillé");
-    }
-#endif
-}
-
-void CN105Climate::testCase1() {
-    int testDelay = 600;
-
-#ifdef USE_ESP32
-
-    ESP_LOGI("testMutex", "Test 1: VERROUILLAGE ET APPEL DE logDelegate...");
-    ESP_LOGI("testMutex", "verrouillage du mutex...");
-    if (true) {
-        std::lock_guard<std::mutex> guard(this->esp32Mutex);
-        ESP_LOGI("testMutex", "verification...");
-        this->logDelegate();
-    }
-    ESP_LOGI("testMutex", "déverrouillage du mutex...");
-    this->logDelegate();
-
-    ESP_LOGI("testMutex", "Test 2: PAS DE VERROU ET APPEL DE logDelegate...");
-    this->logDelegate();
-#else
-    ESP_LOGI("testMutex", "Test 1: VERROUILLAGE ET APPEL DE logDelegate...");
-    ESP_LOGI("testMutex", "verrouillage du mutex...");
-    this->esp8266Mutex = true;
-    this->testEmulateMutex("testMutex", std::bind(&CN105Climate::logDelegate, this));
-    CUSTOM_DELAY(testDelay);
-    ESP_LOGI("testMutex", "Déverrouillage du mutex...");
-    this->esp8266Mutex = false;
-    CUSTOM_DELAY(200);
-    ESP_LOGI("testMutex", "verrouillage du mutex...");
-    this->esp8266Mutex = true;
-    this->testEmulateMutex("testMutex", std::bind(&CN105Climate::logDelegate, this));
-    ESP_LOGI("testMutex", "blocage de 2,5s...");
-    CUSTOM_DELAY(2500);
-    ESP_LOGI("testMutex", "fin du test");
-
-#endif
-}
-
-void CN105Climate::testMutex() {
-
-    ESP_LOGI("testMutex", "Test de gestion des mutex...");
-    this->testCase1();
-
-}
-
-#endif

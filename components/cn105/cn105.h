@@ -35,9 +35,7 @@
 #include <vector>
 #include <map>
 
-#ifdef USE_ESP32
 #include <mutex>
-#endif
 
 namespace esphome {
 
@@ -321,18 +319,7 @@ namespace esphome {
         // helpers
         const char* getIfNotNull(const char* what, const char* defaultValue);
 
-#ifdef TEST_MODE
-        void testMutex();
-        void testCase1();
-        void logDelegate();
 
-#ifdef USE_ESP32
-        std::mutex esp32Mutex;
-#else
-        void testEmulateMutex(const char* retryName, std::function<void()>&& f);
-        bool esp8266Mutex = false;
-#endif
-#endif
 
 
     protected:
@@ -426,9 +413,6 @@ namespace esphome {
         void debugSettingsAndStatus(const char* settingName, heatpumpSettings settings, heatpumpStatus status);
         void debugClimate(const char* settingName);
 
-#ifndef USE_ESP32
-        void emulateMutex(const char* retryName, std::function<void()>&& f);
-#endif
 
 
 
@@ -458,11 +442,7 @@ namespace esphome {
         void registerInfoRequests();
         void registerHardwareSettingsRequests();
 
-#ifdef USE_ESP32
         std::mutex wantedSettingsMutex;
-#else
-        volatile bool wantedSettingsMutex = false;
-#endif
 
         unsigned long lastResponseMs;
 

@@ -1,11 +1,9 @@
 
 #include "cn105.h"
-#ifdef USE_ESP32
 #include <driver/uart.h>
 #include <driver/gpio.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#endif
 
 using namespace esphome;
 
@@ -88,9 +86,7 @@ CN105Climate::CN105Climate(uart::UARTComponent* uart) :
     this->loopCycle.init();
     this->wantedSettings.resetSettings();
     this->wantedRunStates.resetSettings();
-#ifndef USE_ESP32
-    this->wantedSettingsMutex = false;
-#endif
+
 
     // Register info requests moved to setup() to ensure hardware_settings_ are populated
 }
@@ -446,7 +442,6 @@ bool CN105Climate::isHeatpumpConnectionActive() {
 }
 
 void CN105Climate::force_low_level_uart_reinit() {
-#ifdef USE_ESP32
     // Low layer reset: reconfigure user control by UARTComponent
     // We use the port passed by set_uart_port (fallback UART0 if unknown)
     const uart_port_t port = (this->uart_port_ == 1) ? UART_NUM_1 :
@@ -517,7 +512,4 @@ void CN105Climate::force_low_level_uart_reinit() {
     uint32_t eff_baud = 0;
     uart_get_baudrate(port, &eff_baud);
     ESP_LOGD(TAG, "UART effective baud=%lu tx_pin=%d rx_pin=%d", (unsigned long)eff_baud, this->tx_pin_, this->rx_pin_);
-#else
-    // No ESP32: nothing to do
-#endif
 }
