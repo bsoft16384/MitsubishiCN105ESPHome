@@ -163,7 +163,7 @@ void CN105Climate::debug_settings(const char* settingName, heatpumpSettings& set
 
 
 void CN105Climate::debug_status(const char* statusName, heatpumpStatus status) {
-    // Déclarez un buffer (tableau de char) pour la conversion float -> string
+    // Declare a buffer (char array) for the float to string conversion
     char outside_temp_buffer[16];
 
     ESP_LOGI(LOG_STATUS_TAG, "[%s]-> [room C°: %.1f, outside C°: %s, operating: %s, compressor freq: %.1f Hz]",

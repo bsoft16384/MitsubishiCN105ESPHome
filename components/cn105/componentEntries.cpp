@@ -129,7 +129,7 @@ void CN105Climate::maybe_start_connection_() {
             // Arm a 120s global timeout (fires once, forces connection even without WiFi)
             this->set_timeout("cn105_bootstrap_timeout", 120000, [this]() {
                 if (state_ >= DriverState::CONNECTING) return;
-                ESP_LOGW(LOG_CONN_TAG, "Bootstrap connexion: timeout 120s, démarrage CN105 malgré tout");
+                ESP_LOGW(LOG_CONN_TAG, "Bootstrap connection: 120s timeout, starting CN105 anyway");
                 this->setup_uart();
                 this->send_first_connection_packet();
             });
@@ -137,13 +137,13 @@ void CN105Climate::maybe_start_connection_() {
 #ifdef USE_WIFI
             if (wifi::global_wifi_component != nullptr && !wifi::global_wifi_component->is_connected()) {
                 this->transition_to_(DriverState::WAIT_WIFI);
-                ESP_LOGI(LOG_CONN_TAG, "Bootstrap connexion: attente WiFi avant init UART/CONNECT");
+                ESP_LOGI(LOG_CONN_TAG, "Bootstrap connection: waiting for WiFi before UART/CONNECT initialization");
                 return;
             }
 #endif
             // WiFi ready (or no WiFi) — check grace delay
             this->transition_to_(DriverState::WAIT_GRACE);
-            ESP_LOGI(LOG_CONN_TAG, "Bootstrap connexion: délai de grâce %ums pour logs OTA", this->conn_bootstrap_delay_ms_);
+            ESP_LOGI(LOG_CONN_TAG, "Bootstrap connection: grace delay %ums for OTA logs", this->conn_bootstrap_delay_ms_);
             return;
         }
 
@@ -154,7 +154,7 @@ void CN105Climate::maybe_start_connection_() {
             }
 #endif
             this->transition_to_(DriverState::WAIT_GRACE);
-            ESP_LOGI(LOG_CONN_TAG, "Bootstrap connexion: WiFi connecté, délai de grâce %ums", this->conn_bootstrap_delay_ms_);
+            ESP_LOGI(LOG_CONN_TAG, "Bootstrap connection: WiFi connected, grace delay %ums", this->conn_bootstrap_delay_ms_);
             return;
         }
 
@@ -163,7 +163,7 @@ void CN105Climate::maybe_start_connection_() {
             if (elapsed < this->conn_bootstrap_delay_ms_) {
                 return;  // grace delay not elapsed yet
             }
-            ESP_LOGI(LOG_CONN_TAG, "Bootstrap connexion: init UART + envoi CONNECT (loop)");
+            ESP_LOGI(LOG_CONN_TAG, "Bootstrap connection: initializing UART + sending CONNECT (loop)");
             this->setup_uart();
             this->send_first_connection_packet();
             // setup_uart() transitions to CONNECTING if UART config is valid

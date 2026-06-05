@@ -17,12 +17,12 @@ void CN105Climate::send_first_connection_packet() {
 
         // Choix du mode de handshake: standard (0x5A) ou installateur (0x5B)
         packet[1] = this->installer_mode_effective_ ? 0x5B : 0x5A;
-        // CONNECT a un checksum pré-calculé dans la constante; si on modifie l'octet commande, on doit le recalculer.
+        // CONNECT has a pre-calculated checksum in the constant; if we modify the command byte, we must recalculate it.
         packet[CONNECT_LEN - 1] = check_sum(packet, CONNECT_LEN - 1);
 
-        ESP_LOGI(LOG_CONN_TAG, "Envoi du paquet de connexion en mode %s (0x%02X)...", this->installer_mode_effective_ ? "Installateur" : "Standard", packet[1]);
+        ESP_LOGI(LOG_CONN_TAG, "Sending connection packet in %s mode (0x%02X)...", this->installer_mode_effective_ ? "Installer" : "Standard", packet[1]);
 
-        // Détails des octets en DEBUG sur le tag de connexion
+        // Byte details as DEBUG on the connection tag
         this->hp_packet_debug(packet, CONNECT_LEN, LOG_CONN_TAG);
 
         this->write_packet(packet, CONNECT_LEN, false);      // checkIsActive=false because it's the first packet and we don't have any reply yet
@@ -35,8 +35,8 @@ void CN105Climate::send_first_connection_packet() {
         this->set_timeout("checkFirstConnection", 10000, [this]() {
             if (!this->is_heatpump_connected()) {
                 ESP_LOGE(LOG_CONN_TAG, "--> Heatpump did not reply: NOT CONNECTED <--");
-                // Fallback automatique: si le mode installateur est demandé mais que la PAC ignore 0x5B,
-                // on retente une fois en mode standard (0x5A) pour préserver la connectivité.
+                // Automatic fallback: if installer mode is requested but the heatpump ignores 0x5B,
+                // we retry once in standard mode (0x5A) to preserve connectivity.
                 if (this->installer_mode_ && this->installer_mode_effective_ && !this->installer_mode_fallback_done_) {
                     this->installer_mode_effective_ = false;
                     this->installer_mode_fallback_done_ = true;
@@ -405,7 +405,7 @@ void CN105Climate::build_and_send_requests_info_packets() {
         ESP_LOGV("CONTROL_WANTED_SETTINGS", "hasChanged is %s", wantedSettings.hasChanged ? "true" : "false");
         this->loopCycle.cycle_started();
         this->nbCycles_++;
-        // Envoie la première requête activable (la liste est enregistrée une fois au constructeur)
+        // Sends the first sendable request (the list is registered once at the constructor)
         this->scheduler_.send_next_after(0x00); // 0x00 -> start, pick first eligible
     } else {
         this->reconnect_if_connection_lost();

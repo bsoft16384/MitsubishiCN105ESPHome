@@ -464,12 +464,12 @@ void CN105Climate::get_error_info_from_response_packet() {
 
 void CN105Climate::get_data_from_response_packet() {
 
-    // D'abord, laissons l'orchestrateur traiter les codes connus
+    // First, let the orchestrator process the known codes
     const uint8_t code = get_payload_byte(0);
     if (this->scheduler_.process_response(code)) {
         return;
     }
-    // Sinon, switch pour les cas non gÃƒÂ©rÃƒÂ©s par l'orchestrateur
+    // Otherwise, switch for cases not handled by the orchestrator
     switch (code) {
 
     case 0x04:
@@ -527,7 +527,7 @@ void CN105Climate::process_command() {
         break;
     case 0x7a:  // Connection success (User / standard)
     case 0x7b:  // Connection success (Installer / extended)
-        // Log en INFO sur le tag dÃƒÂ©diÃƒÂ©, dÃƒÂ©tails en DEBUG via hpPacketDebug
+        // Log as INFO on the dedicated tag, details as DEBUG via hpPacketDebug
         ESP_LOGI(LOG_CONN_TAG, "--> Heatpump did reply: connection success (%s, 0x%02X)! <--",
             (this->parser_.command() == 0x7b) ? "Installer" : "User",
             this->parser_.command());

@@ -391,9 +391,9 @@ void CN105Climate::set_remote_temperature(float setting) {
         return;
     }
 
-    // Toujours renvoyer la température distante lorsqu’un nouvel échantillon arrive,
-    // même si la valeur n’a pas changé, afin d’éviter que l’unité Mitsubishi
-    // ne repasse sur la sonde interne faute de mise à jour régulière (#474).
+    // Always resend the remote temperature when a new sample arrives,
+    // even if the value has not changed, to prevent the Mitsubishi unit
+    // from reverting to the internal sensor due to a lack of regular updates (#474).
     this->remoteTemperature_ = setting;
     this->shouldSendExternalTemperature_ = true;
     ESP_LOGD(LOG_REMOTE_TEMP, "setting remote temperature to %f", this->remoteTemperature_);
