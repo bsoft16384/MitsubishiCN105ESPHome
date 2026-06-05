@@ -18,15 +18,15 @@ logger:
 
 api:
   encryption:
-    key: !secret encryption_key_sejour
+    key: "ZE1PcjZ1S0tsZ3BtY1pyZlF3ek56ZWRzZ3FpcGhkZlM="
 
 ota:  
   - platform: esphome
-    password: !secret ota_pwd
+    password: "dummy_ota_password"
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
+  ssid: "dummy_ssid"
+  password: "dummy_password"
 
 external_components:
  - source:
