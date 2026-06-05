@@ -70,6 +70,11 @@ inline uint8_t encode_temperature_b(float temperature) {
 /// @param[out] enc_a   Output: encoding A byte for the remote temp packet.
 /// @param[out] enc_b   Output: encoding B byte for the remote temp packet.
 inline void encode_remote_temperature(float temperature, uint8_t& enc_a, uint8_t& enc_b) {
+    if (temperature < 8.0f) {
+        temperature = 8.0f;
+    } else if (temperature > 37.5f) {
+        temperature = 37.5f;
+    }
     float rounded = std::round(temperature * 2.0f);
     enc_a = static_cast<uint8_t>(rounded - 16);
     enc_b = static_cast<uint8_t>(rounded + 128);
@@ -108,15 +113,6 @@ inline T lookup_value(const T valuesMap[], const uint8_t byteMap[], int len, uin
 /// @return            Index of the match, or -1 if not found.
 template <typename T>
 inline int lookup_index(const T valuesMap[], int len, T lookupValue) {
-    for (int i = 0; i < len; i++) {
-        if (valuesMap[i] == lookupValue) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-inline int lookup_index(const int valuesMap[], int len, int lookupValue) {
     for (int i = 0; i < len; i++) {
         if (valuesMap[i] == lookupValue) {
             return i;

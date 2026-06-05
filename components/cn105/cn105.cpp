@@ -187,8 +187,12 @@ void CN105Climate::register_hardware_settings_requests() {
         self.hp_packet_debug(self.data, self.parser_.data_length(), "RX 0x20");
         self.hp_functions_debug(self.data, self.parser_.data_length());
         if (check_and_disable(self, 0x20)) {
-            self.functions.set_data1(&self.data[1]);
-            ESP_LOGD(LOG_FUNCTIONS_TAG, "Got functions packet 1 (via InfoRequest)");
+            if (self.parser_.data_length() >= 16) {
+                self.functions.set_data1(&self.data[1]);
+                ESP_LOGD(LOG_FUNCTIONS_TAG, "Got functions packet 1 (via InfoRequest)");
+            } else {
+                ESP_LOGW(LOG_FUNCTIONS_TAG, "Functions packet 1 data length too short: %d", self.parser_.data_length());
+            }
         }
         };
     scheduler_.register_request(r_funcs1);
@@ -203,9 +207,13 @@ void CN105Climate::register_hardware_settings_requests() {
         self.hp_packet_debug(self.data, self.parser_.data_length(), "RX 0x22");
         self.hp_functions_debug(self.data, self.parser_.data_length());
         if (check_and_disable(self, 0x22)) {
-            self.functions.set_data2(&self.data[1]);
-            ESP_LOGD(LOG_FUNCTIONS_TAG, "Got functions packet 2 (via InfoRequest)");
-            self.functions_arrived();
+            if (self.parser_.data_length() >= 16) {
+                self.functions.set_data2(&self.data[1]);
+                ESP_LOGD(LOG_FUNCTIONS_TAG, "Got functions packet 2 (via InfoRequest)");
+                self.functions_arrived();
+            } else {
+                ESP_LOGW(LOG_FUNCTIONS_TAG, "Functions packet 2 data length too short: %d", self.parser_.data_length());
+            }
         }
         };
     scheduler_.register_request(r_funcs2);
@@ -327,13 +335,13 @@ bool CN105Climate::is_operating() {
     return currentStatus.operating;
 }
 bool CN105Climate::is_air_purifier() {
-    return currentRunStates.air_purifier;
+    return currentRunStates.air_purifier > 0;
 }
 bool CN105Climate::is_night_mode() {
-    return currentRunStates.night_mode;
+    return currentRunStates.night_mode > 0;
 }
 bool CN105Climate::is_circulator() {
-    return currentRunStates.circulator;
+    return currentRunStates.circulator > 0;
 }
 
 // SERIAL_8E1
@@ -396,17 +404,17 @@ void CN105Climate::reconnect_uart() {
 
 void CN105Climate::reconnect_if_connection_lost() {
 
-    long reconnectTimeMs = CUSTOM_MILLIS - this->lastReconnectTimeMs;
+    uint32_t reconnectTimeMs = CUSTOM_MILLIS - this->lastReconnectTimeMs;
 
     if (reconnectTimeMs < this->update_interval_) {
         return;
     }
 
     if (!this->is_heatpump_connection_active()) {
-        long connectTimeMs = CUSTOM_MILLIS - this->lastConnectRqTimeMs;
+        uint32_t connectTimeMs = CUSTOM_MILLIS - this->lastConnectRqTimeMs;
         if (connectTimeMs > this->update_interval_) {
-            long lrTimeMs = CUSTOM_MILLIS - this->lastResponseMs;
-            ESP_LOGW(TAG, "Heatpump has not replied for %ld s", lrTimeMs / 1000);
+            uint32_t lrTimeMs = CUSTOM_MILLIS - this->lastResponseMs;
+            ESP_LOGW(TAG, "Heatpump has not replied for %lu s", (unsigned long)(lrTimeMs / 1000));
             ESP_LOGI(TAG, "We think Heatpump is not connected anymore..");
             this->reconnect_uart();
         }

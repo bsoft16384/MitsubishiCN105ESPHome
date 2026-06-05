@@ -164,8 +164,7 @@ void CN105Climate::debug_settings(const char* settingName, heatpumpSettings& set
 
 void CN105Climate::debug_status(const char* statusName, heatpumpStatus status) {
     // Déclarez un buffer (tableau de char) pour la conversion float -> string
-    // 6 caractères suffisent pour "-99.9\0"
-    static char outside_temp_buffer[6];
+    char outside_temp_buffer[16];
 
     ESP_LOGI(LOG_STATUS_TAG, "[%s]-> [room C°: %.1f, outside C°: %s, operating: %s, compressor freq: %.1f Hz]",
         statusName,
@@ -189,13 +188,17 @@ void CN105Climate::debug_settings_and_status(const char* settingName, heatpumpSe
 void CN105Climate::hp_packet_debug(const uint8_t* packet, unsigned int length, const char* packetDirection, const char* log_prefix) {
     if (length < 5) {
         // Fallback for too short packets
-        std::string output;
-        char byteBuf[4];
+        char output[20] = "";
+        char* p = output;
+        size_t rem = sizeof(output);
         for (unsigned int i = 0; i < length; i++) {
-            snprintf(byteBuf, sizeof(byteBuf), "%02X ", packet[i]);
-            output += byteBuf;
+            int written = snprintf(p, rem, "%02X ", packet[i]);
+            if (written > 0 && (size_t)written < rem) {
+                p += written;
+                rem -= written;
+            }
         }
-        ESP_LOGD(packetDirection, "SHORT: %s", output.c_str());
+        ESP_LOGD(packetDirection, "SHORT: %s", output);
         return;
     }
 
@@ -247,30 +250,40 @@ void CN105Climate::hp_packet_debug(const uint8_t* packet, unsigned int length, c
     snprintf(fullLabel, sizeof(fullLabel), "%s%s", label, subLabel);
 
     // Format strings
-    std::string headerStr, dataStr, csStr;
-    char byteBuf[4];
+    char headerStr[18] = "";
+    char dataStr[380] = "";
+    char csStr[4] = "";
 
     // HEADER: First 5 bytes
+    char* p = headerStr;
+    size_t header_rem = sizeof(headerStr);
     for (unsigned int i = 0; i < 5 && i < length; i++) {
-        snprintf(byteBuf, sizeof(byteBuf), "%02X ", packet[i]);
-        headerStr += byteBuf;
+        int written = snprintf(p, header_rem, "%02X ", packet[i]);
+        if (written > 0 && (size_t)written < header_rem) {
+            p += written;
+            header_rem -= written;
+        }
     }
 
     // DATA: Bytes 5 to Length-2 (payload)
+    p = dataStr;
+    size_t data_rem = sizeof(dataStr);
     if (length > 6) {
         for (unsigned int i = 5; i < length - 1; i++) {
-            snprintf(byteBuf, sizeof(byteBuf), "%02X ", packet[i]);
-            dataStr += byteBuf;
+            int written = snprintf(p, data_rem, "%02X ", packet[i]);
+            if (written > 0 && (size_t)written < data_rem) {
+                p += written;
+                data_rem -= written;
+            }
         }
     }
 
     // CHECKSUM: Last byte
-    snprintf(byteBuf, sizeof(byteBuf), "%02X", packet[length - 1]);
-    csStr = byteBuf;
+    snprintf(csStr, sizeof(csStr), "%02X", packet[length - 1]);
 
 // Output format: [LABEL:SubLabel ] HEADER -> [ PAYLOAD ] CS
     ESP_LOGD(packetDirection, "%s|%s|->[%s](%s) <%s>", 
-        log_prefix, headerStr.c_str(), dataStr.c_str(), csStr.c_str(), fullLabel);
+        log_prefix, headerStr, dataStr, csStr, fullLabel);
 }
 
 void CN105Climate::hp_functions_debug(uint8_t* packet, unsigned int length) {

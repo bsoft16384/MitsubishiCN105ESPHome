@@ -65,18 +65,25 @@ void CN105Climate::process_data_packet() {
     }
 }
 
+uint8_t CN105Climate::get_payload_byte(int index, uint8_t default_val) const {
+    if (index >= this->parser_.data_length()) {
+        return default_val;
+    }
+    return this->data[index];
+}
+
 
 
 void CN105Climate::get_auto_mode_state_from_response_packet() {
     heatpumpSettings receivedSettings{};
 
-    if (data[10] == 0x00) {
+    if (get_payload_byte(10) == 0x00) {
         ESP_LOGD("Decoder", "[0x10 is 0x00]");
 
-    } else if (data[10] == 0x01) {
+    } else if (get_payload_byte(10) == 0x01) {
         ESP_LOGD("Decoder", "[0x10 is 0x01]");
 
-    } else if (data[10] == 0x02) {
+    } else if (get_payload_byte(10) == 0x02) {
         ESP_LOGD("Decoder", "[0x10 is 0x02]");
 
     } else {
@@ -91,31 +98,31 @@ void CN105Climate::get_power_from_response_packet() {
     heatpumpSettings receivedSettings{};
  
     // Use std::optional lookups — keep previous value on unknown bytes
-    auto stage_opt = hp_stage_from_wire(data[4]);
+    auto stage_opt = hp_stage_from_wire(get_payload_byte(4));
     if (stage_opt) {
         receivedSettings.stage = *stage_opt;
     } else {
-        ESP_LOGW("Decoder", "Unknown stage byte 0x%02X — keeping previous value", data[4]);
+        ESP_LOGW("Decoder", "Unknown stage byte 0x%02X — keeping previous value", get_payload_byte(4));
         receivedSettings.stage = (this->currentSettings.stage != HPStage::UNKNOWN)
             ? this->currentSettings.stage
             : HPStage::IDLE;  // default to "IDLE" when no prior value exists
     }
  
-    auto sub_mode_opt = hp_sub_mode_from_wire(data[3]);
+    auto sub_mode_opt = hp_sub_mode_from_wire(get_payload_byte(3));
     if (sub_mode_opt) {
         receivedSettings.sub_mode = *sub_mode_opt;
     } else {
-        ESP_LOGW("Decoder", "Unknown sub_mode byte 0x%02X — keeping previous value", data[3]);
+        ESP_LOGW("Decoder", "Unknown sub_mode byte 0x%02X — keeping previous value", get_payload_byte(3));
         receivedSettings.sub_mode = (this->currentSettings.sub_mode != HPSubMode::UNKNOWN)
             ? this->currentSettings.sub_mode
             : HPSubMode::NORMAL;  // default to "NORMAL" when no prior value exists
     }
  
-    auto auto_sub_mode_opt = hp_auto_sub_mode_from_wire(data[5]);
+    auto auto_sub_mode_opt = hp_auto_sub_mode_from_wire(get_payload_byte(5));
     if (auto_sub_mode_opt) {
         receivedSettings.auto_sub_mode = *auto_sub_mode_opt;
     } else {
-        ESP_LOGW("Decoder", "Unknown auto_sub_mode byte 0x%02X — keeping previous value", data[5]);
+        ESP_LOGW("Decoder", "Unknown auto_sub_mode byte 0x%02X — keeping previous value", get_payload_byte(5));
         receivedSettings.auto_sub_mode = (this->currentSettings.auto_sub_mode != HPAutoSubMode::UNKNOWN)
             ? this->currentSettings.auto_sub_mode
             : HPAutoSubMode::AUTO_OFF;  // default to "AUTO_OFF" when no prior value exists
@@ -154,18 +161,18 @@ void CN105Climate::get_settings_from_response_packet() {
     heatpumpRunStates receivedRunStates{};
     ESP_LOGD("Decoder", "[0x02 is settings]");
 
-    auto power_opt = hp_power_from_wire(data[3]);
+    auto power_opt = hp_power_from_wire(get_payload_byte(3));
     if (power_opt) {
         receivedSettings.power = *power_opt;
     } else {
-        ESP_LOGW("Decoder", "Unknown power byte 0x%02X — keeping previous value", data[3]);
+        ESP_LOGW("Decoder", "Unknown power byte 0x%02X — keeping previous value", get_payload_byte(3));
         receivedSettings.power = (this->currentSettings.power != HPPower::UNKNOWN)
             ? this->currentSettings.power
             : HPPower::OFF;  // default to "OFF" when no prior value exists
     }
  
-    receivedSettings.iSee = data[4] > 0x08 ? true : false;
-    uint8_t modeByte = receivedSettings.iSee ? (data[4] - 0x08) : data[4];
+    receivedSettings.iSee = get_payload_byte(4) > 0x08 ? true : false;
+    uint8_t modeByte = receivedSettings.iSee ? (get_payload_byte(4) - 0x08) : get_payload_byte(4);
     auto mode_opt = hp_mode_from_wire(modeByte);
     if (mode_opt) {
         receivedSettings.mode = *mode_opt;
@@ -184,8 +191,8 @@ void CN105Climate::get_settings_from_response_packet() {
     ESP_LOGD("Decoder", "[iSee  : %d]", receivedSettings.iSee);
     ESP_LOGD("Decoder", "[Mode  : %s]", hp_mode_to_str(receivedSettings.mode));
  
-    if (data[11] != 0x00) {
-        int temp = data[11];
+    if (get_payload_byte(11) != 0x00) {
+        int temp = get_payload_byte(11);
         temp -= 128;
         receivedSettings.temperature = (float)temp / 2;
     } else {
@@ -195,22 +202,22 @@ void CN105Climate::get_settings_from_response_packet() {
  
     ESP_LOGD("Decoder", "[Temp °C: %f]", receivedSettings.temperature);
  
-    auto fan_opt = hp_fan_from_wire(data[6]);
+    auto fan_opt = hp_fan_from_wire(get_payload_byte(6));
     if (fan_opt) {
         receivedSettings.fan = *fan_opt;
     } else {
-        ESP_LOGW("Decoder", "Unknown fan byte 0x%02X — keeping previous value", data[6]);
+        ESP_LOGW("Decoder", "Unknown fan byte 0x%02X — keeping previous value", get_payload_byte(6));
         receivedSettings.fan = (this->currentSettings.fan != HPFanMode::UNKNOWN)
             ? this->currentSettings.fan
             : HPFanMode::AUTO;  // default to "AUTO" when no prior value exists
     }
     ESP_LOGD("Decoder", "[Fan: %s]", hp_fan_to_str(receivedSettings.fan));
  
-    auto vane_opt = hp_vane_from_wire(data[7]);
+    auto vane_opt = hp_vane_from_wire(get_payload_byte(7));
     if (vane_opt) {
         receivedSettings.vane = *vane_opt;
     } else {
-        ESP_LOGW("Decoder", "Unknown vane byte 0x%02X — keeping previous value", data[7]);
+        ESP_LOGW("Decoder", "Unknown vane byte 0x%02X — keeping previous value", get_payload_byte(7));
         receivedSettings.vane = (this->currentSettings.vane != HPVaneMode::UNKNOWN)
             ? this->currentSettings.vane
             : HPVaneMode::AUTO;  // default to "AUTO" when no prior value exists
@@ -218,8 +225,8 @@ void CN105Climate::get_settings_from_response_packet() {
     ESP_LOGD("Decoder", "[Vane: %s]", hp_vane_to_str(receivedSettings.vane));
  
     // --- START OF MODIFIED SECTION - Reverted widevane section back to more or less original state
-    if ((data[10] != 0) && (this->traits_.supports_swing_mode(climate::CLIMATE_SWING_HORIZONTAL))) {    // wideVane is not always supported
-        uint8_t wideVaneByte = data[10] & 0x0F;
+    if ((get_payload_byte(10) != 0) && (this->traits_.supports_swing_mode(climate::CLIMATE_SWING_HORIZONTAL))) {    // wideVane is not always supported
+        uint8_t wideVaneByte = get_payload_byte(10) & 0x0F;
         auto wideVane_opt = hp_wide_vane_from_wire(wideVaneByte);
         if (wideVane_opt) {
             receivedSettings.wideVane = *wideVane_opt;
@@ -229,7 +236,7 @@ void CN105Climate::get_settings_from_response_packet() {
                 ? this->currentSettings.wideVane
                 : HPWideVaneMode::CENTER;  // default to "|" (center) when no prior value exists
         }
-        this->wideVaneAdj = (data[10] & 0xF0) == 0x80 ? true : false;
+        this->wideVaneAdj = (get_payload_byte(10) & 0xF0) == 0x80 ? true : false;
         ESP_LOGD("Decoder", "[wideVane: %s (adj:%d)]", hp_wide_vane_to_str(receivedSettings.wideVane), this->wideVaneAdj);
     } else {
         ESP_LOGD("Decoder", "widevane is not supported");
@@ -246,7 +253,7 @@ void CN105Climate::get_settings_from_response_packet() {
     // via the IR remote (e.g. COOL→70%, DRY→50%, HEAT→40%).
     // Not all models populate this byte — it may read 0x00 on unsupported units.
     if (this->target_humidity_sensor_ != nullptr) {
-        uint8_t raw_humidity = data[12];
+        uint8_t raw_humidity = get_payload_byte(12);
         if (raw_humidity > 0 && raw_humidity <= 100) {
             float humidity_pct = static_cast<float>(raw_humidity);
             if (this->target_humidity_sensor_->get_raw_state() != humidity_pct) {
@@ -260,13 +267,13 @@ void CN105Climate::get_settings_from_response_packet() {
 
     // --- AIRFLOW CONTROL START
     if (this->airflow_control_select_ != nullptr) {
-        if (data[10] == 0x80) {
+        if (get_payload_byte(10) == 0x80) {
             if (receivedSettings.iSee) {
-                auto airflow_opt = hp_airflow_control_from_wire(data[14]);
+                auto airflow_opt = hp_airflow_control_from_wire(get_payload_byte(14));
                 if (airflow_opt) {
                     receivedRunStates.airflow_control = *airflow_opt;
                 } else {
-                    ESP_LOGW("Decoder", "Unknown airflow_control byte 0x%02X — keeping previous value", data[14]);
+                    ESP_LOGW("Decoder", "Unknown airflow_control byte 0x%02X — keeping previous value", get_payload_byte(14));
                     receivedRunStates.airflow_control = this->currentRunStates.airflow_control;
                 }
             } else {
@@ -304,23 +311,23 @@ void CN105Climate::get_room_temperature_from_response_packet() {
     // SP = room setpoint temperature?
     // RM = indoor unit operating time in minutes
 
-    if (data[5] > 1) {
-        receivedStatus.outsideAirTemperature = (data[5] - 128) / 2.0f;
+    if (get_payload_byte(5) > 1) {
+        receivedStatus.outsideAirTemperature = (get_payload_byte(5) - 128) / 2.0f;
     } else {
         receivedStatus.outsideAirTemperature = NAN;
     }
 
-    if (data[6] != 0x00) {
-        int temp = data[6];
+    if (get_payload_byte(6) != 0x00) {
+        int temp = get_payload_byte(6);
         temp -= 128;
         receivedStatus.roomTemperature = temp / 2.0f;
         ESP_LOGD(LOG_TEMP_SENSOR_TAG, "data[6]  --> [Room °C: %f]", receivedStatus.roomTemperature);
     } else {
-        uint8_t room_temp_byte = data[3];
+        uint8_t room_temp_byte = get_payload_byte(3);
         if (room_temp_byte <= 31) {
             receivedStatus.roomTemperature = static_cast<float>(10 + room_temp_byte);
         } else {
-            ESP_LOGW("Decoder", "Unknown room_temp byte 0x%02X — keeping previous value", data[3]);
+            ESP_LOGW("Decoder", "Unknown room_temp byte 0x%02X — keeping previous value", get_payload_byte(3));
             receivedStatus.roomTemperature = this->currentStatus.roomTemperature;
         }
         ESP_LOGD(LOG_TEMP_SENSOR_TAG, "data[3] map --> [Room °C : %f]", receivedStatus.roomTemperature);
@@ -338,7 +345,7 @@ void CN105Climate::get_room_temperature_from_response_packet() {
         this->remote_temp_sensor_->publish_state(is_remote);
     }
 
-    receivedStatus.runtimeHours = float((data[11] << 16) | (data[12] << 8) | data[13]) / 60;
+    receivedStatus.runtimeHours = float((get_payload_byte(11) << 16) | (get_payload_byte(12) << 8) | get_payload_byte(13)) / 60;
 
     ESP_LOGD("Decoder", "[Room °C: %f]", receivedStatus.roomTemperature);
     ESP_LOGD("Decoder", "[OAT  °C: %f]", receivedStatus.outsideAirTemperature);
@@ -369,12 +376,12 @@ void CN105Climate::get_operating_and_compressor_freq_from_response_packet() {
 
     // reset counter (because a reply indicates it is connected)
     this->nonResponseCounter = 0;
-    receivedStatus.operating = data[4];
+    receivedStatus.operating = get_payload_byte(4);
     // Some models (e.g. PAA/PUZ combo) seem to have some noise on the compressor frequency sensor, even when not in operation.
     // To avoid reporting random values, set the compressor frequency to 0 when the heatpump is not operating.
-    receivedStatus.compressorFrequency = (data[4]) ? data[3] : 0;
-    receivedStatus.inputPower = convert_input_power_to_w(float((data[5] << 8) | data[6]));
-    receivedStatus.kWh = convert_energy_usage_to_kwh(float((data[7] << 8) | data[8]));
+    receivedStatus.compressorFrequency = (get_payload_byte(4)) ? get_payload_byte(3) : 0;
+    receivedStatus.inputPower = convert_input_power_to_w(float((get_payload_byte(5) << 8) | get_payload_byte(6)));
+    receivedStatus.kWh = convert_energy_usage_to_kwh(float((get_payload_byte(7) << 8) | get_payload_byte(8)));
 
     // no change with this packet to roomTemperature
     receivedStatus.roomTemperature = currentStatus.roomTemperature;
@@ -394,7 +401,7 @@ void CN105Climate::get_hvac_options_from_response_packet() {
     ESP_LOGD("Decoder", "[0x42 is HVAC options]");
 
     if (this->air_purifier_switch_ != nullptr) {
-        receivedRunStates.air_purifier = data[1];
+        receivedRunStates.air_purifier = get_payload_byte(1);
         ESP_LOGD("Decoder", "[Air purifier : %s]", receivedRunStates.air_purifier ? "ON" : "OFF");
         if (receivedRunStates.air_purifier != this->currentRunStates.air_purifier || receivedRunStates.air_purifier != this->air_purifier_switch_->state) {
             this->currentRunStates.air_purifier = receivedRunStates.air_purifier;
@@ -402,7 +409,7 @@ void CN105Climate::get_hvac_options_from_response_packet() {
         }
     }
     if (this->night_mode_switch_ != nullptr) {
-        receivedRunStates.night_mode = data[2];
+        receivedRunStates.night_mode = get_payload_byte(2);
         ESP_LOGD("Decoder", "[Night mode : %s]", receivedRunStates.night_mode ? "ON" : "OFF");
         if (receivedRunStates.night_mode != this->currentRunStates.night_mode || receivedRunStates.night_mode != this->night_mode_switch_->state) {
             this->currentRunStates.night_mode = receivedRunStates.night_mode;
@@ -410,7 +417,7 @@ void CN105Climate::get_hvac_options_from_response_packet() {
         }
     }
     if (this->circulator_switch_ != nullptr) {
-        receivedRunStates.circulator = data[3];
+        receivedRunStates.circulator = get_payload_byte(3);
         ESP_LOGD("Decoder", "[Circulator : %s]", receivedRunStates.circulator ? "ON" : "OFF");
         if (receivedRunStates.circulator != this->currentRunStates.circulator || receivedRunStates.circulator != this->circulator_switch_->state) {
             this->currentRunStates.circulator = receivedRunStates.circulator;
@@ -440,8 +447,8 @@ void CN105Climate::terminate_cycle() {
 void CN105Climate::get_error_info_from_response_packet() {
     ESP_LOGD("Decoder", "0x04 error info");
     if (this->error_code_sensor_ != nullptr) {
-        uint8_t error_raw = this->data[4];
-        uint8_t error_sub = this->data[5];
+        uint8_t error_raw = get_payload_byte(4);
+        uint8_t error_sub = get_payload_byte(5);
         // Bit 7 (0x80) is a protocol status flag ("error reporting available"),
         // not an actual error code. Use lower 7 bits for real error detection.
         uint8_t error_code = error_raw & 0x7F;
@@ -458,7 +465,7 @@ void CN105Climate::get_error_info_from_response_packet() {
 void CN105Climate::get_data_from_response_packet() {
 
     // D'abord, laissons l'orchestrateur traiter les codes connus
-    const uint8_t code = this->data[0];
+    const uint8_t code = get_payload_byte(0);
     if (this->scheduler_.process_response(code)) {
         return;
     }
@@ -495,7 +502,7 @@ void CN105Climate::get_data_from_response_packet() {
         break; // orchestrator
 
     default:
-        ESP_LOGW("Decoder", "packet type [%02X] <-- unknown and unexpected", data[0]);
+        ESP_LOGW("Decoder", "packet type [%02X] <-- unknown and unexpected", get_payload_byte(0));
         //this->last_received_packet_sensor->publish_state("0x62-> ?? : Data -> Unknown");
         break;
     }

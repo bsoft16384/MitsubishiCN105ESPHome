@@ -40,7 +40,7 @@ public:
         }
 
         // Overflow protection
-        if (bytes_read_ >= MAX_DATA_BYTES) {
+        if (bytes_read_ >= MAX_FRAME_BYTES) {
             reset();
             return;
         }
@@ -54,7 +54,7 @@ public:
 
             // Sanity check: declared length must fit in buffer
             // Total frame = 5 (header) + data_length + 1 (checksum)
-            if ((data_length_ + 6) > MAX_DATA_BYTES) {
+            if ((data_length_ + 6) > MAX_FRAME_BYTES) {
                 reset();
                 return;
             }
@@ -112,7 +112,7 @@ public:
     }
 
 private:
-    uint8_t buffer_[MAX_DATA_BYTES]{};
+    uint8_t buffer_[MAX_FRAME_BYTES]{};
     bool found_start_ = false;
     bool frame_complete_ = false;
     int bytes_read_ = 0;

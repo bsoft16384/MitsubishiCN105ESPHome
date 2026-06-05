@@ -7,27 +7,28 @@
 #include <array>
 #include "cn105_protocol.h"
 
-#define MAX_DATA_BYTES     64         
+#define MAX_FRAME_BYTES     128         
 #define MAX_DELAY_RESPONSE_FACTOR 10  
 
-static const char* LOG_ACTION_EVT_TAG = "EVT_SETS";
-static const char* TAG = "CN105";
-static const char* LOG_REMOTE_TEMP = "REMOTE_TEMP";
-static const char* LOG_ACK = "ACK";
-static const char* LOG_SETTINGS_TAG = "SETTINGS";
-static const char* LOG_STATUS_TAG = "STATUS";
-static const char* LOG_CYCLE_TAG = "CYCLE";
-static const char* LOG_UPD_INT_TAG = "UPDT_ITVL";
-static const char* LOG_SET_RUN_STATE = "SET_RUN_STATE";
-static const char* LOG_OPERATING_STATUS_TAG = "OPERATING_STATUS";
-static const char* LOG_TEMP_SENSOR_TAG = "TEMP_SENSOR";
-static const char* LOG_DUAL_SP_TAG = "DUAL_SP";
-static const char* LOG_FUNCTIONS_TAG = "FUNCTIONS";
-static const char* LOG_HARDWARE_SELECT_TAG = "HardwareSelect";
-static const char* LOG_CONN_TAG = "CN105_CONN";
+inline constexpr const char* LOG_ACTION_EVT_TAG = "EVT_SETS";
+inline constexpr const char* TAG = "CN105";
+inline constexpr const char* LOG_REMOTE_TEMP = "REMOTE_TEMP";
+inline constexpr const char* LOG_ACK = "ACK";
+inline constexpr const char* LOG_SETTINGS_TAG = "SETTINGS";
+inline constexpr const char* LOG_STATUS_TAG = "STATUS";
+inline constexpr const char* LOG_CYCLE_TAG = "CYCLE";
+inline constexpr const char* LOG_UPD_INT_TAG = "UPDT_ITVL";
+inline constexpr const char* LOG_SET_RUN_STATE = "SET_RUN_STATE";
+inline constexpr const char* LOG_OPERATING_STATUS_TAG = "OPERATING_STATUS";
+inline constexpr const char* LOG_TEMP_SENSOR_TAG = "TEMP_SENSOR";
+inline constexpr const char* LOG_DUAL_SP_TAG = "DUAL_SP";
+inline constexpr const char* LOG_FUNCTIONS_TAG = "FUNCTIONS";
+inline constexpr const char* LOG_HARDWARE_SELECT_TAG = "HardwareSelect";
+inline constexpr const char* LOG_CONN_TAG = "CN105_CONN";
 
-static const char* SHEDULER_REMOTE_TEMP_TIMEOUT = "->remote_temp_timeout";
-static const char* SCHEDULER_REMOTE_TEMP_KEEPALIVE = "->remote_temp_keepalive";
+inline constexpr const char* SHEDULER_REMOTE_TEMP_TIMEOUT = "->remote_temp_timeout";
+inline constexpr const char* SCHEDULER_REMOTE_TEMP_KEEPALIVE = "->remote_temp_keepalive";
+
 
 // Default interval for remote temperature keep-alive (20 seconds, as observed on Kumo)
 static const uint32_t DEFAULT_REMOTE_TEMP_KEEPALIVE_INTERVAL_MS = 20000;
@@ -245,58 +246,58 @@ inline std::optional<uint8_t> enum_to_wire(const EnumTable<E, N>& table, E val) 
 // Enum tables — single source of truth for enum ↔ string mapping
 // ════════════════════════════════════════════════════════════════
 
-static constexpr EnumTable<HPPower, 2> POWER_TABLE = {{
+inline constexpr EnumTable<HPPower, 2> POWER_TABLE = {{
     {HPPower::OFF, 0x00, "OFF"}, {HPPower::ON, 0x01, "ON"},
 }};
 
-static constexpr EnumTable<HPMode, 5> MODE_TABLE = {{
+inline constexpr EnumTable<HPMode, 5> MODE_TABLE = {{
     {HPMode::HEAT, 0x01, "HEAT"}, {HPMode::DRY, 0x02, "DRY"}, {HPMode::COOL, 0x03, "COOL"},
     {HPMode::FAN, 0x07, "FAN"}, {HPMode::AUTO, 0x08, "AUTO"},
 }};
 
-static constexpr EnumTable<HPFanMode, 6> FAN_TABLE = {{
+inline constexpr EnumTable<HPFanMode, 6> FAN_TABLE = {{
     {HPFanMode::AUTO, 0x00, "AUTO"}, {HPFanMode::QUIET, 0x01, "QUIET"},
     {HPFanMode::F1, 0x02, "1"}, {HPFanMode::F2, 0x03, "2"}, {HPFanMode::F3, 0x05, "3"}, {HPFanMode::F4, 0x06, "4"},
 }};
 
-static constexpr EnumTable<HPVaneMode, 7> VANE_TABLE = {{
+inline constexpr EnumTable<HPVaneMode, 7> VANE_TABLE = {{
     {HPVaneMode::AUTO, 0x00, "AUTO"}, {HPVaneMode::V1, 0x01, "↑↑"}, {HPVaneMode::V2, 0x02, "↑"},
     {HPVaneMode::V3, 0x03, "—"}, {HPVaneMode::V4, 0x04, "↓"}, {HPVaneMode::V5, 0x05, "↓↓"},
     {HPVaneMode::SWING, 0x07, "SWING"},
 }};
 
-static constexpr EnumTable<HPWideVaneMode, 8> WIDEVANE_TABLE = {{
+inline constexpr EnumTable<HPWideVaneMode, 8> WIDEVANE_TABLE = {{
     {HPWideVaneMode::LEFT_LEFT, 0x01, "←←"}, {HPWideVaneMode::LEFT, 0x02, "←"},
     {HPWideVaneMode::CENTER, 0x03, "|"}, {HPWideVaneMode::RIGHT, 0x04, "→"},
     {HPWideVaneMode::RIGHT_RIGHT, 0x05, "→→"}, {HPWideVaneMode::LEFT_RIGHT, 0x08, "←→"},
     {HPWideVaneMode::SWING, 0x0c, "SWING"}, {HPWideVaneMode::AIRFLOW_CONTROL, 0x00, "AIRFLOW CONTROL"},
 }};
 
-static constexpr EnumTable<HPStage, 7> STAGE_TABLE = {{
+inline constexpr EnumTable<HPStage, 7> STAGE_TABLE = {{
     {HPStage::IDLE, 0x00, "IDLE"}, {HPStage::LOW, 0x01, "LOW"}, {HPStage::GENTLE, 0x02, "GENTLE"},
     {HPStage::MEDIUM, 0x03, "MEDIUM"}, {HPStage::MODERATE, 0x04, "MODERATE"},
     {HPStage::HIGH, 0x05, "HIGH"}, {HPStage::DIFFUSE, 0x06, "DIFFUSE"},
 }};
 
-static constexpr EnumTable<HPSubMode, 6> SUB_MODE_TABLE = {{
+inline constexpr EnumTable<HPSubMode, 6> SUB_MODE_TABLE = {{
     {HPSubMode::NORMAL, 0x00, "NORMAL"}, {HPSubMode::WARMUP, 0x01, "WARMUP"},
     {HPSubMode::DEFROST, 0x02, "DEFROST"}, {HPSubMode::PREHEAT, 0x04, "PREHEAT"},
     {HPSubMode::STANDBY, 0x08, "STANDBY"}, {HPSubMode::OFF, 0x10, "OFF"},
 }};
 
-static constexpr EnumTable<HPAutoSubMode, 7> AUTO_SUB_MODE_TABLE = {{
+inline constexpr EnumTable<HPAutoSubMode, 7> AUTO_SUB_MODE_TABLE = {{
     {HPAutoSubMode::AUTO_OFF, 0x00, "AUTO_OFF"}, {HPAutoSubMode::AUTO_COOL, 0x01, "AUTO_COOL"},
     {HPAutoSubMode::AUTO_HEAT, 0x02, "AUTO_HEAT"}, {HPAutoSubMode::AUTO_LEADER, 0x03, "AUTO_LEADER"},
     {HPAutoSubMode::AUTO_INACTIVE, 0x40, "AUTO_INACTIVE"}, {HPAutoSubMode::AUTO_IDLE, 0x41, "AUTO_IDLE"},
     {HPAutoSubMode::AUTO_ACTIVE, 0x43, "AUTO_ACTIVE"},
 }};
 
-static constexpr EnumTable<HPTimerMode, 4> TIMER_MODE_TABLE = {{
+inline constexpr EnumTable<HPTimerMode, 4> TIMER_MODE_TABLE = {{
     {HPTimerMode::NONE, 0x00, "NONE"}, {HPTimerMode::OFF, 0x01, "OFF"},
     {HPTimerMode::ON, 0x02, "ON"}, {HPTimerMode::BOTH, 0x03, "BOTH"},
 }};
 
-static constexpr EnumTable<HPAirflowControl, 3> AIRFLOW_CONTROL_TABLE = {{
+inline constexpr EnumTable<HPAirflowControl, 3> AIRFLOW_CONTROL_TABLE = {{
     {HPAirflowControl::EVEN, 0x00, "EVEN"}, {HPAirflowControl::INDIRECT, 0x01, "INDIRECT"},
     {HPAirflowControl::DIRECT, 0x02, "DIRECT"},
 }};
@@ -394,7 +395,7 @@ struct heatpumpSettings {
 struct wantedHeatpumpSettings : heatpumpSettings {
     bool hasChanged = false;
     bool hasBeenSent = false;
-    uint8_t nb_deffered_requests = 0;
+    uint8_t nb_deferred_requests = 0;
     long lastChange = 0;
 
     void resetSettings() {
@@ -449,10 +450,10 @@ struct heatpumpStatus {
         return (std::isnan(roomTemperature) ? std::isnan(other.roomTemperature) : roomTemperature == other.roomTemperature) &&
             (std::isnan(outsideAirTemperature) ? std::isnan(other.outsideAirTemperature) : outsideAirTemperature == other.outsideAirTemperature) &&
             operating == other.operating &&
-            compressorFrequency == other.compressorFrequency &&
-            inputPower == other.inputPower &&
-            kWh == other.kWh &&
-            runtimeHours == other.runtimeHours;
+            (std::isnan(compressorFrequency) ? std::isnan(other.compressorFrequency) : compressorFrequency == other.compressorFrequency) &&
+            (std::isnan(inputPower) ? std::isnan(other.inputPower) : inputPower == other.inputPower) &&
+            (std::isnan(kWh) ? std::isnan(other.kWh) : kWh == other.kWh) &&
+            (std::isnan(runtimeHours) ? std::isnan(other.runtimeHours) : runtimeHours == other.runtimeHours);
     }
 
     bool operator!=(const heatpumpStatus& other) const {

@@ -140,11 +140,11 @@ namespace esphome {
         sensor::Sensor* target_humidity_sensor_ =
             nullptr;  // Sensor to expose target humidity from 0x02 settings packet (byte 12)
         sensor::Sensor* input_power_sensor_ =
-            nullptr;  // Sensor to store compressor frequency
+            nullptr;  // Sensor to store input power
         sensor::Sensor* kwh_sensor_ =
-            nullptr;  // Sensor to store compressor frequency
+            nullptr;  // Sensor to store kWh
         sensor::Sensor* runtime_hours_sensor_ =
-            nullptr;  // Sensor to store compressor frequency
+            nullptr;  // Sensor to store runtime hours
         sensor::Sensor* outside_air_temperature_sensor_ =
             nullptr;  // Outside air temperature
 
@@ -420,7 +420,7 @@ namespace esphome {
         RequestScheduler scheduler_;
         void register_info_requests();
         void register_hardware_settings_requests();
-        unsigned long lastResponseMs;
+        unsigned long lastResponseMs = 0;
 
 
         uint32_t remote_temp_timeout_;
@@ -442,6 +442,7 @@ namespace esphome {
 
         cn105_protocol::FrameParser parser_;     // UART frame assembler (Phase 3A)
         uint8_t* data;
+        uint8_t get_payload_byte(int index, uint8_t default_val = 0) const;
 
         // All fields are default-initialized via heatpumpStatus struct defaults (NAN, false, etc.)
         heatpumpStatus currentStatus{};

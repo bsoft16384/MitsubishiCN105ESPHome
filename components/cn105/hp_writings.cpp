@@ -214,8 +214,7 @@ void CN105Climate::create_packet(uint8_t* packet) {
  
     if (wantedSettings.temperature != -1) {
         ESP_LOGD(TAG, "temperature -> %f", get_temperature_setting());
-        float temp = (get_temperature_setting() * 2) + 128;
-        packet[19] = (int)temp;
+        packet[19] = cn105_protocol::encode_temperature_b(get_temperature_setting());
         packet[6] += CONTROL_PACKET_1[2];
     }
  
@@ -316,28 +315,19 @@ void CN105Climate::publish_wanted_run_states_state_to_ha() {
         }
     }
     if (this->wantedRunStates.air_purifier > -1) {
-        if (this->wantedRunStates.air_purifier == -1) {
-            this->wantedRunStates.air_purifier = this->currentRunStates.air_purifier;
-        }
-        if (this->air_purifier_switch_->state != this->wantedRunStates.air_purifier) {
+        if (this->air_purifier_switch_ != nullptr && this->air_purifier_switch_->state != this->wantedRunStates.air_purifier) {
             ESP_LOGI(TAG, "air purifier setting changed");
             this->air_purifier_switch_->publish_state(wantedRunStates.air_purifier);
         }
     }
     if (this->wantedRunStates.night_mode > -1) {
-        if (this->wantedRunStates.night_mode == -1) {
-            this->wantedRunStates.night_mode = this->currentRunStates.night_mode;
-        }
-        if (this->night_mode_switch_->state != this->wantedRunStates.night_mode) {
+        if (this->night_mode_switch_ != nullptr && this->night_mode_switch_->state != this->wantedRunStates.night_mode) {
             ESP_LOGI(TAG, "night mode setting changed");
             this->night_mode_switch_->publish_state(wantedRunStates.night_mode);
         }
     }
     if (this->wantedRunStates.circulator > -1) {
-        if (this->wantedRunStates.circulator == -1) {
-            this->wantedRunStates.circulator = this->currentRunStates.circulator;
-        }
-        if (this->circulator_switch_->state != this->wantedRunStates.circulator) {
+        if (this->circulator_switch_ != nullptr && this->circulator_switch_->state != this->wantedRunStates.circulator) {
             ESP_LOGI(TAG, "circulator setting changed");
             this->circulator_switch_->publish_state(wantedRunStates.circulator);
         }
@@ -494,9 +484,8 @@ void CN105Climate::send_remote_temperature_packet() {
     packet[5] = 0x07;
     if (this->remoteTemperature_ > 0) {
         packet[6] = 0x01;
-        float temp = round(this->remoteTemperature_ * 2);
-        packet[7] = static_cast<uint8_t>(temp - 16);
-        packet[8] = static_cast<uint8_t>(temp + 128);
+        float clamped_temp = std::max(8.0f, std::min(this->remoteTemperature_, 37.5f));
+        cn105_protocol::encode_remote_temperature(clamped_temp, packet[7], packet[8]);
     } else {
         packet[8] = 0x80; //MHK1 send 80, even though it could be 00, since ControlByte is 00
     }
