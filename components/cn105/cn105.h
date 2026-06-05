@@ -160,6 +160,7 @@ namespace esphome {
         void set_remote_temperature(float);
         void send_remote_temperature();
         void send_remote_temperature_packet();  // Send packet only, without resetting watchdog
+        void send_remote_temperature_deferred();
         void send_wanted_run_states();
         float get_deadband_adjusted_temperature(float remoteTemperature);
 
@@ -414,8 +415,6 @@ namespace esphome {
         bool remote_temp_keepalive_active_ = false;
         uint32_t last_remote_temp_send_ms_ = 0;      // Timestamp of last remote temp packet sent
         float last_remote_temp_sent_ = 0;            // Last remote temp value actually sent (for change detection)
-        uint8_t remote_temp_debounce_skip_count_ = 0;   // Counter for consecutive debounce skips
-        bool remote_temp_heartbeat_warning_shown_ = false;  // Avoid spamming the warning
         uint32_t debounce_delay_;
 
         int baud_ = 0;

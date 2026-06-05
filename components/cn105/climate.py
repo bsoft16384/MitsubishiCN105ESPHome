@@ -362,8 +362,10 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_ERROR_CODE_SENSOR): ERROR_CODE_SENSOR_SCHEMA,
             cv.Optional(CONF_REMOTE_TEMP_SOURCE): REMOTE_TEMP_SOURCE_SCHEMA,
             cv.Optional(CONF_REMOTE_TEMP_TIMEOUT, default="never"): cv.update_interval,
-            # Keep-alive interval for remote temperature (like Kumo does every ~20s)
-            # Set to 0s to disable keep-alive
+            # Keep-alive interval for remote temperature (like Kumo does every ~20s).
+            # Cannot be disabled: values under 20s are clamped up to 20s at runtime,
+            # since keep-alive is the safety net against the unit reverting to its
+            # internal sensor when the remote temperature is stable.
             cv.Optional(CONF_REMOTE_TEMP_KEEPALIVE_INTERVAL, default="20s"): cv.update_interval,
             cv.Optional(CONF_DEBOUNCE_DELAY, default="100ms"): cv.update_interval,
             cv.Optional(CONF_CONNECTION_BOOTSTRAP_DELAY, default="10s"): cv.update_interval,

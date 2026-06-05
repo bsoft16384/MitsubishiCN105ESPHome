@@ -389,12 +389,8 @@ void CN105Climate::set_remote_temperature(float setting) {
         return;
     }
 
-    // Always resend the remote temperature when a new sample arrives,
-    // even if the value has not changed, to prevent the Mitsubishi unit
-    // from reverting to the internal sensor due to a lack of regular updates (#474).
+    // Always update the internal target value
     this->remoteTemperature_ = setting;
-    this->shouldSendExternalTemperature_ = true;
-    ESP_LOGD(LOG_REMOTE_TEMP, "setting remote temperature to %f", this->remoteTemperature_);
 
     // Reset the watchdog timeout (HA sent us a fresh value)
     this->ping_external_temperature();
@@ -407,6 +403,53 @@ void CN105Climate::set_remote_temperature(float setting) {
         // Stop keep-alive when reverting to internal sensor
         this->stop_remote_temp_keep_alive();
     }
+
+    if (setting == 0.0f) {
+        // Reverting to internal sensor: send immediately
+        this->cancel_timeout("deferred_remote_temp_send");
+        this->shouldSendExternalTemperature_ = true;
+        return;
+    }
+
+    // Calculate precision bytes
+    uint8_t new_byte = cn105_protocol::encode_temperature_b(setting);
+    uint8_t last_byte = cn105_protocol::encode_temperature_b(this->last_remote_temp_sent_);
+
+    // Check if the 0.5°C precision byte has actually changed
+    // We only skip if the byte is identical AND we have actually sent a temperature before (last_remote_temp_send_ms_ > 0)
+    if (new_byte == last_byte && this->last_remote_temp_send_ms_ > 0) {
+        ESP_LOGD(LOG_REMOTE_TEMP, "Remote temp byte unchanged (%02X). Skipping immediate write.", new_byte);
+        // The unit already holds this value; drop any pending deferred write for an earlier sample.
+        this->cancel_timeout("deferred_remote_temp_send");
+        return;
+    }
+
+    uint32_t now = CUSTOM_MILLIS;
+    uint32_t elapsed = now - this->last_remote_temp_send_ms_;
+
+    if (this->last_remote_temp_send_ms_ == 0 || elapsed >= REMOTE_TEMP_MIN_SEND_INTERVAL_MS) {
+        // Send immediately
+        this->cancel_timeout("deferred_remote_temp_send");
+        this->shouldSendExternalTemperature_ = true;
+        ESP_LOGD(LOG_REMOTE_TEMP, "Queueing immediate remote temp write (value: %.1f)", setting);
+    } else {
+        // Defer the write
+        uint32_t defer_ms = REMOTE_TEMP_MIN_SEND_INTERVAL_MS - elapsed;
+        ESP_LOGD(LOG_REMOTE_TEMP, "Rate limit: deferring remote temp write (%.1f) by %lu ms", setting, (unsigned long)defer_ms);
+        this->set_timeout("deferred_remote_temp_send", defer_ms, [this]() {
+            this->send_remote_temperature_deferred();
+        });
+    }
+}
+
+void CN105Climate::send_remote_temperature_deferred() {
+    // Queue the send via the same flag used by user updates and keep-alive, so the
+    // packet is written at the end of an info cycle (terminate_cycle) rather than
+    // mid-cycle from a timer callback. This preserves bus serialization and means
+    // the update is not lost if the heatpump is momentarily disconnected when the
+    // timer fires (it will be sent on the next completed cycle).
+    ESP_LOGD(LOG_REMOTE_TEMP, "Deferred remote temp timer fired, queueing send of %.1f", this->remoteTemperature_);
+    this->shouldSendExternalTemperature_ = true;
 }
 
 

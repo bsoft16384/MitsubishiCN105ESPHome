@@ -256,12 +256,15 @@ void CN105Climate::set_remote_temp_timeout(uint32_t timeout) {
 }
 
 void CN105Climate::set_remote_temp_keepalive_interval(uint32_t interval_ms) {
-    this->remote_temp_keepalive_interval_ms_ = interval_ms;
-    if (interval_ms == 0) {
-        ESP_LOGI(LOG_REMOTE_TEMP, "Remote temperature keep-alive disabled.");
-    } else {
-        log_info_uint32(LOG_REMOTE_TEMP, "Remote temperature keep-alive interval set to ", interval_ms);
+    // Keep-alive cannot be disabled: it is the safety net that stops the unit from
+    // reverting to its internal sensor when the remote temperature is stable (#474).
+    // 0 (or any value under 20s) is clamped up to the 20s minimum.
+    if (interval_ms < 20000) {
+        ESP_LOGW(LOG_REMOTE_TEMP, "remote_temperature_keepalive_interval cannot be disabled and must be at least 20s. Clamping to 20s.");
+        interval_ms = 20000;
     }
+    this->remote_temp_keepalive_interval_ms_ = interval_ms;
+    log_info_uint32(LOG_REMOTE_TEMP, "Remote temperature keep-alive interval set to ", interval_ms);
 }
 
 void CN105Climate::set_remote_temperature_control_sensor(esphome::binary_sensor::BinarySensor* sensor) {
@@ -275,11 +278,8 @@ void CN105Climate::set_remote_temperature_margin(float margin) {
 }
 
 void CN105Climate::start_remote_temp_keep_alive() {
-    // Don't start if keep-alive is disabled or already active
-    if (this->remote_temp_keepalive_interval_ms_ == 0) {
-        ESP_LOGD(LOG_REMOTE_TEMP, "Keep-alive disabled, not starting.");
-        return;
-    }
+    // Don't start if already active (keep-alive can no longer be disabled; the
+    // interval is always >= 20s, see set_remote_temp_keepalive_interval).
     if (this->remote_temp_keepalive_active_) {
         ESP_LOGV(LOG_REMOTE_TEMP, "Keep-alive already active.");
         return;

@@ -33,6 +33,10 @@ inline constexpr const char* SCHEDULER_REMOTE_TEMP_KEEPALIVE = "->remote_temp_ke
 // Default interval for remote temperature keep-alive (20 seconds, as observed on Kumo)
 static const uint32_t DEFAULT_REMOTE_TEMP_KEEPALIVE_INTERVAL_MS = 20000;
 
+// Minimum spacing between remote temperature writes to the unit (rate limit).
+// Faster changes are coalesced and deferred until this window elapses.
+static const uint32_t REMOTE_TEMP_MIN_SEND_INTERVAL_MS = 10000;
+
 static const int DEFER_SCHEDULE_UPDATE_LOOP_DELAY = 750;
 static const uint32_t RECEIVED_SETPOINT_GRACE_WINDOW_MS = 3000;
 static const uint32_t UI_SETPOINT_ANTIREBOUND_MS = 600;
