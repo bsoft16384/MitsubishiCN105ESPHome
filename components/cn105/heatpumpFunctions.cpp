@@ -78,22 +78,12 @@ bool CN105Climate::set_functions(HeatpumpFunctions const& functions) {
 
     packet1[21] = check_sum(packet1, 21);
     packet2[21] = check_sum(packet2, 21);
-    /*
-        while (!canSend(false)) {
-            //esphome::CUSTOM_DELAY(10);
-            CUSTOM_DELAY(10);
-        }*/
+
     ESP_LOGD(TAG, "sending a set_functions packet part 1");
     write_packet(packet1, PACKET_LEN);
-    //readPacket();
 
-    /*while (!canSend(false)) {
-        //esphome::CUSTOM_DELAY(10);
-        CUSTOM_DELAY(10);
-    }*/
     ESP_LOGD(TAG, "sending a set_functions packet part 2");
     write_packet(packet2, PACKET_LEN);
-    //readPacket();
 
     return true;
 }
