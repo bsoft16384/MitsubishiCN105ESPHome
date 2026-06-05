@@ -103,18 +103,18 @@ namespace esphome {
         void set_low_temp_hysteresis(float low_temp_hysteresis) { this->low_temp_hysteresis_ = low_temp_hysteresis; }
         void evaluate_fan_stop_and_ltp();
 
-        binary_sensor::BinarySensor* iSee_sensor_ = nullptr;
+        binary_sensor::BinarySensor* isee_sensor_ = nullptr;
         binary_sensor::BinarySensor* remote_temp_sensor_ = nullptr;
         float remote_temp_margin_ = 0.4f;
         text_sensor::TextSensor* stage_sensor_{ nullptr }; // to save ref if needed
         bool use_stage_for_operating_status_{ false };
-        text_sensor::TextSensor* Functions_sensor_ = nullptr;
-        FunctionsButton* Functions_get_button_ = nullptr;
-        FunctionsButton* Functions_set_button_ = nullptr;
-        FunctionsNumber* Functions_set_code_ = nullptr;
-        FunctionsNumber* Functions_set_value_ = nullptr;
-        text_sensor::TextSensor* Sub_mode_sensor_ = nullptr;
-        text_sensor::TextSensor* Auto_sub_mode_sensor_ = nullptr;
+        text_sensor::TextSensor* functions_sensor_ = nullptr;
+        FunctionsButton* functions_get_button_ = nullptr;
+        FunctionsButton* functions_set_button_ = nullptr;
+        FunctionsNumber* functions_set_code_ = nullptr;
+        FunctionsNumber* functions_set_value_ = nullptr;
+        text_sensor::TextSensor* sub_mode_sensor_ = nullptr;
+        text_sensor::TextSensor* auto_sub_mode_sensor_ = nullptr;
         text_sensor::TextSensor* error_code_sensor_{ nullptr };
         sensor::Sensor* remote_temp_source_{ nullptr };
         text_sensor::TextSensor* remote_temp_source_info_sensor_{ nullptr };

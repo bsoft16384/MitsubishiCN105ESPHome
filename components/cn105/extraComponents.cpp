@@ -136,7 +136,7 @@ void CN105Climate::set_outside_air_temperature_sensor(
 }
 
 void CN105Climate::set_isee_sensor(esphome::binary_sensor::BinarySensor* iSee_sensor) {
-    this->iSee_sensor_ = iSee_sensor;
+    this->isee_sensor_ = iSee_sensor;
 }
 
 void CN105Climate::set_stage_sensor(esphome::text_sensor::TextSensor* stage_sensor) {
@@ -148,16 +148,16 @@ void CN105Climate::set_use_stage_for_operating_status(bool value) {
 }
 
 void CN105Climate::set_functions_sensor(esphome::text_sensor::TextSensor* Functions_sensor) {
-    this->Functions_sensor_ = Functions_sensor;
+    this->functions_sensor_ = Functions_sensor;
 }
 
 void CN105Climate::set_functions_get_button(FunctionsButton* Button) {
-    this->Functions_get_button_ = Button;
-    this->Functions_get_button_->setCallbackFunction([this]() {
+    this->functions_get_button_ = Button;
+    this->functions_get_button_->setCallbackFunction([this]() {
         ESP_LOGI(LOG_CYCLE_TAG, "Retrieving functions");
 
-        if (this->Functions_sensor_ != nullptr) {
-            this->Functions_sensor_->publish_state("Operation pending, please wait.");
+        if (this->functions_sensor_ != nullptr) {
+            this->functions_sensor_->publish_state("Operation pending, please wait.");
         }
 
         // Request function settings from the heat pump.
@@ -168,12 +168,12 @@ void CN105Climate::set_functions_get_button(FunctionsButton* Button) {
 }
 
 void CN105Climate::set_functions_set_button(FunctionsButton* Button) {
-    this->Functions_set_button_ = Button;
-    this->Functions_set_button_->setCallbackFunction([this]() {
+    this->functions_set_button_ = Button;
+    this->functions_set_button_->setCallbackFunction([this]() {
 
         if (!this->functions.isValid()) {
-            if (this->Functions_sensor_ != nullptr) {
-                this->Functions_sensor_->publish_state("Please get the functions first.");
+            if (this->functions_sensor_ != nullptr) {
+                this->functions_sensor_->publish_state("Please get the functions first.");
             }
             return;
         }
@@ -181,8 +181,8 @@ void CN105Climate::set_functions_set_button(FunctionsButton* Button) {
         ESP_LOGI(LOG_CYCLE_TAG, "Setting code %i to value %i", this->functions_code_, this->functions_value_);
         this->functions.setValue(this->functions_code_, this->functions_value_);
 
-        if (this->Functions_sensor_ != nullptr) {
-            this->Functions_sensor_->publish_state("Operation pending, please wait.");
+        if (this->functions_sensor_ != nullptr) {
+            this->functions_sensor_->publish_state("Operation pending, please wait.");
         }
 
         // Now send the codes.
@@ -192,16 +192,16 @@ void CN105Climate::set_functions_set_button(FunctionsButton* Button) {
 }
 
 void CN105Climate::set_functions_set_code(FunctionsNumber* Number) {
-    this->Functions_set_code_ = Number;
-    this->Functions_set_code_->setCallbackFunction([this](float x) {
+    this->functions_set_code_ = Number;
+    this->functions_set_code_->setCallbackFunction([this](float x) {
         // store the code
         this->functions_code_ = (int)x;
         });
 
 }
 void CN105Climate::set_functions_set_value(FunctionsNumber* Number) {
-    this->Functions_set_value_ = Number;
-    this->Functions_set_value_->setCallbackFunction([this](float x) {
+    this->functions_set_value_ = Number;
+    this->functions_set_value_->setCallbackFunction([this](float x) {
         // store the value
         this->functions_value_ = (int)x;
         });
@@ -241,11 +241,11 @@ void CN105Climate::set_circulator_switch(HVACOptionSwitch* Switch) { // only in 
 }
 
 void CN105Climate::set_sub_mode_sensor(esphome::text_sensor::TextSensor* Sub_mode_sensor) {
-    this->Sub_mode_sensor_ = Sub_mode_sensor;
+    this->sub_mode_sensor_ = Sub_mode_sensor;
 }
 
 void CN105Climate::set_auto_sub_mode_sensor(esphome::text_sensor::TextSensor* Auto_sub_mode_sensor) {
-    this->Auto_sub_mode_sensor_ = Auto_sub_mode_sensor;
+    this->auto_sub_mode_sensor_ = Auto_sub_mode_sensor;
 }
 
 void CN105Climate::set_error_code_sensor(esphome::text_sensor::TextSensor* error_code_sensor) {

@@ -32,8 +32,8 @@ void CN105Climate::functionsArrived() {
     }
 
     // Publish the results of all the codes in the Functions sensor
-    if (this->Functions_sensor_ != nullptr) {
-        this->Functions_sensor_->publish_state(states);
+    if (this->functions_sensor_ != nullptr) {
+        this->functions_sensor_->publish_state(states);
     }
 
     // Update Hardware Settings Selects

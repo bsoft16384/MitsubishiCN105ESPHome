@@ -139,13 +139,13 @@ void CN105Climate::getPowerFromResponsePacket() {
             }
         }
     }
-    if (this->Sub_mode_sensor_ != nullptr && receivedSettings.sub_mode != this->currentSettings.sub_mode) {
+    if (this->sub_mode_sensor_ != nullptr && receivedSettings.sub_mode != this->currentSettings.sub_mode) {
         this->currentSettings.sub_mode = receivedSettings.sub_mode;
-        this->Sub_mode_sensor_->publish_state(hp_sub_mode_to_str(receivedSettings.sub_mode));
+        this->sub_mode_sensor_->publish_state(hp_sub_mode_to_str(receivedSettings.sub_mode));
     }
-    if (this->Auto_sub_mode_sensor_ != nullptr && receivedSettings.auto_sub_mode != this->currentSettings.auto_sub_mode) {
+    if (this->auto_sub_mode_sensor_ != nullptr && receivedSettings.auto_sub_mode != this->currentSettings.auto_sub_mode) {
         this->currentSettings.auto_sub_mode = receivedSettings.auto_sub_mode;
-        this->Auto_sub_mode_sensor_->publish_state(hp_auto_sub_mode_to_str(receivedSettings.auto_sub_mode));
+        this->auto_sub_mode_sensor_->publish_state(hp_auto_sub_mode_to_str(receivedSettings.auto_sub_mode));
     }
 }
 
@@ -236,8 +236,8 @@ void CN105Climate::getSettingsFromResponsePacket() {
     }
     // --- END OF MODIFIED SECTION ---
 
-    if (this->iSee_sensor_ != nullptr) {
-        this->iSee_sensor_->publish_state(receivedSettings.iSee);
+    if (this->isee_sensor_ != nullptr) {
+        this->isee_sensor_->publish_state(receivedSettings.iSee);
     }
 
     // --- TARGET HUMIDITY (byte 12 of 0x02 settings packet) ---
