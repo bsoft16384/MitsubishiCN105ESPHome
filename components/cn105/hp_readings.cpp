@@ -169,11 +169,15 @@ void CN105Climate::getSettingsFromResponsePacket() {
     auto mode_opt = hp_mode_from_wire(modeByte);
     if (mode_opt) {
         receivedSettings.mode = *mode_opt;
+        if (receivedSettings.mode == HPMode::AUTO) {
+            ESP_LOGI("Decoder", "IR Remote set mode to AUTO — mapping to FAN mode");
+            receivedSettings.mode = HPMode::FAN;
+        }
     } else {
         ESP_LOGW("Decoder", "Unknown mode byte 0x%02X — keeping previous value", modeByte);
         receivedSettings.mode = (this->currentSettings.mode != HPMode::UNKNOWN)
             ? this->currentSettings.mode
-            : HPMode::AUTO;  // default to "AUTO" when no prior value exists
+            : HPMode::FAN;  // default to "FAN" when no prior value exists
     }
  
     ESP_LOGD("Decoder", "[Power : %s]", hp_power_to_str(receivedSettings.power));
@@ -766,8 +770,6 @@ void CN105Climate::checkPowerAndModeSettings(heatpumpSettings& settings, bool up
             physical_mode = climate::CLIMATE_MODE_COOL;
         } else if (settings.mode == HPMode::FAN) {
             physical_mode = climate::CLIMATE_MODE_FAN_ONLY;
-        } else if (settings.mode == HPMode::AUTO) {
-            physical_mode = climate::CLIMATE_MODE_AUTO;
         }
     }
 

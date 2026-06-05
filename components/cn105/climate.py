@@ -121,10 +121,7 @@ CONF_REMOTE_TEMPERATURE_CONTROL_SENSOR = "remote_temperature_control_sensor"
 CONF_TEMPERATURE_MARGIN = "temperature_margin"
 CONF_POWER_UNIT_IS_BTU = "power_unit_is_btu"
 
-# Support explicite du DUAL setpoint via YAML
-CONF_DUAL_SETPOINT = "dual_setpoint"
-
-DEFAULT_CLIMATE_MODES = ["AUTO", "COOL", "HEAT", "DRY", "FAN_ONLY", "HEAT_COOL"]
+DEFAULT_CLIMATE_MODES = ["COOL", "HEAT", "DRY", "FAN_ONLY"]
 DEFAULT_FAN_MODES = ["AUTO", "MIDDLE", "QUIET", "LOW", "MEDIUM", "HIGH"]
 DEFAULT_SWING_MODES = ["OFF", "VERTICAL", "HORIZONTAL", "BOTH"]
 
@@ -338,6 +335,13 @@ HARDWARE_SETTING_SCHEMA = cv.Schema(
     }
 )
 
+def validate_modes(value):
+    modes = cv.ensure_list(climate.validate_climate_mode)(value)
+    if "AUTO" in modes:
+        raise cv.Invalid("AUTO mode is not supported by this component.")
+    return modes
+
+
 CONFIG_SCHEMA = (
     climate.climate_schema(CN105Climate)
     .extend(
@@ -417,14 +421,13 @@ CONFIG_SCHEMA = (
                 {
                     cv.Optional(
                         CONF_MODE, default=DEFAULT_CLIMATE_MODES
-                    ): cv.ensure_list(climate.validate_climate_mode),
+                    ): validate_modes,
                     cv.Optional(
                         CONF_FAN_MODE, default=DEFAULT_FAN_MODES
                     ): cv.ensure_list(climate.validate_climate_fan_mode),
                     cv.Optional(
                         CONF_SWING_MODE, default=DEFAULT_SWING_MODES
                     ): cv.ensure_list(climate.validate_climate_swing_mode),
-                    cv.Optional(CONF_DUAL_SETPOINT, default=False): cv.boolean,
                     cv.Optional(CONF_SUPPORTS_HORIZONTAL_VANE_MODE): cv.ensure_list(
                         cv.string
                     ),
@@ -475,9 +478,6 @@ def to_code(config):
                 continue
             if mode_str in climate.CLIMATE_MODES:
                 cg.add(traits.add_supported_mode(climate.CLIMATE_MODES[mode_str]))
-            # Handle mapping for HA HEAT_COOL -> Mitsu AUTO without replacing the real AUTO
-            if mode_str == "HEAT_COOL" and "HEAT_COOL" in climate.CLIMATE_MODES:
-                cg.add(traits.add_supported_mode(climate.CLIMATE_MODES["HEAT_COOL"]))
 
         # Configure the horizontal vane options
         horizontal_vane_options = supports.get(CONF_SUPPORTS_HORIZONTAL_VANE_MODE, [])
@@ -493,21 +493,7 @@ def to_code(config):
         )
         cg.add(var.set_vane_type(vane_type_enum))
 
-        # Set dual setpoint support via YAML (default: False if missing)
-        # Note: this enables global dual setpoint support in HA.
-        yaml_dual = supports.get(CONF_DUAL_SETPOINT, False)
 
-        # Use the C++ constant directly via RawExpression
-        dual_flag = cg.RawExpression(
-            "climate::CLIMATE_REQUIRES_TWO_POINT_TARGET_TEMPERATURE"
-        )
-
-        if yaml_dual:
-            cg.add(traits.add_feature_flags(dual_flag))
-
-        # Note: If yaml_dual is False, we simply do NOT add the dual_flag.
-        # ESPHome's default behavior for modes like COOL/HEAT is to enable single-point target temperature.
-        # We don't need to explicitly force single-point or clear the dual flag (it's off by default).
 
         for fan_mode_str in supports.get(CONF_FAN_MODE, DEFAULT_FAN_MODES):
             if fan_mode_str in climate.CLIMATE_FAN_MODES:

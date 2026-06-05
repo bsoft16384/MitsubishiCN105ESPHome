@@ -398,7 +398,6 @@ namespace esphome {
 
         void updateAction();
         void setActionIfOperatingTo(climate::ClimateAction action);
-        void setActionIfOperatingAndCompressorIsActiveTo(climate::ClimateAction action);
         void hpPacketDebug(const uint8_t* packet, unsigned int length, const char* packetDirection, const char* log_prefix = "");
         void hpFunctionsDebug(uint8_t* packet, unsigned int length);
 
@@ -418,11 +417,7 @@ namespace esphome {
         bool processFanChange(const esphome::climate::ClimateCall& call);
         bool processSwingChange(const esphome::climate::ClimateCall& call);
         void finalizeControlIfUpdated(bool updated);
-        // Temperature handling helpers (dual setpoint variants)
-        void handleDualSetpointBoth(float low, float high);
-        void handleDualSetpointLowOnly(float low);
-        void handleDualSetpointHighOnly(float high);
-        void handleSingleTargetInAutoOrDry(float requested);
+
 
         void createPacket(uint8_t* packet);
         void createInfoPacket(uint8_t* packet, uint8_t code);
@@ -485,14 +480,9 @@ namespace esphome {
 
         // foundStart, bytesRead, dataLength, command → moved into parser_ (Phase 3A)
 
-        // Ensure dual setpoints are valid (no NaN, enforce spread in AUTO)
-        void sanitizeDualSetpoints();
 
-        // Anti-rebond UI: mÃÂ©morise le dernier cÃÂ´tÃÂ© modifiÃÂ© et l'instant
-        uint32_t last_dual_setpoint_change_ms_ = 0;
-        char last_dual_setpoint_side_ = 'N'; // 'L' (low), 'H' (high), 'N' (none)
 
-        // Gestion sÃÂ»re d'un paquet diffÃÂ©rÃÂ© ÃÂ  ÃÂ©crire pour ÃÂ©viter la capture d'un buffer de pile
+        // Gestion sÃƒÂ»re d'un paquet diffÃƒÂ©rÃƒÂ© ÃƒÂ  ÃƒÂ©crire pour ÃƒÂ©viter la capture d'un buffer de pile
         void try_write_pending_packet();
         uint8_t pending_packet_[PACKET_LEN] = {};
         int pending_packet_len_ = 0;
@@ -508,7 +498,7 @@ namespace esphome {
         bool installer_mode_effective_{ false };
         bool installer_mode_fallback_done_{ false };
         bool power_unit_is_btu_{ false };  // true = la PAC envoie en BTU/s (nÃÂ©cessite conversion ÃÂ3.412)
-        bool supports_dual_setpoint_ = false;
+
         int horizontal_vanes_{ 1 }; // Kept for legacy logging if needed, or can be removed if unused.
         VaneType vane_type_{ VaneType::STANDARD };
 

@@ -354,8 +354,6 @@ struct heatpumpSettings {
     HPPower power = HPPower::UNKNOWN;
     HPMode mode = HPMode::UNKNOWN;
     float temperature = -1.0f;
-    float dual_low_target = -100.0f;
-    float dual_high_target = -100.0f;
     HPFanMode fan = HPFanMode::UNKNOWN;
     HPVaneMode vane = HPVaneMode::UNKNOWN;
     HPWideVaneMode wideVane = HPWideVaneMode::UNKNOWN;
@@ -369,8 +367,6 @@ struct heatpumpSettings {
         power = HPPower::UNKNOWN;
         mode = HPMode::UNKNOWN;
         temperature = -1.0f;
-        dual_low_target = -100.0f;
-        dual_high_target = -100.0f;
         fan = HPFanMode::UNKNOWN;
         vane = HPVaneMode::UNKNOWN;
         wideVane = HPWideVaneMode::UNKNOWN;
