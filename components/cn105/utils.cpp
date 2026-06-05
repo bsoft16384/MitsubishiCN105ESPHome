@@ -100,7 +100,7 @@ void CN105Climate::debug_settings(const char* settingName, wantedHeatpumpSetting
     ESP_LOGD(LOG_ACTION_EVT_TAG, "[%s]-> [power: %s, target °C: %.1f, mode: %s, fan: %s, vane: %s, wvane: %s, hasChanged ? -> %s, hasBeenSent ? -> %s]",
         get_if_not_null(settingName, "unnamed"),
         hp_power_to_str(settings.power),
-        settings.temperature,
+        settings.temperature.value_or(NAN),
         hp_mode_to_str(settings.mode),
         hp_fan_to_str(settings.fan),
         hp_vane_to_str(settings.vane),
@@ -153,7 +153,7 @@ void CN105Climate::debug_settings(const char* settingName, heatpumpSettings& set
     ESP_LOGD(LOG_SETTINGS_TAG, "[%s]-> [power: %s, target °C: %.1f, mode: %s, fan: %s, vane: %s, wvane: %s]",
         get_if_not_null(settingName, "unnamed"),
         hp_power_to_str(settings.power),
-        settings.temperature,
+        settings.temperature.value_or(NAN),
         hp_mode_to_str(settings.mode),
         hp_fan_to_str(settings.fan),
         hp_vane_to_str(settings.vane),
@@ -287,29 +287,38 @@ void CN105Climate::hp_packet_debug(const uint8_t* packet, unsigned int length, c
 }
 
 void CN105Climate::hp_functions_debug(uint8_t* packet, unsigned int length) {
-    if (length < 2) return; // Pas de données à décoder
+    if (length < 2) return; // No data to decode
 
-    std::string output;
-    output.reserve(length * 8); // Pré-allocation pour éviter les réallocations
+    char output[128] = "";
+    char* p = output;
+    size_t rem = sizeof(output);
 
     char buffer[16];
 
-    // On commence à i=1 pour sauter l'octet de commande (0x20 ou 0x22)
+    // Start at i=1 to skip the command byte (0x20 or 0x22)
     for (unsigned int i = 1; i < length; i++) {
         uint8_t byte = packet[i];
 
-        // Logique de décodage Mitsubishi (copiée de heatpumpFunctions)
-        int code = ((byte >> 2) & 0xff) + 100;
+        // Mitsubishi function code encoding:
+        // - The upper 6 bits represent the function code offset from 100
+        // - The lower 2 bits represent the function setting value (1-3)
+        int code = (byte >> 2) + 100;
         int value = byte & 3;
 
-        // Formatage "Code:Valeur" (ex: " 102:3")
-        snprintf(buffer, sizeof(buffer), " %d:%d", code, value);
-        output += buffer;
+        // Formatting "Code:Value" (e.g. " 102:3")
+        int written = snprintf(buffer, sizeof(buffer), " %d:%d", code, value);
+        if (written > 0 && (size_t)written < sizeof(buffer)) {
+            int copy_len = snprintf(p, rem, "%s", buffer);
+            if (copy_len > 0 && (size_t)copy_len < rem) {
+                p += copy_len;
+                rem -= copy_len;
+            }
+        }
     }
 
-    // Affichage avec le tag LOG_FUNCTIONS_TAG (défini dans cn105_types.h)
-    // Affiche par exemple : [FUNCTIONS] Decoded 20: 101:1 102:3 103:2 ...
-    ESP_LOGD(LOG_FUNCTIONS_TAG, "Decoded %02X:%s", packet[0], output.c_str());
+    // Display with LOG_FUNCTIONS_TAG (defined in cn105_types.h)
+    // E.g.: [FUNCTIONS] Decoded 20: 101:1 102:3 103:2 ...
+    ESP_LOGD(LOG_FUNCTIONS_TAG, "Decoded %02X:%s", packet[0], output);
 }
 
 int CN105Climate::lookup_byte_map_index(const int valuesMap[], int len, int lookupValue, const char* debugInfo) {

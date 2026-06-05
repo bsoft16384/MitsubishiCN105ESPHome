@@ -100,7 +100,7 @@ bool CN105Climate::process_temperature_change(const esphome::climate::ClimateCal
     ESP_LOGI("control", "Setting heatpump setpoint : %.1f", this->get_target_temperature());
 
     this->control_temperature();
-    ESP_LOGD("control", "controlled temperature to: %.1f", this->wantedSettings.temperature);
+    ESP_LOGD("control", "controlled temperature to: %.1f", this->wantedSettings.temperature.value_or(0.0f));
     return true;
 }
 
@@ -497,7 +497,7 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
     // Check temperature mismatch
     if (target_physical_mode != climate::CLIMATE_MODE_OFF) {
         float normalized_target_temp = this->calculate_temperature_setting(target_physical_temp);
-        if (std::isnan(this->currentSettings.temperature) || fabsf(this->currentSettings.temperature - normalized_target_temp) >= 0.25f) {
+        if (!this->currentSettings.temperature.has_value() || fabsf(*this->currentSettings.temperature - normalized_target_temp) >= 0.25f) {
             temp_mismatch = true;
         }
     }

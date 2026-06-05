@@ -354,7 +354,7 @@ inline std::optional<uint8_t> hp_airflow_control_to_wire(HPAirflowControl val) {
 struct heatpumpSettings {
     HPPower power = HPPower::UNKNOWN;
     HPMode mode = HPMode::UNKNOWN;
-    float temperature = -1.0f;
+    std::optional<float> temperature = std::nullopt;
     HPFanMode fan = HPFanMode::UNKNOWN;
     HPVaneMode vane = HPVaneMode::UNKNOWN;
     HPWideVaneMode wideVane = HPWideVaneMode::UNKNOWN;
@@ -367,7 +367,7 @@ struct heatpumpSettings {
     void resetSettings() {
         power = HPPower::UNKNOWN;
         mode = HPMode::UNKNOWN;
-        temperature = -1.0f;
+        temperature = std::nullopt;
         fan = HPFanMode::UNKNOWN;
         vane = HPVaneMode::UNKNOWN;
         wideVane = HPWideVaneMode::UNKNOWN;
@@ -379,9 +379,15 @@ struct heatpumpSettings {
     heatpumpSettings& operator=(const heatpumpSettings& other) = default;
 
     bool operator==(const heatpumpSettings& other) const {
+        bool temp_equal = false;
+        if (!temperature.has_value() && !other.temperature.has_value()) {
+            temp_equal = true;
+        } else if (temperature.has_value() && other.temperature.has_value()) {
+            temp_equal = std::abs(*temperature - *other.temperature) < 0.01f;
+        }
         return power == other.power &&
             mode == other.mode &&
-            temperature == other.temperature &&
+            temp_equal &&
             fan == other.fan &&
             vane == other.vane &&
             wideVane == other.wideVane;

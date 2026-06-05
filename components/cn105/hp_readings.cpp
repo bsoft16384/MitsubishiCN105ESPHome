@@ -200,7 +200,7 @@ void CN105Climate::get_settings_from_response_packet() {
         receivedSettings.temperature = this->currentSettings.temperature;
     }
  
-    ESP_LOGD("Decoder", "[Temp °C: %f]", receivedSettings.temperature);
+    ESP_LOGD("Decoder", "[Temp °C: %f]", receivedSettings.temperature.value_or(NAN));
  
     auto fan_opt = hp_fan_from_wire(get_payload_byte(6));
     if (fan_opt) {
@@ -609,12 +609,14 @@ void CN105Climate::publish_state_to_ha(heatpumpSettings& settings) {
 
     // HA Temp
     // Ignorer temporairement une consigne entrante si une consigne utilisateur est en cours
-    bool hasPendingUserTemp = (this->wantedSettings.temperature != -1.0f) && (this->wantedSettings.hasChanged) && (!this->wantedSettings.hasBeenSent);
+    bool hasPendingUserTemp = (this->wantedSettings.temperature.has_value()) && (this->wantedSettings.hasChanged) && (!this->wantedSettings.hasBeenSent);
     uint32_t graceWindowMs = this->get_update_interval() + DEFER_SCHEDULE_UPDATE_LOOP_DELAY;
     bool graceAfterSend = (this->wantedSettings.hasBeenSent) && ((CUSTOM_MILLIS - this->wantedSettings.lastChange) < graceWindowMs);
     if (!hasPendingUserTemp && !graceAfterSend) {
-        if (this->wantedSettings.temperature == -1) { // to prevent overwriting a user demand
-            this->update_target_temperatures_from_settings(settings.temperature);
+        if (!this->wantedSettings.temperature.has_value()) { // to prevent overwriting a user demand
+            if (settings.temperature.has_value()) {
+                this->update_target_temperatures_from_settings(*settings.temperature);
+            }
             this->currentSettings.temperature = settings.temperature;
         }
     } else {
@@ -788,7 +790,7 @@ void CN105Climate::check_power_and_mode_settings(heatpumpSettings& settings, boo
     if (!this->first_real_state_received_) {
         this->first_real_state_received_ = true;
         ESP_LOGI(TAG, "First physical climate settings received: power=%s, mode=%s, temp=%.1f", 
-                 hp_power_to_str(settings.power), hp_mode_to_str(settings.mode), settings.temperature);
+                 hp_power_to_str(settings.power), hp_mode_to_str(settings.mode), settings.temperature.value_or(NAN));
         
         bool fan_stop_state = this->fan_stop_switch_ != nullptr ? this->fan_stop_switch_->state : false;
         bool preserve_restored_mode = fan_stop_state && 
@@ -804,12 +806,12 @@ void CN105Climate::check_power_and_mode_settings(heatpumpSettings& settings, boo
         } else {
             this->desired_mode_ = physical_mode;
             this->mode = physical_mode;
-            if (!std::isnan(settings.temperature)) {
-                this->desired_temp_ = settings.temperature;
-                this->target_temperature = settings.temperature;
+            if (settings.temperature.has_value()) {
+                this->desired_temp_ = *settings.temperature;
+                this->target_temperature = *settings.temperature;
             }
             this->last_commanded_real_mode_ = physical_mode;
-            this->last_commanded_real_temp_ = settings.temperature;
+            this->last_commanded_real_temp_ = settings.temperature.value_or(NAN);
         }
         
         this->evaluate_fan_stop_and_ltp();
@@ -837,22 +839,22 @@ void CN105Climate::check_power_and_mode_settings(heatpumpSettings& settings, boo
         
         this->desired_mode_ = physical_mode;
         this->mode = physical_mode;
-        if (!std::isnan(settings.temperature)) {
-            this->desired_temp_ = settings.temperature;
-            this->target_temperature = settings.temperature;
+        if (settings.temperature.has_value()) {
+            this->desired_temp_ = *settings.temperature;
+            this->target_temperature = *settings.temperature;
         }
         
         this->last_commanded_real_mode_ = physical_mode;
-        this->last_commanded_real_temp_ = settings.temperature;
+        this->last_commanded_real_temp_ = settings.temperature.value_or(NAN);
         
         this->publish_state();
-    } else if (physical_mode != climate::CLIMATE_MODE_OFF && !std::isnan(settings.temperature) && fabsf(settings.temperature - this->last_commanded_real_temp_) >= 0.25f) {
+    } else if (physical_mode != climate::CLIMATE_MODE_OFF && settings.temperature.has_value() && fabsf(*settings.temperature - this->last_commanded_real_temp_) >= 0.25f) {
         ESP_LOGI(TAG, "External target temperature change detected: from %.1f to %.1f.",
-                 this->last_commanded_real_temp_, settings.temperature);
+                 this->last_commanded_real_temp_, *settings.temperature);
                  
-        this->desired_temp_ = settings.temperature;
-        this->target_temperature = settings.temperature;
-        this->last_commanded_real_temp_ = settings.temperature;
+        this->desired_temp_ = *settings.temperature;
+        this->target_temperature = *settings.temperature;
+        this->last_commanded_real_temp_ = *settings.temperature;
         
         this->publish_state();
         this->evaluate_fan_stop_and_ltp();

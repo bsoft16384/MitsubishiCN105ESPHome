@@ -101,55 +101,7 @@ namespace esphome {
         void set_low_temp_hysteresis(float low_temp_hysteresis) { this->low_temp_hysteresis_ = low_temp_hysteresis; }
         void evaluate_fan_stop_and_ltp();
 
-        binary_sensor::BinarySensor* isee_sensor_ = nullptr;
-        binary_sensor::BinarySensor* remote_temp_sensor_ = nullptr;
-        float remote_temp_margin_ = 0.4f;
-        text_sensor::TextSensor* stage_sensor_{ nullptr }; // to save ref if needed
-        bool use_stage_for_operating_status_{ false };
-        text_sensor::TextSensor* functions_sensor_ = nullptr;
-        FunctionsButton* functions_get_button_ = nullptr;
-        FunctionsButton* functions_set_button_ = nullptr;
-        FunctionsNumber* functions_set_code_ = nullptr;
-        FunctionsNumber* functions_set_value_ = nullptr;
-        text_sensor::TextSensor* sub_mode_sensor_ = nullptr;
-        text_sensor::TextSensor* auto_sub_mode_sensor_ = nullptr;
-        text_sensor::TextSensor* error_code_sensor_{ nullptr };
-        sensor::Sensor* remote_temp_source_{ nullptr };
-        text_sensor::TextSensor* remote_temp_source_info_sensor_{ nullptr };
-        HVACOptionSwitch* air_purifier_switch_ = nullptr;
-        HVACOptionSwitch* night_mode_switch_ = nullptr;
-        HVACOptionSwitch* circulator_switch_ = nullptr;
-        std::vector<HardwareSettingSelect*> hardware_settings_;
-        uint32_t hardware_settings_interval_ms_{ 86400000 };  // Default 24h
-
-        // The value of the code and value for the functions set.
-        int functions_code_;
-        int functions_value_;
-
-
-
-        VaneOrientationSelect* vertical_vane_select_ =
-            nullptr;  // Select to store manual position of vertical swing
-        VaneOrientationSelect* horizontal_vane_select_ =
-            nullptr;  // Select to store manual position of horizontal swing
-        std::vector<std::string> horizontal_vane_options_strings_;  // Store strings for horizontal vane options
-        VaneOrientationSelect* airflow_control_select_ =
-            nullptr;
-        sensor::Sensor* compressor_frequency_sensor_ =
-            nullptr;  // Sensor to store compressor frequency
-        sensor::Sensor* target_humidity_sensor_ =
-            nullptr;  // Sensor to expose target humidity from 0x02 settings packet (byte 12)
-        sensor::Sensor* input_power_sensor_ =
-            nullptr;  // Sensor to store input power
-        sensor::Sensor* kwh_sensor_ =
-            nullptr;  // Sensor to store kWh
-        sensor::Sensor* runtime_hours_sensor_ =
-            nullptr;  // Sensor to store runtime hours
-        sensor::Sensor* outside_air_temperature_sensor_ =
-            nullptr;  // Outside air temperature
-
-        // sensor to monitor heatpump connection time
-        cn105::HpUpTimeConnectionSensor* hp_uptime_connection_sensor_ = nullptr;        float convert_input_power_to_w(float raw_input_power);
+        float convert_input_power_to_w(float raw_input_power);
         float convert_energy_usage_to_kwh(float raw_energy_usage);
         float get_compressor_frequency();
         float get_input_power();
@@ -165,7 +117,7 @@ namespace esphome {
         bool has_changed(const char* before, const char* now, const char* field, bool check_not_null = false);
 
         inline bool has_changed(esphome::StringRef before, const char* now, const char* field, bool check_not_null = false) {
-            return has_changed(std::string(before).c_str(), now, field, check_not_null);
+            return has_changed(before.c_str(), now, field, check_not_null);
         }
 
         template <typename T>
@@ -348,6 +300,43 @@ namespace esphome {
         void set_fan_speed(const char* setting);
 
         void set_heatpump_connected(bool state);
+
+        binary_sensor::BinarySensor* isee_sensor_ = nullptr;
+        binary_sensor::BinarySensor* remote_temp_sensor_ = nullptr;
+        float remote_temp_margin_ = 0.4f;
+        text_sensor::TextSensor* stage_sensor_{ nullptr }; // to save ref if needed
+        bool use_stage_for_operating_status_{ false };
+        text_sensor::TextSensor* functions_sensor_ = nullptr;
+        FunctionsButton* functions_get_button_ = nullptr;
+        FunctionsButton* functions_set_button_ = nullptr;
+        FunctionsNumber* functions_set_code_ = nullptr;
+        FunctionsNumber* functions_set_value_ = nullptr;
+        text_sensor::TextSensor* sub_mode_sensor_ = nullptr;
+        text_sensor::TextSensor* auto_sub_mode_sensor_ = nullptr;
+        text_sensor::TextSensor* error_code_sensor_{ nullptr };
+        sensor::Sensor* remote_temp_source_{ nullptr };
+        text_sensor::TextSensor* remote_temp_source_info_sensor_{ nullptr };
+        HVACOptionSwitch* air_purifier_switch_ = nullptr;
+        HVACOptionSwitch* night_mode_switch_ = nullptr;
+        HVACOptionSwitch* circulator_switch_ = nullptr;
+        std::vector<HardwareSettingSelect*> hardware_settings_;
+        uint32_t hardware_settings_interval_ms_{ 86400000 };  // Default 24h
+
+        // The value of the code and value for the functions set.
+        int functions_code_;
+        int functions_value_;
+
+        VaneOrientationSelect* vertical_vane_select_ = nullptr;
+        VaneOrientationSelect* horizontal_vane_select_ = nullptr;
+        std::vector<std::string> horizontal_vane_options_strings_;
+        VaneOrientationSelect* airflow_control_select_ = nullptr;
+        sensor::Sensor* compressor_frequency_sensor_ = nullptr;
+        sensor::Sensor* target_humidity_sensor_ = nullptr;
+        sensor::Sensor* input_power_sensor_ = nullptr;
+        sensor::Sensor* kwh_sensor_ = nullptr;
+        sensor::Sensor* runtime_hours_sensor_ = nullptr;
+        sensor::Sensor* outside_air_temperature_sensor_ = nullptr;
+        cn105::HpUpTimeConnectionSensor* hp_uptime_connection_sensor_ = nullptr;
 
     private:
         int uart_port_ = -1;

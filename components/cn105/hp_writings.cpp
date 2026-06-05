@@ -161,10 +161,10 @@ const char* CN105Climate::get_fan_speed_setting() {
 }
  
 float CN105Climate::get_temperature_setting() {
-    if (this->wantedSettings.temperature != -1.0) {
-        return this->wantedSettings.temperature;
+    if (this->wantedSettings.temperature.has_value()) {
+        return *this->wantedSettings.temperature;
     } else {
-        return this->currentSettings.temperature;
+        return this->currentSettings.temperature.value_or(this->target_temperature);
     }
 }
 const char* CN105Climate::get_airflow_control_setting() {
@@ -212,7 +212,7 @@ void CN105Climate::create_packet(uint8_t* packet) {
         if (val_opt) { packet[9] = *val_opt; packet[6] += CONTROL_PACKET_1[1]; } else { ESP_LOGW(TAG, "Ignoring invalid mode setting while building packet"); }
     }
  
-    if (wantedSettings.temperature != -1) {
+    if (wantedSettings.temperature.has_value()) {
         ESP_LOGD(TAG, "temperature -> %f", get_temperature_setting());
         packet[19] = cn105_protocol::encode_temperature_b(get_temperature_setting());
         packet[6] += CONTROL_PACKET_1[2];
@@ -296,7 +296,7 @@ void CN105Climate::publish_wanted_settings_state_to_ha() {
 
     // HA Temp — only update if this SET includes an explicit temperature change;
     // otherwise the stale currentSettings.temperature would overwrite the UI.
-    if (this->wantedSettings.temperature != -1.0f) {
+    if (this->wantedSettings.temperature.has_value()) {
         this->update_target_temperatures_from_settings(this->get_temperature_setting());
     }
 
