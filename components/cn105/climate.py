@@ -54,7 +54,7 @@ from esphome.components.sensor import (
 )
 from esphome.core import CORE, coroutine
 
-# ... (AUTO_LOAD, DEPENDENCIES, toutes les constantes CONF_XXX_SENSOR, DEFAULT_MODES - identiques ÃÂÃÂ  votre version) ...
+# --- AUTO_LOAD, DEPENDENCIES, and CONF_XXX_SENSOR constants ---
 AUTO_LOAD = [
     "climate",
     "sensor",
@@ -67,7 +67,7 @@ AUTO_LOAD = [
     "uptime",
     "number",
 ]
-DEPENDENCIES = ["uart"]  # Garder uart ici aussi
+DEPENDENCIES = ["uart"]  # Keep uart here too
 
 CONF_SUPPORTS = "supports"
 CONF_SUPPORTS_HORIZONTAL_VANE_MODE = "horizontal_vane_mode"
@@ -133,7 +133,7 @@ CONF_DEBOUNCE_DELAY = "debounce_delay"
 CONF_CONNECTION_BOOTSTRAP_DELAY = "connection_bootstrap_delay"
 CONF_INSTALLER_MODE = "installer_mode"
 
-# DÃÂÃÂ©finitions des classes C++ (identiques ÃÂÃÂ  votre version)
+# Definitions of C++ classes
 VaneOrientationSelect = cg.global_ns.class_(
     "VaneOrientationSelect", select.Select, cg.Component
 )
@@ -149,7 +149,7 @@ HardwareSettingSelect = cg.global_ns.class_(
 )
 
 
-# --- Fonction d'aide pour rÃÂÃÂ©cupÃÂÃÂ©rer les pins TX/RX (identique ÃÂÃÂ  votre version corrigÃÂÃÂ©e) ---
+# --- Helper function to retrieve TX/RX pins ---
 def get_uart_pins_from_config(core_config, target_uart_id_str):
     tx_pin_num = -1
     rx_pin_num = -1
@@ -175,13 +175,13 @@ def get_uart_pins_from_config(core_config, target_uart_id_str):
 
 
 def get_uart_port_index(core_config, target_uart_id_str):
-    # ESPHome ne fournit pas directement l'index de contrÃÂÃÂ´leur; on l'infÃÂÃÂ¨re
-    # via l'ordre de dÃÂÃÂ©claration ou restons ÃÂÃÂ  0 par dÃÂÃÂ©faut.
-    # On tente d'associer l'objet id() ÃÂÃÂ  sa position.
+    # ESPHome does not expose the controller index directly; we infer it
+    # from the declaration order, or default to 0.
+    # We attempt to associate the object id() to its position.
     idx = 0
     for i, uart_conf_item in enumerate(core_config.get("uart", [])):
         if str(uart_conf_item[CONF_ID]) == target_uart_id_str:
-            idx = i  # souvent 0 => UART0, 1 => UART1, 2 => UART2
+            idx = i  # often 0 => UART0, 1 => UART1, 2 => UART2
             break
     # Clamp 0..2
     if idx < 0:
@@ -191,9 +191,9 @@ def get_uart_port_index(core_config, target_uart_id_str):
     return idx
 
 
-# --- FIN de la fonction d'aide ---
+# --- End of helper functions ---
 
-# SchÃƒÂƒÃ‚Â©mas pour les entitÃƒÂƒÃ‚Â©s optionnelles (identiques ÃƒÂƒÃ‚Â  votre version)
+# Schemas for optional entities
 SELECT_SCHEMA = select.select_schema(VaneOrientationSelect).extend(
     {cv.GenerateID(CONF_ID): cv.declare_id(VaneOrientationSelect)}
 )
@@ -366,7 +366,7 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_FUNCTIONS_SET_VALUE): FUNCTIONS_NUMBER_SCHEMA,
             cv.Optional(
                 CONF_STAGE_SENSOR
-            ): STAGE_SENSOR_CONFIG_SCHEMA,  # ModifiÃƒÂƒÃ‚Â© pour le nouveau schÃƒÂƒÃ‚Â©ma
+            ): STAGE_SENSOR_CONFIG_SCHEMA,  # Modified for the new schema
             cv.Optional(CONF_SUB_MODE_SENSOR): SUB_MODE_SENSOR_SCHEMA,
             cv.Optional(CONF_AUTO_SUB_MODE_SENSOR): AUTO_SUB_MODE_SENSOR_SCHEMA,
             cv.Optional(CONF_ERROR_CODE_SENSOR): ERROR_CODE_SENSOR_SCHEMA,
@@ -510,10 +510,10 @@ def to_code(config):
         )
     )
 
-    # --- Configuration des entitÃÂÃÂ©s optionnelles (style original) ---
+    # --- Configure optional entities (original style) ---
     if CONF_HORIZONTAL_SWING_SELECT in config:
         conf_item = config[CONF_HORIZONTAL_SWING_SELECT]
-        # new_select s'occupe de l'enregistrement. options=[] est important.
+        # new_select handles registration. options=[] is important.
         swing_select_var = yield select.new_select(conf_item, options=[])
         if horizontal_vane_options:
             options_vector = cg.RawExpression(
@@ -535,15 +535,15 @@ def to_code(config):
         control_select_var = yield select.new_select(conf_item, options=[])
         cg.add(var.set_airflow_control_select(control_select_var))
 
-    # Pour les capteurs, text_sensors, etc., utiliser la mÃÂÃÂ©thode .new_... standard
-    # Ces fonctions s'occupent de l'enregistrement du composant.
+    # For sensors, text_sensors, etc., use standard .new_... method
+    # These functions handle component registration.
     if CONF_COMPRESSOR_FREQUENCY_SENSOR in config:
-        # conf = config[CONF_COMPRESSOR_FREQUENCY_SENSOR] # 'conf' est dÃÂÃÂ©jÃÂÃÂ  utilisÃÂÃÂ© comme argument de to_code
-        # conf["force_update"] = False # Ceci ÃÂÃÂ©tait dans votre code original, le garder si pertinent
+        # conf = config[CONF_COMPRESSOR_FREQUENCY_SENSOR] # 'conf' is already used as argument of to_code
+        # conf["force_update"] = False # This was in your original code, keep it if relevant
         conf_item = config[CONF_COMPRESSOR_FREQUENCY_SENSOR]
         if (
             "force_update" not in conf_item
-        ):  # S'assurer de ne pas l'ÃÂÃÂ©craser si l'user l'a mis
+        ):  # Ensure we don't overwrite if user set it
             conf_item["force_update"] = False
         sensor_var = yield sensor.new_sensor(conf_item)
         cg.add(var.set_compressor_frequency_sensor(sensor_var))
@@ -625,17 +625,17 @@ def to_code(config):
         switch_var = yield switch.new_switch(config[CONF_CIRCULATOR_SWITCH])
         cg.add(var.set_circulator_switch(switch_var))
 
-    # --- TRAITEMENT POUR STAGE_SENSOR AVEC LA NOUVELLE OPTION ---
+    # --- STAGE_SENSOR TREATMENT WITH NEW OPTION ---
     if CONF_STAGE_SENSOR in config:
         conf_stage_dict = config[CONF_STAGE_SENSOR]
-        # new_text_sensor gÃÂÃÂ¨re la crÃÂÃÂ©ation et l'enregistrement de base du text_sensor
+        # new_text_sensor handles base creation and registration of the text_sensor
         stage_ts_var = yield text_sensor.new_text_sensor(conf_stage_dict)
         cg.add(var.set_stage_sensor(stage_ts_var))
 
-        # Passer l'option de fallback au C++
+        # Pass the fallback option to C++
         if conf_stage_dict.get(CONF_USE_AS_OPERATING_FALLBACK, False):
             cg.add(var.set_use_stage_for_operating_status(True))
-    # --- FIN DU TRAITEMENT POUR STAGE_SENSOR ---
+    # --- END OF STAGE_SENSOR TREATMENT ---
 
     if CONF_REMOTE_TEMPERATURE_CONTROL_SENSOR in config:
         conf = config[CONF_REMOTE_TEMPERATURE_CONTROL_SENSOR]
