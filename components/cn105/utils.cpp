@@ -20,7 +20,7 @@ void esphome::log_debug_uint32(const char* tag, const char* msg, uint32_t value,
 #endif
 }
 
-bool CN105Climate::hasChanged(const char* before, const char* now, const char* field, bool checkNotNull) {
+bool CN105Climate::has_changed(const char* before, const char* now, const char* field, bool checkNotNull) {
     if (now == NULL) {
         if (checkNotNull) {
             ESP_LOGE(TAG, "CAUTION: expected value in hasChanged() function for %s, got NULL", field);
@@ -33,7 +33,7 @@ bool CN105Climate::hasChanged(const char* before, const char* now, const char* f
 }
 
 
-const char* CN105Climate::getIfNotNull(const char* what, const char* defaultValue) {
+const char* CN105Climate::get_if_not_null(const char* what, const char* defaultValue) {
     if (what == NULL) {
         return defaultValue;
     }
@@ -44,7 +44,7 @@ const char* CN105Climate::getIfNotNull(const char* what, const char* defaultValu
  * This function calculates the temperature setting based on the mode and the temperature points.
  * It returns the temperature setting.
  */
-float CN105Climate::calculateTemperatureSetting(float setting) {
+float CN105Climate::calculate_temperature_setting(float setting) {
     setting = std::round(2.0f * setting) / 2.0f;  // Round to the nearest half-degree.
     return setting < 10 ? 10 : (setting > 31 ? 31 : setting);
 }
@@ -60,7 +60,7 @@ float CN105Climate::calculateTemperatureSetting(float setting) {
  * conversion factor is: 1 W = 1 J/s, 1 BTU = 1055.056 J
  *   => raw [BTU/s] * (3600 / 1055.056) = Watts
  */
-float CN105Climate::convert_input_power_to_W(float raw_input_power) {
+float CN105Climate::convert_input_power_to_w(float raw_input_power) {
     if (power_unit_is_btu_) {
         static constexpr float conv_factor = 3600.0f / 1055.05558262f;
         return raw_input_power * conv_factor;
@@ -77,7 +77,7 @@ float CN105Climate::convert_input_power_to_W(float raw_input_power) {
  * Set `power_unit_is_btu: true` for units that encode in kBTU instead:
  *   => raw [kBTU] * (1055.056 / 3 600 000) * 1000 = kWh
  */
-float CN105Climate::convert_energy_usage_to_kWh(float raw_energy_usage) {
+float CN105Climate::convert_energy_usage_to_kwh(float raw_energy_usage) {
     if (power_unit_is_btu_) {
         static constexpr float conv_factor = 1055.05585262f / 3600000.0f;
         return 1000.0f * raw_energy_usage * conv_factor;
@@ -91,14 +91,14 @@ float CN105Climate::convert_energy_usage_to_kWh(float raw_energy_usage) {
  * It returns the temperature setting.
  */
 
-void CN105Climate::updateTargetTemperaturesFromSettings(float temperature) {
+void CN105Climate::update_target_temperatures_from_settings(float temperature) {
     ESP_LOGD(LOG_SETTINGS_TAG, "SINGLE SETPOINT %.1f", temperature);
-    this->setTargetTemperature(temperature);
+    this->set_target_temperature(temperature);
 }
 
-void CN105Climate::debugSettings(const char* settingName, wantedHeatpumpSettings& settings) {
+void CN105Climate::debug_settings(const char* settingName, wantedHeatpumpSettings& settings) {
     ESP_LOGD(LOG_ACTION_EVT_TAG, "[%s]-> [power: %s, target °C: %.1f, mode: %s, fan: %s, vane: %s, wvane: %s, hasChanged ? -> %s, hasBeenSent ? -> %s]",
-        getIfNotNull(settingName, "unnamed"),
+        get_if_not_null(settingName, "unnamed"),
         hp_power_to_str(settings.power),
         settings.temperature,
         hp_mode_to_str(settings.mode),
@@ -110,35 +110,35 @@ void CN105Climate::debugSettings(const char* settingName, wantedHeatpumpSettings
     );
 }
 
-float CN105Climate::getTargetTemperatureInCurrentMode() {
-    return this->getTargetTemperature();
+float CN105Climate::get_target_temperature_in_current_mode() {
+    return this->get_target_temperature();
 }
 
-float CN105Climate::getTargetTemperature() {
+float CN105Climate::get_target_temperature() {
     return this->target_temperature;
 }
 
-float CN105Climate::getCurrentTemperature() {
+float CN105Climate::get_current_temperature() {
     return this->current_temperature;
 }
 
-void CN105Climate::setTargetTemperature(float temperature) {
+void CN105Climate::set_target_temperature(float temperature) {
     this->target_temperature = temperature;
 }
 
 
 
-void CN105Climate::setCurrentTemperature(float temperature) {
+void CN105Climate::set_current_temperature(float temperature) {
     this->current_temperature = temperature;
 }
 
 
 
-void CN105Climate::debugClimate(const char* settingName) {
+void CN105Climate::debug_climate(const char* settingName) {
     ESP_LOGD(LOG_SETTINGS_TAG, "[%s]-> [mode: %s, target °C: %.1f, fan: %s, swing: %s]",
         settingName,
         LOG_STR_ARG(climate_mode_to_string(this->mode)), // Utilisation de LOG_STR_ARG
-        this->getTargetTemperatureInCurrentMode(),
+        this->get_target_temperature_in_current_mode(),
         this->fan_mode.has_value() ? LOG_STR_ARG(climate_fan_mode_to_string(this->fan_mode.value())) : "-",
         LOG_STR_ARG(climate_swing_mode_to_string(this->swing_mode)));
 }
@@ -149,9 +149,9 @@ void CN105Climate::debugClimate(const char* settingName) {
 
 
 
-void CN105Climate::debugSettings(const char* settingName, heatpumpSettings& settings) {
+void CN105Climate::debug_settings(const char* settingName, heatpumpSettings& settings) {
     ESP_LOGD(LOG_SETTINGS_TAG, "[%s]-> [power: %s, target °C: %.1f, mode: %s, fan: %s, vane: %s, wvane: %s]",
-        getIfNotNull(settingName, "unnamed"),
+        get_if_not_null(settingName, "unnamed"),
         hp_power_to_str(settings.power),
         settings.temperature,
         hp_mode_to_str(settings.mode),
@@ -162,7 +162,7 @@ void CN105Climate::debugSettings(const char* settingName, heatpumpSettings& sett
 }
 
 
-void CN105Climate::debugStatus(const char* statusName, heatpumpStatus status) {
+void CN105Climate::debug_status(const char* statusName, heatpumpStatus status) {
     // Déclarez un buffer (tableau de char) pour la conversion float -> string
     // 6 caractères suffisent pour "-99.9\0"
     static char outside_temp_buffer[6];
@@ -179,14 +179,14 @@ void CN105Climate::debugStatus(const char* statusName, heatpumpStatus status) {
 }
 
 
-void CN105Climate::debugSettingsAndStatus(const char* settingName, heatpumpSettings settings, heatpumpStatus status) {
-    this->debugSettings(settingName, settings);
-    this->debugStatus(settingName, status);
+void CN105Climate::debug_settings_and_status(const char* settingName, heatpumpSettings settings, heatpumpStatus status) {
+    this->debug_settings(settingName, settings);
+    this->debug_status(settingName, status);
 }
 
 
 
-void CN105Climate::hpPacketDebug(const uint8_t* packet, unsigned int length, const char* packetDirection, const char* log_prefix) {
+void CN105Climate::hp_packet_debug(const uint8_t* packet, unsigned int length, const char* packetDirection, const char* log_prefix) {
     if (length < 5) {
         // Fallback for too short packets
         std::string output;
@@ -273,7 +273,7 @@ void CN105Climate::hpPacketDebug(const uint8_t* packet, unsigned int length, con
         log_prefix, headerStr.c_str(), dataStr.c_str(), csStr.c_str(), fullLabel);
 }
 
-void CN105Climate::hpFunctionsDebug(uint8_t* packet, unsigned int length) {
+void CN105Climate::hp_functions_debug(uint8_t* packet, unsigned int length) {
     if (length < 2) return; // Pas de données à décoder
 
     std::string output;
@@ -299,21 +299,21 @@ void CN105Climate::hpFunctionsDebug(uint8_t* packet, unsigned int length) {
     ESP_LOGD(LOG_FUNCTIONS_TAG, "Decoded %02X:%s", packet[0], output.c_str());
 }
 
-int CN105Climate::lookupByteMapIndex(const int valuesMap[], int len, int lookupValue, const char* debugInfo) {
+int CN105Climate::lookup_byte_map_index(const int valuesMap[], int len, int lookupValue, const char* debugInfo) {
     int idx = cn105_protocol::lookup_index(valuesMap, len, lookupValue);
     if (idx < 0) {
         ESP_LOGW("lookup", "%s caution value %d not found, returning -1", debugInfo, lookupValue);
     }
     return idx;
 }
-int CN105Climate::lookupByteMapIndex(const char* valuesMap[], int len, const char* lookupValue, const char* debugInfo) {
+int CN105Climate::lookup_byte_map_index(const char* valuesMap[], int len, const char* lookupValue, const char* debugInfo) {
     int idx = cn105_protocol::lookup_index(valuesMap, len, lookupValue);
     if (idx < 0) {
         ESP_LOGW("lookup", "%s caution value %s not found, returning -1", debugInfo, lookupValue);
     }
     return idx;
 }
-const char* CN105Climate::lookupByteMapValue(const char* valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue, const char* debugInfo, const char* defaultValue) {
+const char* CN105Climate::lookup_byte_map_value(const char* valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue, const char* debugInfo, const char* defaultValue) {
     // Check if value exists in the map first
     for (int i = 0; i < len; i++) {
         if (byteMap[i] == byteValue) {
@@ -326,7 +326,7 @@ const char* CN105Climate::lookupByteMapValue(const char* valuesMap[], const uint
     ESP_LOGW("lookup", "%s caution: value %d not found, returning value at index 0", debugInfo, byteValue);
     return valuesMap[0];
 }
-int CN105Climate::lookupByteMapValue(const int valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue, const char* debugInfo) {
+int CN105Climate::lookup_byte_map_value(const int valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue, const char* debugInfo) {
     int result = cn105_protocol::lookup_value(valuesMap, byteMap, len, byteValue);
     // Check if the lookup actually found a match vs returned fallback
     bool found = false;

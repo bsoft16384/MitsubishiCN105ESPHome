@@ -67,9 +67,9 @@ void RequestScheduler::send_request(uint8_t code, CN105Climate* context) {
         if (req.code != code) continue;
         if (req.disabled) { return; }
 
-        // Check canSend if present and if context is available
-        if (req.canSend && context) {
-            if (!req.canSend(*context)) {
+        // Check can_send if present and if context is available
+        if (req.can_send && context) {
+            if (!req.can_send(*context)) {
                 return;
             }
         }
@@ -135,9 +135,9 @@ void RequestScheduler::mark_response_seen(uint8_t code, CN105Climate* context) {
             req.failures = 0;
             ESP_LOGD(LOG_CYCLE_TAG, "Received %s <0x%02X>", req.description, req.code);
 
-            // Call the onResponse callback if present and if the context is available
-            if (req.onResponse && context) {
-                req.onResponse(*context);
+            // Call the on_response callback if present and if the context is available
+            if (req.on_response && context) {
+                req.on_response(*context);
             }
             return;
         }
@@ -169,11 +169,11 @@ void RequestScheduler::send_next_after(uint8_t previous_code, CN105Climate* cont
             continue;
         }
 
-        // Check canSend if present and if context is available
-        if (req.canSend && context) {
-            if (!req.canSend(*context)) {
+        // Check can_send if present and if context is available
+        if (req.can_send && context) {
+            if (!req.can_send(*context)) {
                 if (req.log_tag) {
-                    ESP_LOGD(req.log_tag, "Skipping %s (0x%02X): canSend returned false", req.description, req.code);
+                    ESP_LOGD(req.log_tag, "Skipping %s (0x%02X): can_send returned false", req.description, req.code);
                 }
                 continue;
             }

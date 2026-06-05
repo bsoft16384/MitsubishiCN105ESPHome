@@ -19,26 +19,26 @@ private:
     bool _isValid1;
     bool _isValid2;
 
-    int getCode(uint8_t b);
-    int getValue(uint8_t b);
+    int get_code(uint8_t b);
+    int get_value(uint8_t b);
 
 public:
     HeatpumpFunctions();
 
-    bool isValid() const;
+    bool is_valid() const;
 
     // data must be 15 bytes
-    void setData1(uint8_t* data);
-    void setData2(uint8_t* data);
-    void getData1(uint8_t* data) const;
-    void getData2(uint8_t* data) const;
+    void set_data1(uint8_t* data);
+    void set_data2(uint8_t* data);
+    void get_data1(uint8_t* data) const;
+    void get_data2(uint8_t* data) const;
 
     void clear();
 
-    int getValue(int code);
-    bool setValue(int code, int value);
+    int get_value(int code);
+    bool set_value(int code, int value);
 
-    heatpumpFunctionCodes getAllCodes();
+    heatpumpFunctionCodes get_all_codes();
 
     bool operator==(const HeatpumpFunctions& rhs);
     bool operator!=(const HeatpumpFunctions& rhs);

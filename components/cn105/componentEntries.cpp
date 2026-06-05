@@ -30,7 +30,7 @@ void CN105Climate::setup() {
     this->nbHeatpumpConnections_ = 0;
 
     // Register info requests here to ensure all dependencies (like hardware_settings) are ready
-    this->registerInfoRequests();
+    this->register_info_requests();
 
     ESP_LOGI(TAG, "tx_pin: %d rx_pin: %d", this->tx_pin_, this->rx_pin_);
     //ESP_LOGI(TAG, "remote_temp_timeout is set to %lu", this->remote_temp_timeout_);
@@ -73,7 +73,7 @@ void CN105Climate::loop() {
 
     // As long as the connection is not successful, we do not launch ANY cycle/write (otherwise it short-circuits the delay).
     // We still continue to read/process the input in order to detect 0x7A/0x7B (connection success).
-    const bool can_talk_to_hp = this->isHeatpumpConnected();
+    const bool can_talk_to_hp = this->is_heatpump_connected();
 
     if (can_talk_to_hp) {
         uint32_t now = CUSTOM_MILLIS;
@@ -88,24 +88,24 @@ void CN105Climate::loop() {
         }
     }
 
-    if (!this->processInput()) {                                            // if we don't get any input: no read op
+    if (!this->process_input()) {                                            // if we don't get any input: no read op
         if (!can_talk_to_hp) {
             return;
         }
-        if ((this->wantedSettings.hasChanged) && (!this->loopCycle.isCycleRunning())) {
-            this->checkPendingWantedSettings();
-        } else if ((this->wantedRunStates.hasChanged) && (!this->loopCycle.isCycleRunning())) {
-            this->checkPendingWantedRunStates();
-        } else if ((this->isSetFunctions_) && (!this->loopCycle.isCycleRunning())) {
+        if ((this->wantedSettings.hasChanged) && (!this->loopCycle.is_cycle_running())) {
+            this->check_pending_wanted_settings();
+        } else if ((this->wantedRunStates.hasChanged) && (!this->loopCycle.is_cycle_running())) {
+            this->check_pending_wanted_run_states();
+        } else if ((this->isSetFunctions_) && (!this->loopCycle.is_cycle_running())) {
             this->isSetFunctions_ = false;
-            this->setFunctions(this->functions);
+            this->set_functions(this->functions);
             // Also request to get function settings from heat pump to update UI with latest values.
             this->isGetFunctions_ = true;
         } else {
-            if (this->loopCycle.isCycleRunning()) {                         // if we are  running an update cycle
-                this->loopCycle.checkTimeout(this->update_interval_);
+            if (this->loopCycle.is_cycle_running()) {                         // if we are  running an update cycle
+                this->loopCycle.check_timeout(this->update_interval_);
             } else { // we are not running a cycle
-                if (this->loopCycle.hasUpdateIntervalPassed(this->get_update_interval())) {
+                if (this->loopCycle.has_update_interval_passed(this->get_update_interval())) {
                     if (this->isGetFunctions_) {
                         // Reactivate requests 0x20/0x22 and bypass interval timers.
                         // This must be done before starting a new cycle to prevent a race hazard of
@@ -116,7 +116,7 @@ void CN105Climate::loop() {
                         this->scheduler_.timer_bypass(0x22);
                         this->isGetFunctions_ = false;
                     }
-                    this->buildAndSendRequestsInfoPackets();            // initiate an update cycle with this->cycleStarted();
+                    this->build_and_send_requests_info_packets();            // initiate an update cycle with this->cycleStarted();
                 }
             }
         }
@@ -130,8 +130,8 @@ void CN105Climate::maybe_start_connection_() {
             this->set_timeout("cn105_bootstrap_timeout", 120000, [this]() {
                 if (state_ >= DriverState::CONNECTING) return;
                 ESP_LOGW(LOG_CONN_TAG, "Bootstrap connexion: timeout 120s, démarrage CN105 malgré tout");
-                this->setupUART();
-                this->sendFirstConnectionPacket();
+                this->setup_uart();
+                this->send_first_connection_packet();
             });
 
 #ifdef USE_WIFI
@@ -164,9 +164,9 @@ void CN105Climate::maybe_start_connection_() {
                 return;  // grace delay not elapsed yet
             }
             ESP_LOGI(LOG_CONN_TAG, "Bootstrap connexion: init UART + envoi CONNECT (loop)");
-            this->setupUART();
-            this->sendFirstConnectionPacket();
-            // setupUART() transitions to CONNECTING if UART config is valid
+            this->setup_uart();
+            this->send_first_connection_packet();
+            // setup_uart() transitions to CONNECTING if UART config is valid
             return;
         }
 

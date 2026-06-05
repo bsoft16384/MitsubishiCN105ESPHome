@@ -5,7 +5,7 @@
 using namespace esphome;
 
 
-void CN105Climate::generateExtraComponents() {
+void CN105Climate::generate_extra_components() {
     /*this->iSee_sensor = new binary_sensor::BinarySensor();
     this->iSee_sensor->set_name("iSee sensor");
     this->iSee_sensor->publish_initial_state(false);
@@ -29,7 +29,7 @@ void CN105Climate::set_vertical_vane_select(
 
         ESP_LOGD("EVT", "vane.control() -> Demande un chgt de réglage de la vane: %s", setting);
 
-        this->setVaneSetting(setting);
+        this->set_vane_setting(setting);
         this->wantedSettings.hasChanged = true;
         this->wantedSettings.hasBeenSent = false;
         this->wantedSettings.lastChange = CUSTOM_MILLIS;
@@ -75,7 +75,7 @@ void CN105Climate::set_horizontal_vane_select(
     this->horizontal_vane_select_->setCallbackFunction([this](const char* setting) {
         ESP_LOGD("EVT", "wideVane.control() -> Demande un chgt de réglage de la wideVane: %s", setting);
 
-        this->setWideVaneSetting(setting);
+        this->set_wide_vane_setting(setting);
         this->wantedSettings.hasChanged = true;
         this->wantedSettings.hasBeenSent = false;
         this->wantedSettings.lastChange = CUSTOM_MILLIS;
@@ -95,7 +95,7 @@ void CN105Climate::set_airflow_control_select(
         if (this->currentSettings.wideVane == HPWideVaneMode::AIRFLOW_CONTROL) {
             ESP_LOGD("EVT", "airFlow -> Request for change of airflow control setting: %s", setting);
 
-            this->setAirflowControlSetting(setting);
+            this->set_airflow_control_setting(setting);
             this->wantedRunStates.hasChanged = true;
             this->wantedRunStates.hasBeenSent = false;
             this->wantedRunStates.lastChange = CUSTOM_MILLIS;
@@ -171,7 +171,7 @@ void CN105Climate::set_functions_set_button(FunctionsButton* Button) {
     this->functions_set_button_ = Button;
     this->functions_set_button_->setCallbackFunction([this]() {
 
-        if (!this->functions.isValid()) {
+        if (!this->functions.is_valid()) {
             if (this->functions_sensor_ != nullptr) {
                 this->functions_sensor_->publish_state("Please get the functions first.");
             }
@@ -179,7 +179,7 @@ void CN105Climate::set_functions_set_button(FunctionsButton* Button) {
         }
 
         ESP_LOGI(LOG_CYCLE_TAG, "Setting code %i to value %i", this->functions_code_, this->functions_value_);
-        this->functions.setValue(this->functions_code_, this->functions_value_);
+        this->functions.set_value(this->functions_code_, this->functions_value_);
 
         if (this->functions_sensor_ != nullptr) {
             this->functions_sensor_->publish_state("Operation pending, please wait.");
@@ -281,7 +281,7 @@ void CN105Climate::add_hardware_setting(HardwareSettingSelect* setting) {
         // Optimistic update done in component
 
         // Update internal structure
-        this->functions.setValue(setting->get_code(), int_value);
+        this->functions.set_value(setting->get_code(), int_value);
 
         // Trigger write to device
         this->isSetFunctions_ = true;

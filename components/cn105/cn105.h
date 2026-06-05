@@ -151,10 +151,8 @@ namespace esphome {
             nullptr;  // Outside air temperature
 
         // sensor to monitor heatpump connection time
-        cn105::HpUpTimeConnectionSensor* hp_uptime_connection_sensor_ = nullptr;
-
-        float convert_input_power_to_W(float raw_input_power);
-        float convert_energy_usage_to_kWh(float raw_energy_usage);
+        cn105::HpUpTimeConnectionSensor* hp_uptime_connection_sensor_ = nullptr;        float convert_input_power_to_w(float raw_input_power);
+        float convert_energy_usage_to_kwh(float raw_energy_usage);
         float get_compressor_frequency();
         float get_input_power();
         float get_kwh();
@@ -166,23 +164,23 @@ namespace esphome {
 
         // checks if the field has changed
 
-        bool hasChanged(const char* before, const char* now, const char* field, bool checkNotNull = false);
+        bool has_changed(const char* before, const char* now, const char* field, bool check_not_null = false);
 
-        inline bool hasChanged(esphome::StringRef before, const char* now, const char* field, bool checkNotNull = false) {
-            return hasChanged(std::string(before).c_str(), now, field, checkNotNull);
+        inline bool has_changed(esphome::StringRef before, const char* now, const char* field, bool check_not_null = false) {
+            return has_changed(std::string(before).c_str(), now, field, check_not_null);
         }
 
         template <typename T>
-        inline bool hasChanged(T before, T now, const char* field, bool checkNotNull = false) {
+        inline bool has_changed(T before, T now, const char* field, bool check_not_null = false) {
             return before != now;
         }
 
 
         float get_setup_priority() const override {
-            return setup_priority::AFTER_WIFI;  // Configurez ce composant aprÃÂ¨s le WiFi
+            return setup_priority::AFTER_WIFI;  // Configurez ce composant aprÃƒÂ¨s le WiFi
         }
 
-        void generateExtraComponents();
+        void generate_extra_components();
 
         void setup() override;
         void loop() override;
@@ -190,31 +188,31 @@ namespace esphome {
         void set_baud_rate(int baud_rate);
         void set_tx_rx_pins(int tx_pin, int rx_pin);
         void set_uart_port(int uart_port) { this->uart_port_ = uart_port; }
-        void setupUART();
-        void disconnectUART();
-        void reconnectUART();
-        void buildAndSendRequestsInfoPackets();
-        void buildAndSendRequestPacket(int packetType);
-        void buildAndSendInfoPacket(uint8_t code);
-        bool isHeatpumpConnectionActive();
-        void reconnectIfConnectionLost();
+        void setup_uart();
+        void disconnect_uart();
+        void reconnect_uart();
+        void build_and_send_requests_info_packets();
+        void build_and_send_request_packet(int packet_type);
+        void build_and_send_info_packet(uint8_t code);
+        bool is_heatpump_connection_active();
+        void reconnect_if_connection_lost();
 
         // FSM
         DriverState driver_state() const { return state_; }
         void transition_to_(DriverState next);
         // Compatibility accessors (replace former booleans)
-        bool isUARTReady_() const { return state_ >= DriverState::CONNECTING; }
-        bool isHeatpumpConnected() const { return state_ == DriverState::CONNECTED; }
+        bool is_uart_ready() const { return state_ >= DriverState::CONNECTING; }
+        bool is_heatpump_connected() const { return state_ == DriverState::CONNECTED; }
 
-        void sendWantedSettings();
-        void sendWantedSettingsDelegate();
+        void send_wanted_settings();
+        void send_wanted_settings_delegate();
         // Use the temperature from an external sensor. Use
         // set_remote_temp(0) to switch back to the internal sensor.
         void set_remote_temperature(float);
-        void sendRemoteTemperature();
-        void sendRemoteTemperaturePacket();  // Send packet only, without resetting watchdog
-        void sendWantedRunStates();
-        float getDeadbandAdjustedTemperature(float remoteTemperature);
+        void send_remote_temperature();
+        void send_remote_temperature_packet();  // Send packet only, without resetting watchdog
+        void send_wanted_run_states();
+        float get_deadband_adjusted_temperature(float remoteTemperature);
 
         void set_remote_temp_timeout(uint32_t timeout);
 
@@ -225,12 +223,12 @@ namespace esphome {
         void set_debounce_delay(uint32_t delay);
 
         // this is the ping or heartbeat of the setRemotetemperature for timeout management
-        void pingExternalTemperature();
+        void ping_external_temperature();
 
         // Start/stop the remote temperature keep-alive timer
         // Keep-alive periodically re-sends the remote temperature to prevent PAC fallback to internal sensor
-        void startRemoteTempKeepAlive();
-        void stopRemoteTempKeepAlive();
+        void start_remote_temp_keep_alive();
+        void stop_remote_temp_keep_alive();
 
         uint32_t get_update_interval() const;
         void set_update_interval(uint32_t update_interval);
@@ -241,21 +239,21 @@ namespace esphome {
         climate::ClimateTraits& config_traits();
 
         void control(const esphome::climate::ClimateCall& call) override;
-        void controlMode();
-        void controlTemperature();
-        float calculateTemperatureSetting(float setting);
-        float getTargetTemperatureInCurrentMode();
-        float getTargetTemperature();
-        float getTargetTemperatureLow();
-        float getTargetTemperatureHigh();
-        float getCurrentTemperature();
-        void setTargetTemperature(float temperature);
-        void setTargetTemperatureLow(float temperature);
-        void setTargetTemperatureHigh(float temperature);
-        void setCurrentTemperature(float temperature);
+        void control_mode();
+        void control_temperature();
+        float calculate_temperature_setting(float setting);
+        float get_target_temperature_in_current_mode();
+        float get_target_temperature();
+        float get_target_temperature_low();
+        float get_target_temperature_high();
+        float get_current_temperature();
+        void set_target_temperature(float temperature);
+        void set_target_temperature_low(float temperature);
+        void set_target_temperature_high(float temperature);
+        void set_current_temperature(float temperature);
 
-        void controlFan();
-        void controlSwing();
+        void control_fan();
+        void control_swing();
         // Bootstrap connexion CN105 en loop() (ÃÂ©vite de perdre les tout premiers logs OTA)
         void maybe_start_connection_();
 
@@ -291,17 +289,17 @@ namespace esphome {
         unsigned int nbHeatpumpConnections_ = 0;
 
 
-        void sendFirstConnectionPacket();
-        void terminateCycle();
+        void send_first_connection_packet();
+        void terminate_cycle();
 
 
-        void functionsArrived();
-        bool setFunctions(HeatpumpFunctions const& functions);
+        void functions_arrived();
+        bool set_functions(HeatpumpFunctions const& functions);
         bool isGetFunctions_ = false;
         bool isSetFunctions_ = false;
 
         // helpers
-        const char* getIfNotNull(const char* what, const char* defaultValue);
+        const char* get_if_not_null(const char* what, const char* defaultValue);
 
 
 
@@ -318,51 +316,51 @@ namespace esphome {
             return this->parent_;
         }
 
-        bool processInput(void);
-        void processDataPacket();
-        void getErrorInfoFromResponsePacket();
-    void getDataFromResponsePacket();
-        void getAutoModeStateFromResponsePacket(); //NET added
-        void getPowerFromResponsePacket(); //NET added
-        void getSettingsFromResponsePacket();
-        void getRoomTemperatureFromResponsePacket();
-        void getOperatingAndCompressorFreqFromResponsePacket();
-        void getHVACOptionsFromResponsePacket();
+        bool process_input(void);
+        void process_data_packet();
+        void get_error_info_from_response_packet();
+    void get_data_from_response_packet();
+        void get_auto_mode_state_from_response_packet(); //NET added
+        void get_power_from_response_packet(); //NET added
+        void get_settings_from_response_packet();
+        void get_room_temperature_from_response_packet();
+        void get_operating_and_compressor_freq_from_response_packet();
+        void get_hvac_options_from_response_packet();
 
-        void updateSuccess();
-        void processCommand();
+        void update_success();
+        void process_command();
 
-        uint8_t checkSum(uint8_t bytes[], int len);
+        uint8_t check_sum(uint8_t bytes[], int len);
 
-        const char* getModeSetting();
-        const char* getPowerSetting();
-        const char* getVaneSetting();
-        const char* getWideVaneSetting();
-        const char* getAirflowControlSetting();
-        const char* getFanSpeedSetting();
-        float getTemperatureSetting();
-        bool getAirPurifierRunState();
-        bool getNightModeRunState();
-        bool getCirculatorRunState();
+        const char* get_mode_setting();
+        const char* get_power_setting();
+        const char* get_vane_setting();
+        const char* get_wide_vane_setting();
+        const char* get_airflow_control_setting();
+        const char* get_fan_speed_setting();
+        float get_temperature_setting();
+        bool get_air_purifier_run_state();
+        bool get_night_mode_run_state();
+        bool get_circulator_run_state();
 
-        void setModeSetting(const char* setting);
-        void setPowerSetting(const char* setting);
-        void setVaneSetting(const char* setting);
-        void setWideVaneSetting(const char* setting);
-        void setAirflowControlSetting(const char* setting);
-        void setFanSpeed(const char* setting);
+        void set_mode_setting(const char* setting);
+        void set_power_setting(const char* setting);
+        void set_vane_setting(const char* setting);
+        void set_wide_vane_setting(const char* setting);
+        void set_airflow_control_setting(const char* setting);
+        void set_fan_speed(const char* setting);
 
-        void setHeatpumpConnected(bool state);
+        void set_heatpump_connected(bool state);
 
     private:
         void force_low_level_uart_reinit();
         int uart_port_ = -1;
-        const char* lookupByteMapValue(const char* valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue, const char* debugInfo = "", const char* defaultValue = nullptr);
-        int lookupByteMapValue(const int valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue, const char* debugInfo = "");
-        int lookupByteMapIndex(const char* valuesMap[], int len, const char* lookupValue, const char* debugInfo = "");
-        int lookupByteMapIndex(const int valuesMap[], int len, int lookupValue, const char* debugInfo = "");
+        const char* lookup_byte_map_value(const char* valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue, const char* debugInfo = "", const char* defaultValue = nullptr);
+        int lookup_byte_map_value(const int valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue, const char* debugInfo = "");
+        int lookup_byte_map_index(const char* valuesMap[], int len, const char* lookupValue, const char* debugInfo = "");
+        int lookup_byte_map_index(const int valuesMap[], int len, int lookupValue, const char* debugInfo = "");
         template <typename T>
-        int lookupByteMapIndex(const T valuesMap[], int len, T lookupValue, const char* debugInfo = "") {
+        int lookup_byte_map_index(const T valuesMap[], int len, T lookupValue, const char* debugInfo = "") {
             int idx = cn105_protocol::lookup_index(valuesMap, len, lookupValue);
             if (idx < 0) {
                 ESP_LOGW("lookup", "%s caution: value not found, returning -1", debugInfo);
@@ -370,64 +368,62 @@ namespace esphome {
             return idx;
         }
 
+        void write_packet(uint8_t* packet, int length, bool checkIsActive = true);
+        void prepare_info_packet(uint8_t* packet, int length);
+        void prepare_set_packet(uint8_t* packet, int length);
 
+        void publish_state_to_ha(heatpumpSettings& settings);
+        void publish_wanted_settings_state_to_ha();
+        void publish_wanted_run_states_state_to_ha();
 
-        void writePacket(uint8_t* packet, int length, bool checkIsActive = true);
-        void prepareInfoPacket(uint8_t* packet, int length);
-        void prepareSetPacket(uint8_t* packet, int length);
+        void heatpump_update(heatpumpSettings& settings);
 
-        void publishStateToHA(heatpumpSettings& settings);
-        void publishWantedSettingsStateToHA();
-        void publishWantedRunStatesStateToHA();
+        void status_changed(heatpumpStatus status);
 
-        void heatpumpUpdate(heatpumpSettings& settings);
+        void check_pending_wanted_settings();
+        void check_pending_wanted_run_states();
+        void check_power_and_mode_settings(heatpumpSettings& settings, bool updateCurrentSettings = true);
+        void check_fan_settings(heatpumpSettings& settings, bool updateCurrentSettings = true);
+        void check_vane_settings(heatpumpSettings& settings, bool updateCurrentSettings = true);
+        void check_wide_vane_settings(heatpumpSettings& settings, bool updateCurrentSettings = true);
+        void update_extra_select_components(heatpumpSettings& settings);
+        void update_target_temperatures_from_settings(float temperature);
 
-        void statusChanged(heatpumpStatus status);
+        void update_action();
+        void set_action_if_operating_to(climate::ClimateAction action);
+        void hp_packet_debug(const uint8_t* packet, unsigned int length, const char* packetDirection, const char* log_prefix = "");
+        void hp_functions_debug(uint8_t* packet, unsigned int length);
 
-        void checkPendingWantedSettings();
-        void checkPendingWantedRunStates();
-        void checkPowerAndModeSettings(heatpumpSettings& settings, bool updateCurrentSettings = true);
-        void checkFanSettings(heatpumpSettings& settings, bool updateCurrentSettings = true);
-        void checkVaneSettings(heatpumpSettings& settings, bool updateCurrentSettings = true);
-        void checkWideVaneSettings(heatpumpSettings& settings, bool updateCurrentSettings = true);
-        void updateExtraSelectComponents(heatpumpSettings& settings);
-        void updateTargetTemperaturesFromSettings(float temperature);
-
-        void updateAction();
-        void setActionIfOperatingTo(climate::ClimateAction action);
-        void hpPacketDebug(const uint8_t* packet, unsigned int length, const char* packetDirection, const char* log_prefix = "");
-        void hpFunctionsDebug(uint8_t* packet, unsigned int length);
-
-        void debugSettings(const char* settingName, heatpumpSettings& settings);
-        void debugSettings(const char* settingName, wantedHeatpumpSettings& settings);
-        void debugStatus(const char* statusName, heatpumpStatus status);
-        void debugSettingsAndStatus(const char* settingName, heatpumpSettings settings, heatpumpStatus status);
-        void debugClimate(const char* settingName);
+        void debug_settings(const char* settingName, heatpumpSettings& settings);
+        void debug_settings(const char* settingName, wantedHeatpumpSettings& settings);
+        void debug_status(const char* statusName, heatpumpStatus status);
+        void debug_settings_and_status(const char* settingName, heatpumpSettings settings, heatpumpStatus status);
+        void debug_climate(const char* settingName);
 
 
 
 
-        void controlDelegate(const esphome::climate::ClimateCall& call);
-        // Refactor helpers for controlDelegate
-        bool processModeChange(const esphome::climate::ClimateCall& call);
-        bool processTemperatureChange(const esphome::climate::ClimateCall& call);
-        bool processFanChange(const esphome::climate::ClimateCall& call);
-        bool processSwingChange(const esphome::climate::ClimateCall& call);
-        void finalizeControlIfUpdated(bool updated);
+        void control_delegate(const esphome::climate::ClimateCall& call);
+        // Refactor helpers for control_delegate
+        bool process_mode_change(const esphome::climate::ClimateCall& call);
+        bool process_temperature_change(const esphome::climate::ClimateCall& call);
+        bool process_fan_change(const esphome::climate::ClimateCall& call);
+        bool process_swing_change(const esphome::climate::ClimateCall& call);
+        void finalize_control_if_updated(bool updated);
 
 
-        void createPacket(uint8_t* packet);
-        void createInfoPacket(uint8_t* packet, uint8_t code);
+        void create_packet(uint8_t* packet);
+        void create_info_packet(uint8_t* packet, uint8_t code);
         heatpumpSettings currentSettings{};
         wantedHeatpumpSettings wantedSettings{};
         heatpumpRunStates currentRunStates{};
         wantedHeatpumpRunStates wantedRunStates{};
         cycleManagement loopCycle{};
 
-        // Orchestrateur des requÃÂªtes INFO
+        // Orchestrateur des requÃƒÂªtes INFO
         RequestScheduler scheduler_;
-        void registerInfoRequests();
-        void registerHardwareSettingsRequests();
+        void register_info_requests();
+        void register_hardware_settings_requests();
 
         std::mutex wantedSettingsMutex;
 

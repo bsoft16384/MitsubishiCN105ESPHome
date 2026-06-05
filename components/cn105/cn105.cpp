@@ -29,15 +29,15 @@ void CN105Climate::transition_to_(DriverState next) {
 CN105Climate::CN105Climate(uart::UARTComponent* uart) :
     UARTDevice(uart),
     scheduler_(
-        // send callback: send a packet via buildAndSendInfoPacket
-        [this](uint8_t code) { this->buildAndSendInfoPacket(code); },
+        // send callback: send a packet via build_and_send_info_packet
+        [this](uint8_t code) { this->build_and_send_info_packet(code); },
         // timeout_callback: uses set_timeout from component
         [this](const std::string& name, uint32_t timeout_ms, std::function<void()> callback) {
             this->set_timeout(name.c_str(), timeout_ms, std::move(callback));
         },
         // terminate_callback: completes the cycle
-        [this]() { this->terminateCycle(); },
-        // context_callback: Returns 'this' for the 'canSend' and 'onResponse' callbacks.
+        [this]() { this->terminate_cycle(); },
+        // context_callback: Returns 'this' for the 'can_send' and 'on_response' callbacks.
         [this]() -> CN105Climate* { return this; }
     ) {
 
@@ -81,7 +81,7 @@ CN105Climate::CN105Climate(uart::UARTComponent* uart) :
     this->powerRequestWithoutResponses = 0;     // power request is not supported by all heatpump #112
 
     this->remote_temp_timeout_ = 4294967295;    // uint32_t max
-    this->generateExtraComponents();
+    this->generate_extra_components();
     this->loopCycle.init();
     this->wantedSettings.resetSettings();
     this->wantedRunStates.resetSettings();
@@ -90,41 +90,41 @@ CN105Climate::CN105Climate(uart::UARTComponent* uart) :
     // Register info requests moved to setup() to ensure hardware_settings_ are populated
 }
 
-void CN105Climate::registerInfoRequests() {
+void CN105Climate::register_info_requests() {
     scheduler_.clear_requests();
 
     // 0x02 Settings
     InfoRequest r_settings("settings", "Settings", 0x02, 3, 0);
-    r_settings.onResponse = [this](CN105Climate& self) { (void)self; this->getSettingsFromResponsePacket(); };
+    r_settings.on_response = [this](CN105Climate& self) { (void)self; this->get_settings_from_response_packet(); };
     scheduler_.register_request(r_settings);
 
     // 0x03 Room temperature
     InfoRequest r_room("room_temp", "Room temperature", 0x03, 3, 0);
-    r_room.onResponse = [this](CN105Climate& self) { (void)self; this->getRoomTemperatureFromResponsePacket(); };
+    r_room.on_response = [this](CN105Climate& self) { (void)self; this->get_room_temperature_from_response_packet(); };
     scheduler_.register_request(r_room);
 
     // 0x06 Status
     InfoRequest r_status("status", "Status", 0x06, 3, 0);
-    r_status.onResponse = [this](CN105Climate& self) { (void)self; this->getOperatingAndCompressorFreqFromResponsePacket(); };
+    r_status.on_response = [this](CN105Climate& self) { (void)self; this->get_operating_and_compressor_freq_from_response_packet(); };
     scheduler_.register_request(r_status);
 
     // 0x09 Standby/Power
     InfoRequest r_power("standby", "Power/Standby", 0x09, 3, 500);
-    r_power.onResponse = [this](CN105Climate& self) { (void)self; this->getPowerFromResponsePacket(); };
+    r_power.on_response = [this](CN105Climate& self) { (void)self; this->get_power_from_response_packet(); };
     scheduler_.register_request(r_power);
 
     // 0x42 HVAC options
     InfoRequest r_hvac_opts("hvac_options", "HVAC options", 0x42, 3, 500);
-    r_hvac_opts.canSend = [this](const CN105Climate& self) {
+    r_hvac_opts.can_send = [this](const CN105Climate& self) {
         (void)self;
         return (this->air_purifier_switch_ != nullptr || this->night_mode_switch_ != nullptr || this->circulator_switch_ != nullptr);
         };
-    r_hvac_opts.onResponse = [this](CN105Climate& self) { (void)self; this->getHVACOptionsFromResponsePacket(); };
+    r_hvac_opts.on_response = [this](CN105Climate& self) { (void)self; this->get_hvac_options_from_response_packet(); };
     scheduler_.register_request(r_hvac_opts);
 
     // Placeholders
     InfoRequest r_error_info("error_info", "Error Info", 0x04, 3, 0);
-    r_error_info.onResponse = [this](CN105Climate& self) { (void)self; this->getErrorInfoFromResponsePacket(); };
+    r_error_info.on_response = [this](CN105Climate& self) { (void)self; this->get_error_info_from_response_packet(); };
     scheduler_.register_request(r_error_info);
 
     InfoRequest r_timers("timers", "Timers", 0x05, 1, 0);
@@ -132,10 +132,10 @@ void CN105Climate::registerInfoRequests() {
     scheduler_.register_request(r_timers);
 
     // Call to the new dedicated method.
-    this->registerHardwareSettingsRequests();
+    this->register_hardware_settings_requests();
 }
 
-void CN105Climate::registerHardwareSettingsRequests() {
+void CN105Climate::register_hardware_settings_requests() {
     uint32_t interval = 0;
     bool is_enabled = false;
 
@@ -188,12 +188,12 @@ void CN105Climate::registerHardwareSettingsRequests() {
 
     // --- Part 1 (0x20) ---
     InfoRequest r_funcs1("functions1", "Functions Part 1", 0x20, 3, 0, interval, LOG_FUNCTIONS_TAG);
-    r_funcs1.onResponse = [this, check_and_disable](CN105Climate& self) {
+    r_funcs1.on_response = [this, check_and_disable](CN105Climate& self) {
         // Log the raw packet and decoded pairs even if the unit returns all zeros
-        self.hpPacketDebug(self.data, self.parser_.data_length(), "RX 0x20");
-        self.hpFunctionsDebug(self.data, self.parser_.data_length());
+        self.hp_packet_debug(self.data, self.parser_.data_length(), "RX 0x20");
+        self.hp_functions_debug(self.data, self.parser_.data_length());
         if (check_and_disable(self, 0x20)) {
-            self.functions.setData1(&self.data[1]);
+            self.functions.set_data1(&self.data[1]);
             ESP_LOGD(LOG_FUNCTIONS_TAG, "Got functions packet 1 (via InfoRequest)");
         }
         };
@@ -204,14 +204,14 @@ void CN105Climate::registerHardwareSettingsRequests() {
 
     // --- Part 2 (0x22) ---
     InfoRequest r_funcs2("functions2", "Functions Part 2", 0x22, 3, 0, interval, LOG_FUNCTIONS_TAG);
-    r_funcs2.onResponse = [this, check_and_disable](CN105Climate& self) {
+    r_funcs2.on_response = [this, check_and_disable](CN105Climate& self) {
         // Log the raw packet and decoded pairs even if the unit returns all zeros
-        self.hpPacketDebug(self.data, self.parser_.data_length(), "RX 0x22");
-        self.hpFunctionsDebug(self.data, self.parser_.data_length());
+        self.hp_packet_debug(self.data, self.parser_.data_length(), "RX 0x22");
+        self.hp_functions_debug(self.data, self.parser_.data_length());
         if (check_and_disable(self, 0x22)) {
-            self.functions.setData2(&self.data[1]);
+            self.functions.set_data2(&self.data[1]);
             ESP_LOGD(LOG_FUNCTIONS_TAG, "Got functions packet 2 (via InfoRequest)");
-            self.functionsArrived();
+            self.functions_arrived();
         }
         };
     scheduler_.register_request(r_funcs2);
@@ -238,10 +238,10 @@ void CN105Climate::set_tx_rx_pins(int tx_pin, int rx_pin) {
 
 }
 
-void CN105Climate::pingExternalTemperature() {
+void CN105Climate::ping_external_temperature() {
     this->set_timeout(SHEDULER_REMOTE_TEMP_TIMEOUT, this->remote_temp_timeout_, [this]() {
         ESP_LOGW(LOG_REMOTE_TEMP, "Remote temperature timeout occured, fall back to internal temperature!");
-        this->stopRemoteTempKeepAlive();
+        this->stop_remote_temp_keep_alive();
         this->set_remote_temperature(0);
         });
 }
@@ -254,7 +254,7 @@ void CN105Climate::set_remote_temp_timeout(uint32_t timeout) {
         //ESP_LOGI(LOG_ACTION_EVT_TAG, "set_remote_temp_timeout is set to %lu", timeout);
         log_info_uint32(LOG_REMOTE_TEMP, "set_remote_temp_timeout is set to ", timeout);
 
-        this->pingExternalTemperature();
+        this->ping_external_temperature();
     }
 }
 
@@ -277,7 +277,7 @@ void CN105Climate::set_remote_temperature_margin(float margin) {
     ESP_LOGI(LOG_REMOTE_TEMP, "Remote temperature margin set to %.1f", margin);
 }
 
-void CN105Climate::startRemoteTempKeepAlive() {
+void CN105Climate::start_remote_temp_keep_alive() {
     // Don't start if keep-alive is disabled or already active
     if (this->remote_temp_keepalive_interval_ms_ == 0) {
         ESP_LOGD(LOG_REMOTE_TEMP, "Keep-alive disabled, not starting.");
@@ -292,13 +292,13 @@ void CN105Climate::startRemoteTempKeepAlive() {
     log_info_uint32(LOG_REMOTE_TEMP, "Starting remote temperature keep-alive with interval ", this->remote_temp_keepalive_interval_ms_);
 
     this->set_interval(SCHEDULER_REMOTE_TEMP_KEEPALIVE, this->remote_temp_keepalive_interval_ms_, [this]() {
-        if (this->remoteTemperature_ > 0 && this->isHeatpumpConnected()) {
+        if (this->remoteTemperature_ > 0 && this->is_heatpump_connected()) {
             ESP_LOGD(LOG_REMOTE_TEMP, "Keep-alive: re-sending remote temperature %.1f", this->remoteTemperature_);
             // Send the temperature packet without resetting the watchdog timeout
             // (watchdog is only reset when HA sends a new value via set_remote_temperature)
             this->shouldSendExternalTemperature_ = true;
         } else {
-            if (!this->isHeatpumpConnected()) {
+            if (!this->is_heatpump_connected()) {
                 ESP_LOGW(LOG_REMOTE_TEMP, "Keep-alive skipped: Heatpump not connected!");
             } else {
                 ESP_LOGD(LOG_REMOTE_TEMP, "Keep-alive skipped: remoteTemp %.1f <= 0", this->remoteTemperature_);
@@ -307,7 +307,7 @@ void CN105Climate::startRemoteTempKeepAlive() {
         });
 }
 
-void CN105Climate::stopRemoteTempKeepAlive() {
+void CN105Climate::stop_remote_temp_keep_alive() {
     if (!this->remote_temp_keepalive_active_) {
         return;
     }
@@ -348,11 +348,11 @@ bool CN105Climate::is_circulator() {
 }
 
 // SERIAL_8E1
-void CN105Climate::setupUART() {
+void CN105Climate::setup_uart() {
 
     log_info_uint32(TAG, "setupUART() with baudrate ", this->parent_->get_baud_rate());
     ESP_LOGI(LOG_CONN_TAG, "setupUART(): baud=%d tx=%d rx=%d (UART port=%d)", this->parent_->get_baud_rate(), this->tx_pin_, this->rx_pin_, this->uart_port_);
-    this->setHeatpumpConnected(false);
+    this->set_heatpump_connected(false);
     // isUARTConnected_ replaced by state_ (set to CONNECTING after successful config below)
 
     // just for debugging purpose, a way to use a button i, yaml to trigger a reconnect
@@ -370,7 +370,7 @@ void CN105Climate::setupUART() {
 
 }
 
-void CN105Climate::setHeatpumpConnected(bool state) {
+void CN105Climate::set_heatpump_connected(bool state) {
     if (state) {
         this->transition_to_(DriverState::CONNECTED);
     } else if (state_ == DriverState::CONNECTED) {
@@ -386,29 +386,29 @@ void CN105Climate::setHeatpumpConnected(bool state) {
         }
     }
 }
-void CN105Climate::disconnectUART() {
+void CN105Climate::disconnect_uart() {
     ESP_LOGD(TAG, "disconnectUART()");
     this->uart_setup_switch = false;
-    this->setHeatpumpConnected(false);
+    this->set_heatpump_connected(false);
     // Legacy booleans removed — state managed by FSM (setHeatpumpConnected / transition_to_)
     this->firstRun = true;
     this->publish_state();
 
 }
 
-void CN105Climate::reconnectUART() {
+void CN105Climate::reconnect_uart() {
     ESP_LOGD(TAG, "reconnectUART()");
     this->lastReconnectTimeMs = CUSTOM_MILLIS;
-    this->disconnectUART();
+    this->disconnect_uart();
     // Disabled: Low-level UART fallback (ESP-IDF 5.4.x) can interfere with the
     // handshake/fallback tests. We let UARTComponent generate the standard reset.
     this->force_low_level_uart_reinit();
-    this->setupUART();
-    this->sendFirstConnectionPacket();
+    this->setup_uart();
+    this->send_first_connection_packet();
 }
 
 
-void CN105Climate::reconnectIfConnectionLost() {
+void CN105Climate::reconnect_if_connection_lost() {
 
     long reconnectTimeMs = CUSTOM_MILLIS - this->lastReconnectTimeMs;
 
@@ -416,19 +416,19 @@ void CN105Climate::reconnectIfConnectionLost() {
         return;
     }
 
-    if (!this->isHeatpumpConnectionActive()) {
+    if (!this->is_heatpump_connection_active()) {
         long connectTimeMs = CUSTOM_MILLIS - this->lastConnectRqTimeMs;
         if (connectTimeMs > this->update_interval_) {
             long lrTimeMs = CUSTOM_MILLIS - this->lastResponseMs;
             ESP_LOGW(TAG, "Heatpump has not replied for %ld s", lrTimeMs / 1000);
             ESP_LOGI(TAG, "We think Heatpump is not connected anymore..");
-            this->reconnectUART();
+            this->reconnect_uart();
         }
     }
 }
 
 
-bool CN105Climate::isHeatpumpConnectionActive() {
+bool CN105Climate::is_heatpump_connection_active() {
     long lrTimeMs = CUSTOM_MILLIS - this->lastResponseMs;
 
     // if (lrTimeMs > MAX_DELAY_RESPONSE_FACTOR * this->update_interval_) {

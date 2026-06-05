@@ -24,10 +24,10 @@ namespace esphome {
         const char* log_tag;          // Custom log tag (optional), defaults to LOG_CYCLE_TAG logic
 
         // Optional condition to decide whether this request should be sent in this device/config
-        std::function<bool(const CN105Climate&)> canSend;
+        std::function<bool(const CN105Climate&)> can_send;
 
         // Optional response handler invoked when the matching response (code) is received
-        std::function<void(CN105Climate&)> onResponse;
+        std::function<void(CN105Climate&)> on_response;
 
         InfoRequest(
             const char* id,
@@ -37,7 +37,7 @@ namespace esphome {
             uint32_t soft_timeout_ms = 0,
             uint32_t interval_ms = 0,
             const char* log_tag = nullptr
-        ) : id(id), description(description), code(code), maxFailures(maxFailures), failures(0), disabled(false), awaiting(false), soft_timeout_ms(soft_timeout_ms), interval_ms(interval_ms), last_request_time(0), timeout_name(""), log_tag(log_tag), canSend(nullptr), onResponse(nullptr) {
+        ) : id(id), description(description), code(code), maxFailures(maxFailures), failures(0), disabled(false), awaiting(false), soft_timeout_ms(soft_timeout_ms), interval_ms(interval_ms), last_request_time(0), timeout_name(""), log_tag(log_tag), can_send(nullptr), on_response(nullptr) {
             char buf[32];
             std::snprintf(buf, sizeof(buf), "info_timeout_0x%02X", code);
             timeout_name = buf;
