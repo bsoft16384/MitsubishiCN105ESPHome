@@ -389,6 +389,7 @@ void CN105Climate::disconnect_uart() {
     this->set_heatpump_connected(false);
     // Legacy booleans removed — state managed by FSM (setHeatpumpConnected / transition_to_)
     this->firstRun = true;
+    this->first_real_state_received_ = false;
     this->publish_state();
 
 }
