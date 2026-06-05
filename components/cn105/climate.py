@@ -150,43 +150,11 @@ CONF_INSTALLER_MODE = "installer_mode"
 VaneOrientationSelect = cg.global_ns.class_(
     "VaneOrientationSelect", select.Select, cg.Component
 )
-CompressorFrequencySensor = cg.global_ns.class_(
-    "CompressorFrequencySensor", sensor.Sensor, cg.Component
-)
-InputPowerSensor = cg.global_ns.class_("InputPowerSensor", sensor.Sensor, cg.Component)
-kWhSensor = cg.global_ns.class_("kWhSensor", sensor.Sensor, cg.Component)
-RuntimeHoursSensor = cg.global_ns.class_(
-    "RuntimeHoursSensor", sensor.Sensor, cg.Component
-)
-OutsideAirTemperatureSensor = cg.global_ns.class_(
-    "OutsideAirTemperatureSensor", sensor.Sensor, cg.Component
-)
-ISeeSensor = cg.global_ns.class_("ISeeSensor", binary_sensor.BinarySensor, cg.Component)
-TargetHumiditySensor = cg.global_ns.class_(
-    "TargetHumiditySensor", sensor.Sensor, cg.Component
-)
-StageSensor = cg.global_ns.class_("StageSensor", text_sensor.TextSensor, cg.Component)
-FunctionsSensor = cg.global_ns.class_(
-    "FunctionsSensor", text_sensor.TextSensor, cg.Component
-)
 FunctionsButton = cg.global_ns.class_("FunctionsButton", button.Button, cg.Component)
 FunctionsNumber = cg.global_ns.class_("FunctionsNumber", number.Number, cg.Component)
-SubModSensor = cg.global_ns.class_("SubModSensor", text_sensor.TextSensor, cg.Component)
-AutoSubModSensor = cg.global_ns.class_(
-    "AutoSubModSensor", text_sensor.TextSensor, cg.Component
-)
-ErrorCodeSensor = cg.global_ns.class_(
-    "ErrorCodeSensor", text_sensor.TextSensor, cg.Component
-)
-RemoteTempSourceInfo = cg.global_ns.class_(
-    "RemoteTempSourceInfo", text_sensor.TextSensor, cg.Component
-)
 cn105_ns = cg.esphome_ns.namespace("cn105")
 HpUpTimeConnectionSensor = cn105_ns.class_(
     "HpUpTimeConnectionSensor", sensor.Sensor, cg.PollingComponent
-)
-FlowControlSensor = cg.global_ns.class_(
-    "FlowControlSensor", text_sensor.TextSensor, cg.Component
 )
 HVACOptionSwitch = cg.global_ns.class_("HVACOptionSwitch", switch.Switch, cg.Component)
 HardwareSettingSelect = cg.global_ns.class_(
@@ -238,58 +206,58 @@ def get_uart_port_index(core_config, target_uart_id_str):
 
 # --- FIN de la fonction d'aide ---
 
-# SchÃÂÃÂ©mas pour les entitÃÂÃÂ©s optionnelles (identiques ÃÂÃÂ  votre version)
+# SchÃƒÂƒÃ‚Â©mas pour les entitÃƒÂƒÃ‚Â©s optionnelles (identiques ÃƒÂƒÃ‚Â  votre version)
 SELECT_SCHEMA = select.select_schema(VaneOrientationSelect).extend(
     {cv.GenerateID(CONF_ID): cv.declare_id(VaneOrientationSelect)}
 )
 COMPRESSOR_FREQUENCY_SENSOR_SCHEMA = sensor.sensor_schema(
-    CompressorFrequencySensor,
+    sensor.Sensor,
     unit_of_measurement=UNIT_HERTZ,
     device_class=DEVICE_CLASS_FREQUENCY,
     state_class=STATE_CLASS_MEASUREMENT,
     accuracy_decimals=1,
-).extend({cv.GenerateID(CONF_ID): cv.declare_id(CompressorFrequencySensor)})
+).extend({cv.GenerateID(CONF_ID): cv.declare_id(sensor.Sensor)})
 INPUT_POWER_SENSOR_SCHEMA = sensor.sensor_schema(
-    InputPowerSensor,
+    sensor.Sensor,
     unit_of_measurement=UNIT_WATT,
     device_class=DEVICE_CLASS_POWER,
     state_class=STATE_CLASS_MEASUREMENT,
     accuracy_decimals=0,
-).extend({cv.GenerateID(CONF_ID): cv.declare_id(InputPowerSensor)})
+).extend({cv.GenerateID(CONF_ID): cv.declare_id(sensor.Sensor)})
 KWH_SENSOR_SCHEMA = sensor.sensor_schema(
-    kWhSensor,
+    sensor.Sensor,
     unit_of_measurement=UNIT_KILOWATT_HOURS,
     device_class=DEVICE_CLASS_ENERGY,
     state_class=STATE_CLASS_TOTAL_INCREASING,
     accuracy_decimals=1,
-).extend({cv.GenerateID(CONF_ID): cv.declare_id(kWhSensor)})
+).extend({cv.GenerateID(CONF_ID): cv.declare_id(sensor.Sensor)})
 RUNTIME_HOURS_SENSOR_SCHEMA = sensor.sensor_schema(
-    RuntimeHoursSensor,
+    sensor.Sensor,
     unit_of_measurement=UNIT_HOUR,
     device_class=DEVICE_CLASS_DURATION,
     state_class=STATE_CLASS_TOTAL_INCREASING,
     accuracy_decimals=2,
-).extend({cv.GenerateID(CONF_ID): cv.declare_id(RuntimeHoursSensor)})
+).extend({cv.GenerateID(CONF_ID): cv.declare_id(sensor.Sensor)})
 OUTSIDE_AIR_TEMPERATURE_SENSOR_SCHEMA = sensor.sensor_schema(
-    OutsideAirTemperatureSensor,
+    sensor.Sensor,
     unit_of_measurement=UNIT_CELSIUS,
     device_class=DEVICE_CLASS_TEMPERATURE,
     state_class=STATE_CLASS_MEASUREMENT,
     accuracy_decimals=1,
-).extend({cv.GenerateID(CONF_ID): cv.declare_id(OutsideAirTemperatureSensor)})
-ISEE_SENSOR_SCHEMA = binary_sensor.binary_sensor_schema(ISeeSensor).extend(
-    {cv.GenerateID(CONF_ID): cv.declare_id(ISeeSensor)}
+).extend({cv.GenerateID(CONF_ID): cv.declare_id(sensor.Sensor)})
+ISEE_SENSOR_SCHEMA = binary_sensor.binary_sensor_schema(binary_sensor.BinarySensor).extend(
+    {cv.GenerateID(CONF_ID): cv.declare_id(binary_sensor.BinarySensor)}
 )
 TARGET_HUMIDITY_SENSOR_SCHEMA = sensor.sensor_schema(
-    TargetHumiditySensor,
+    sensor.Sensor,
     unit_of_measurement="%",
     icon="mdi:water-percent",
     state_class=STATE_CLASS_MEASUREMENT,
     accuracy_decimals=0,
     entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
-).extend({cv.GenerateID(CONF_ID): cv.declare_id(TargetHumiditySensor)})
-FUNCTIONS_SENSOR_SCHEMA = text_sensor.text_sensor_schema(FunctionsSensor).extend(
-    {cv.GenerateID(CONF_ID): cv.declare_id(FunctionsSensor)}
+).extend({cv.GenerateID(CONF_ID): cv.declare_id(sensor.Sensor)})
+FUNCTIONS_SENSOR_SCHEMA = text_sensor.text_sensor_schema(text_sensor.TextSensor).extend(
+    {cv.GenerateID(CONF_ID): cv.declare_id(text_sensor.TextSensor)}
 )
 FUNCTIONS_BUTTON_SCHEMA = button.button_schema(FunctionsButton).extend(
     {cv.GenerateID(CONF_ID): cv.declare_id(FunctionsButton)}
@@ -297,22 +265,22 @@ FUNCTIONS_BUTTON_SCHEMA = button.button_schema(FunctionsButton).extend(
 FUNCTIONS_NUMBER_SCHEMA = number.number_schema(FunctionsNumber).extend(
     {cv.GenerateID(CONF_ID): cv.declare_id(FunctionsNumber)}
 )
-SUB_MODE_SENSOR_SCHEMA = text_sensor.text_sensor_schema(SubModSensor).extend(
-    {cv.GenerateID(CONF_ID): cv.declare_id(SubModSensor)}
+SUB_MODE_SENSOR_SCHEMA = text_sensor.text_sensor_schema(text_sensor.TextSensor).extend(
+    {cv.GenerateID(CONF_ID): cv.declare_id(text_sensor.TextSensor)}
 )
-AUTO_SUB_MODE_SENSOR_SCHEMA = text_sensor.text_sensor_schema(AutoSubModSensor).extend(
-    {cv.GenerateID(CONF_ID): cv.declare_id(AutoSubModSensor)}
+AUTO_SUB_MODE_SENSOR_SCHEMA = text_sensor.text_sensor_schema(text_sensor.TextSensor).extend(
+    {cv.GenerateID(CONF_ID): cv.declare_id(text_sensor.TextSensor)}
 )
 
-ERROR_CODE_SENSOR_SCHEMA = text_sensor.text_sensor_schema(ErrorCodeSensor).extend(
-    {cv.GenerateID(CONF_ID): cv.declare_id(ErrorCodeSensor)}
+ERROR_CODE_SENSOR_SCHEMA = text_sensor.text_sensor_schema(text_sensor.TextSensor).extend(
+    {cv.GenerateID(CONF_ID): cv.declare_id(text_sensor.TextSensor)}
 )
 
 REMOTE_TEMP_SOURCE_SCHEMA = cv.Schema(
     {
         cv.Required(CONF_REMOTE_TEMP_SOURCE_SENSOR_ID): cv.use_id(sensor.Sensor),
-        cv.Optional(CONF_REMOTE_TEMP_SOURCE_INFO): text_sensor.text_sensor_schema(RemoteTempSourceInfo).extend(
-            {cv.GenerateID(CONF_ID): cv.declare_id(RemoteTempSourceInfo)}
+        cv.Optional(CONF_REMOTE_TEMP_SOURCE_INFO): text_sensor.text_sensor_schema(text_sensor.TextSensor).extend(
+            {cv.GenerateID(CONF_ID): cv.declare_id(text_sensor.TextSensor)}
         ),
     }
 )
@@ -329,15 +297,15 @@ REMOTE_TEMPERATURE_CONTROL_SENSOR_SCHEMA = binary_sensor.binary_sensor_schema(
     }
 )
 
-# SchÃÂÃÂ©ma pour STAGE_SENSOR (qui est un text_sensor) AVEC la nouvelle sous-option
-STAGE_SENSOR_CONFIG_SCHEMA = text_sensor.text_sensor_schema(StageSensor).extend(
+# SchÃƒÂƒÃ‚Â©ma pour STAGE_SENSOR (qui est un text_sensor) AVEC la nouvelle sous-option
+STAGE_SENSOR_CONFIG_SCHEMA = text_sensor.text_sensor_schema(text_sensor.TextSensor).extend(
     {
-        # L'ID pour l'objet StageSensor C++ est gÃÂÃÂ©rÃÂÃÂ© par text_sensor.TEXT_SENSOR_SCHEMA (via CONF_ID)
+        # L'ID pour l'objet C++ est gÃƒÂƒÃ‚Â©rÃƒÂƒÃ‚Â© par text_sensor.TEXT_SENSOR_SCHEMA (via CONF_ID)
         cv.Optional(CONF_USE_AS_OPERATING_FALLBACK, default=False): cv.boolean,
     }
 )
 
-# SchÃÂÃÂ©ma pour HP_UP_TIME_CONNECTION_SENSOR (identique ÃÂÃÂ  votre version)
+# SchÃƒÂƒÃ‚Â©ma pour HP_UP_TIME_CONNECTION_SENSOR (identique ÃƒÂƒÃ‚Â  votre version)
 HP_UP_TIME_CONNECTION_SENSOR_SCHEMA = sensor.sensor_schema(
     HpUpTimeConnectionSensor,
     unit_of_measurement=UNIT_SECOND,
