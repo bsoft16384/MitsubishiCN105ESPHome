@@ -12,6 +12,7 @@
 #include "hardware_setting_select.h"
 #include "info_request.h"
 #include "request_scheduler.h"
+#include <esphome/components/climate/climate.h>
 #include <esphome/components/sensor/sensor.h>
 #include <esphome/components/button/button.h>
 #include <esphome/components/binary_sensor/binary_sensor.h>
