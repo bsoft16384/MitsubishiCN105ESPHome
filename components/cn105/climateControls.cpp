@@ -49,23 +49,9 @@ void CN105Climate::check_pending_wanted_run_states() {
     ESP_LOGI(LOG_ACTION_EVT_TAG, "checkPendingWantedRunStates - wanted run states have changed, sending them to the heatpump...");
     this->send_wanted_run_states();
 }
-
-void logCheckWantedSettingsMutex(wantedHeatpumpSettings& settings) {
-
-    if (settings.hasBeenSent) {
-        ESP_LOGE("control", "Mutex lock faillure: wantedSettings should be locked while sending.");
-        ESP_LOGD("control", "-- This is an assertion test on wantedSettings.hasBeenSent");
-        ESP_LOGD("control", "-- wantedSettings.hasBeenSent = true is unexpected");
-        ESP_LOGD("control", "-- should be false because mutex should prevent running this while sending");
-        ESP_LOGD("control", "-- and mutex should be released only when hasBeenSent is false");
-    }
-
-}
 void CN105Climate::control_delegate(const esphome::climate::ClimateCall& call) {
     ESP_LOGD("control", "espHome control() interface method called...");
     bool updated = false;
-
-    logCheckWantedSettingsMutex(this->wantedSettings);
 
     if (call.get_mode().has_value()) {
         this->desired_mode_ = *call.get_mode();
@@ -143,7 +129,6 @@ void CN105Climate::finalize_control_if_updated(bool updated) {
         return;
     }
     ESP_LOGD(LOG_ACTION_EVT_TAG, "clim.control() -> User changed something...");
-    logCheckWantedSettingsMutex(this->wantedSettings);
     this->wantedSettings.hasChanged = true;
     this->wantedSettings.hasBeenSent = false;
     this->wantedSettings.lastChange = CUSTOM_MILLIS;
@@ -152,10 +137,9 @@ void CN105Climate::finalize_control_if_updated(bool updated) {
 }
 
 void CN105Climate::control(const esphome::climate::ClimateCall& call) {
-
-    std::lock_guard<std::mutex> guard(wantedSettingsMutex);
-    this->control_delegate(call);
-
+    this->set_timeout("control_deferred", 0, [this, call]() {
+        this->control_delegate(call);
+    });
 }
 
 

@@ -375,12 +375,7 @@ void CN105Climate::send_wanted_settings_delegate() {
 void CN105Climate::send_wanted_settings() {
     if (this->is_heatpump_connection_active() && this->is_uart_ready()) {
         if (CUSTOM_MILLIS - this->lastSend > 300) {        // we don't want to send too many packets
-
-            //this->cycle_ended();   // only if we let the cycle be interrupted to send wented settings
-
-            std::lock_guard<std::mutex> guard(wantedSettingsMutex);
             this->send_wanted_settings_delegate();
-
         } else {
             ESP_LOGD(TAG, "will sendWantedSettings later because we've sent one too recently...");
         }

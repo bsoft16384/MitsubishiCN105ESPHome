@@ -21,8 +21,6 @@
 #include <vector>
 #include <map>
 
-#include <mutex>
-
 namespace esphome {
 
     // Connection lifecycle FSM — replaces 6 scattered booleans
@@ -423,9 +421,6 @@ namespace esphome {
         RequestScheduler scheduler_;
         void register_info_requests();
         void register_hardware_settings_requests();
-
-        std::mutex wantedSettingsMutex;
-
         unsigned long lastResponseMs;
 
 
