@@ -186,9 +186,9 @@ void CN105Climate::getSettingsFromResponsePacket() {
         receivedSettings.temperature = (float)temp / 2;
         this->use_temperature_encoding_b_ = true;
     } else {
-        auto temp_opt = cn105_protocol::lookup_value_opt(TEMP_MAP, TEMP, 16, data[5]);
-        if (temp_opt) {
-            receivedSettings.temperature = static_cast<float>(*temp_opt);
+        uint8_t temp_byte = data[5];
+        if (temp_byte <= 15) {
+            receivedSettings.temperature = static_cast<float>(31 - temp_byte);
         } else {
             ESP_LOGW("Decoder", "Unknown temperature byte 0x%02X — keeping previous value", data[5]);
             receivedSettings.temperature = this->currentSettings.temperature;
@@ -318,9 +318,9 @@ void CN105Climate::getRoomTemperatureFromResponsePacket() {
         receivedStatus.roomTemperature = temp / 2.0f;
         ESP_LOGD(LOG_TEMP_SENSOR_TAG, "data[6]  --> [Room °C: %f]", receivedStatus.roomTemperature);
     } else {
-        auto room_temp_opt = cn105_protocol::lookup_value_opt(ROOM_TEMP_MAP, ROOM_TEMP, 32, data[3]);
-        if (room_temp_opt) {
-            receivedStatus.roomTemperature = static_cast<float>(*room_temp_opt);
+        uint8_t room_temp_byte = data[3];
+        if (room_temp_byte <= 31) {
+            receivedStatus.roomTemperature = static_cast<float>(10 + room_temp_byte);
         } else {
             ESP_LOGW("Decoder", "Unknown room_temp byte 0x%02X — keeping previous value", data[3]);
             receivedStatus.roomTemperature = this->currentStatus.roomTemperature;

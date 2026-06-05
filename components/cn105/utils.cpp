@@ -46,7 +46,8 @@ const char* CN105Climate::getIfNotNull(const char* what, const char* defaultValu
  */
 float CN105Climate::calculateTemperatureSetting(float setting) {
     if (!this->use_temperature_encoding_b_) {
-        return cn105_protocol::lookup_index(TEMP_MAP, 16, (int)(setting + 0.5)) > -1 ? setting : TEMP_MAP[0];
+        int temp = (int)(setting + 0.5);
+        return (temp >= 16 && temp <= 31) ? (float)temp : 31.0f;
     } else {
         setting = std::round(2.0f * setting) / 2.0f;  // Round to the nearest half-degree.
         return setting < 10 ? 10 : (setting > 31 ? 31 : setting);
