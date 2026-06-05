@@ -31,7 +31,7 @@ wifi:
 external_components:
  - source:
      type: local
-     path: ../../components 
+     path: ../components 
 
 sensor:
   - platform: template
