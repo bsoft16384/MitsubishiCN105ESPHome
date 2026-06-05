@@ -115,21 +115,21 @@ float CN105Climate::getTargetTemperatureInCurrentMode() {
 }
 
 float CN105Climate::getTargetTemperature() {
-    return this->fahrenheitSupport_.normalizeUiTemperatureToHeatpumpTemperature(this->target_temperature);
+    return this->target_temperature;
 }
 
 float CN105Climate::getCurrentTemperature() {
-    return this->fahrenheitSupport_.normalizeUiTemperatureToHeatpumpTemperature(this->current_temperature);
+    return this->current_temperature;
 }
 
 void CN105Climate::setTargetTemperature(float temperature) {
-    this->target_temperature = this->fahrenheitSupport_.normalizeHeatpumpTemperatureToUiTemperature(temperature);
+    this->target_temperature = temperature;
 }
 
 
 
 void CN105Climate::setCurrentTemperature(float temperature) {
-    this->current_temperature = this->fahrenheitSupport_.normalizeHeatpumpTemperatureToUiTemperature(temperature);
+    this->current_temperature = temperature;
 }
 
 

@@ -10,7 +10,6 @@
 #include "functions_button.h"
 #include "hvac_option_switch.h"
 #include "hardware_setting_select.h"
-#include "localization.h"
 #include "info_request.h"
 #include "request_scheduler.h"
 #include <esphome/components/sensor/sensor.h>
@@ -66,7 +65,6 @@ namespace esphome {
         void set_isee_sensor(esphome::binary_sensor::BinarySensor* iSee_sensor);
         void set_stage_sensor(esphome::text_sensor::TextSensor* Stage_sensor);
         void set_use_stage_for_operating_status(bool value);
-        void set_use_fahrenheit_support_mode(FahrenheitMode mode);
         void set_air_purifier_switch(HVACOptionSwitch* air_purifier_switch);
         void set_night_mode_switch(HVACOptionSwitch* night_mode_switch);
         void set_circulator_switch(HVACOptionSwitch* circulator_switch);
@@ -110,7 +108,6 @@ namespace esphome {
         float remote_temp_margin_ = 0.4f;
         text_sensor::TextSensor* stage_sensor_{ nullptr }; // to save ref if needed
         bool use_stage_for_operating_status_{ false };
-        FahrenheitSupport fahrenheitSupport_;
         text_sensor::TextSensor* Functions_sensor_ = nullptr;
         FunctionsButton* Functions_get_button_ = nullptr;
         FunctionsButton* Functions_set_button_ = nullptr;

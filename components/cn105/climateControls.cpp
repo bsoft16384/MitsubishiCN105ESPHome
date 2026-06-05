@@ -109,7 +109,7 @@ bool CN105Climate::processTemperatureChange(const esphome::climate::ClimateCall&
     if (!call.get_target_temperature().has_value()) {
         return false;
     }
-    float temp_single = this->fahrenheitSupport_.normalizeUiTemperatureToHeatpumpTemperature(*call.get_target_temperature());
+    float temp_single = *call.get_target_temperature();
     this->setTargetTemperature(temp_single);
     ESP_LOGI("control", "Setting heatpump setpoint : %.1f", this->getTargetTemperature());
 

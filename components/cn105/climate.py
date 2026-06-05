@@ -100,9 +100,6 @@ CONF_ERROR_CODE_SENSOR = "error_code_sensor"
 CONF_REMOTE_TEMP_SOURCE = "remote_temperature_source"
 CONF_REMOTE_TEMP_SOURCE_SENSOR_ID = "sensor_id"
 CONF_REMOTE_TEMP_SOURCE_INFO = "info"
-CONF_HP_UP_TIME_CONNECTION_SENSOR = "hp_uptime_connection_sensor"
-CONF_USE_AS_OPERATING_FALLBACK = "use_as_operating_fallback"  # Nouvelle constante
-CONF_FAHRENHEIT_SUPPORT_MODE = "fahrenheit_compatibility"
 CONF_AIRFLOW_CONTROL_SELECT = "airflow_control_select"
 CONF_AIR_PURIFIER_SWITCH = "air_purifier_switch"
 CONF_NIGHT_MODE_SWITCH = "night_mode_switch"
@@ -125,13 +122,6 @@ DEFAULT_CLIMATE_MODES = ["COOL", "HEAT", "DRY", "FAN_ONLY"]
 DEFAULT_FAN_MODES = ["AUTO", "MIDDLE", "QUIET", "LOW", "MEDIUM", "HIGH"]
 DEFAULT_SWING_MODES = ["OFF", "VERTICAL", "HORIZONTAL", "BOTH"]
 
-FAHRENHEIT_MODES = {
-    "disabled": 0,
-    "standard": 1,
-    "alt": 2,
-    "false": 0,
-    "true": 1,
-}
 
 
 CN105Climate = cg.global_ns.class_(
@@ -374,12 +364,9 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_FUNCTIONS_SET_BUTTON): FUNCTIONS_BUTTON_SCHEMA,
             cv.Optional(CONF_FUNCTIONS_SET_CODE): FUNCTIONS_NUMBER_SCHEMA,
             cv.Optional(CONF_FUNCTIONS_SET_VALUE): FUNCTIONS_NUMBER_SCHEMA,
-            cv.Optional(CONF_FAHRENHEIT_SUPPORT_MODE, default="disabled"): cv.enum(
-                FAHRENHEIT_MODES, lower=True
-            ),
             cv.Optional(
                 CONF_STAGE_SENSOR
-            ): STAGE_SENSOR_CONFIG_SCHEMA,  # ModifiÃÂÃÂ© pour le nouveau schÃÂÃÂ©ma
+            ): STAGE_SENSOR_CONFIG_SCHEMA,  # ModifiÃƒÂƒÃ‚Â© pour le nouveau schÃƒÂƒÃ‚Â©ma
             cv.Optional(CONF_SUB_MODE_SENSOR): SUB_MODE_SENSOR_SCHEMA,
             cv.Optional(CONF_AUTO_SUB_MODE_SENSOR): AUTO_SUB_MODE_SENSOR_SCHEMA,
             cv.Optional(CONF_ERROR_CODE_SENSOR): ERROR_CODE_SENSOR_SCHEMA,
@@ -637,20 +624,6 @@ def to_code(config):
     if CONF_CIRCULATOR_SWITCH in config:
         switch_var = yield switch.new_switch(config[CONF_CIRCULATOR_SWITCH])
         cg.add(var.set_circulator_switch(switch_var))
-
-    # Set Fahrenheit compatibility mode (cast int to FahrenheitMode enum)
-    # The enum validator returns the integer value from FAHRENHEIT_MODES dict
-    fahrenheit_mode = config.get(CONF_FAHRENHEIT_SUPPORT_MODE)
-    # Ensure it's an integer (enum validator should already return int, but be explicit)
-    fahrenheit_value = (
-        int(fahrenheit_mode)
-        if isinstance(fahrenheit_mode, int)
-        else FAHRENHEIT_MODES.get(str(fahrenheit_mode).lower(), 0)
-    )
-    mode_enum = cg.RawExpression(
-        f"static_cast<esphome::FahrenheitMode>({fahrenheit_value})"
-    )
-    cg.add(var.set_use_fahrenheit_support_mode(mode_enum))
 
     # --- TRAITEMENT POUR STAGE_SENSOR AVEC LA NOUVELLE OPTION ---
     if CONF_STAGE_SENSOR in config:
