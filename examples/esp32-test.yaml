@@ -18,7 +18,7 @@ logger:
 
 api:
   encryption:
-    key: "ZE1PcjZ1S0tsZ3BtY1pyZlF3ek56ZWRzZ3FpcGhkZlM="
+    key: "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
 
 ota:  
   - platform: esphome
@@ -89,10 +89,6 @@ sensor:
     id: ha_cdeg_sejour_et_cuisine
     entity_id: sensor.cdeg_sejour_et_cuisine
     internal: true
-    on_value:
-      then:
-        - lambda: |-
-            id(esp32_clim).set_remote_temperature(x);
 
 uart:
   id: HP_UART
@@ -124,6 +120,30 @@ climate:
     hp_uptime_connection_sensor:
       name: ${name} HP Uptime Connection
       update_interval: 30s
+    
+    # Built-in remote temperature source (replaces manual lambdas)
+    remote_temperature_source:
+      sensor_id: ha_cdeg_sejour_et_cuisine
+
+    # Extra options (commented out by default, showcasing available features)
+    # air_purifier_switch:
+    #   name: "Air Purifier clim Sejour"
+    # night_mode_switch:
+    #   name: "Night Mode clim Sejour"
+    # circulator_switch:
+    #   name: "Circulator clim Sejour"
+    # functions_get_button:
+    #   name: "Get Functions clim Sejour"
+    # hardware_settings:
+    #   update_interval: 24h
+    #   list:
+    #     - code: 101
+    #       id: hardware_setting_101
+    #       options:
+    #         1: "Option A"
+    #         2: "Option B"
+    #         3: "Option C"
+
     supports:
       mode: [COOL, HEAT, FAN_ONLY, DRY]
       fan_mode: [AUTO, QUIET, LOW, MEDIUM, HIGH]
