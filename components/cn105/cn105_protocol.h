@@ -31,27 +31,6 @@ inline uint8_t checksum(const uint8_t* bytes, int len) {
 // Temperature decoding / encoding
 // ════════════════════════════════════════════════════════════════
 
-/// Decode a temperature from the two encoding variants used by the CN105 protocol.
-///
-/// Encoding B (half-degree precision):
-///   When enc_b != 0, temperature = (enc_b - 128) / 2.0  (range: 10.0..31.5°C typically)
-///
-/// Encoding A (integer precision, legacy):
-///   When enc_b == 0, temperature = enc_a + offset  (offset is typically 10 for room temp)
-///
-/// This function unifies both branches into a single call, eliminating the need
-/// for callers to manually check which encoding variant is in use.
-///
-/// @param enc_a   Encoding A raw byte (e.g., data[3] for room temp, data[5] for settings)
-/// @param enc_b   Encoding B raw byte (e.g., data[6] for room temp, data[11] for settings)
-/// @param offset  Additive offset for encoding A (10 for room temp, use TEMP_MAP for settings)
-/// @return        Decoded temperature in °C as a float.
-inline float decode_temperature(uint8_t enc_a, uint8_t enc_b, int offset = 10) {
-    if (enc_b != 0) {
-        return static_cast<float>(enc_b - 128) / 2.0f;
-    }
-    return static_cast<float>(enc_a) + static_cast<float>(offset);
-}
 
 /// Encode a target temperature into the encoding B format (half-degree precision).
 /// Formula: byte = round(temp * 2) + 128
