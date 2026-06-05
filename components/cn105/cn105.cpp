@@ -58,8 +58,6 @@ CN105Climate::CN105Climate(uart::UARTComponent* uart) :
     this->infoMode = 0;
     this->lastConnectRqTimeMs = 0;
     // currentStatus fields are now default-initialized via heatpumpStatus struct defaults
-    this->tx_pin_ = -1;
-    this->rx_pin_ = -1;
 
     this->horizontal_vane_select_ = nullptr;
     this->vertical_vane_select_ = nullptr;
@@ -227,12 +225,7 @@ void CN105Climate::set_baud_rate(int baud) {
     ESP_LOGI(TAG, "setting baud rate to: %d", baud);
 }
 
-void CN105Climate::set_tx_rx_pins(int tx_pin, int rx_pin) {
-    this->tx_pin_ = tx_pin;
-    this->rx_pin_ = rx_pin;
-    ESP_LOGI(TAG, "setting tx_pin: %d rx_pin: %d", tx_pin, rx_pin);
 
-}
 
 void CN105Climate::ping_external_temperature() {
     this->set_timeout(SHEDULER_REMOTE_TEMP_TIMEOUT, this->remote_temp_timeout_, [this]() {
@@ -347,7 +340,7 @@ bool CN105Climate::is_circulator() {
 void CN105Climate::setup_uart() {
 
     log_info_uint32(TAG, "setupUART() with baudrate ", this->parent_->get_baud_rate());
-    ESP_LOGI(LOG_CONN_TAG, "setupUART(): baud=%d tx=%d rx=%d (UART port=%d)", this->parent_->get_baud_rate(), this->tx_pin_, this->rx_pin_, this->uart_port_);
+    ESP_LOGI(LOG_CONN_TAG, "setupUART(): baud=%d (UART port=%d)", this->parent_->get_baud_rate(), this->uart_port_);
     this->set_heatpump_connected(false);
     // isUARTConnected_ replaced by state_ (set to CONNECTING after successful config below)
 

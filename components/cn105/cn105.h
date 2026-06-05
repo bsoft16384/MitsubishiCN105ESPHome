@@ -184,7 +184,6 @@ namespace esphome {
         void loop() override;
 
         void set_baud_rate(int baud_rate);
-        void set_tx_rx_pins(int tx_pin, int rx_pin);
         void set_uart_port(int uart_port) { this->uart_port_ = uart_port; }
         void setup_uart();
         void disconnect_uart();
@@ -434,8 +433,6 @@ namespace esphome {
         uint32_t debounce_delay_;
 
         int baud_ = 0;
-        int tx_pin_ = -1;
-        int rx_pin_ = -1;
 
 
 

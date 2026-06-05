@@ -151,30 +151,6 @@ HardwareSettingSelect = cg.global_ns.class_(
 )
 
 
-# --- Helper function to retrieve TX/RX pins ---
-def get_uart_pins_from_config(core_config, target_uart_id_str):
-    tx_pin_num = -1
-    rx_pin_num = -1
-    uart_config_found = {}
-    for uart_conf_item in core_config.get("uart", []):
-        if str(uart_conf_item[CONF_ID]) == target_uart_id_str:
-            uart_config_found = uart_conf_item
-            break
-    if uart_config_found:
-        tx_pin_schema = uart_config_found.get(CONF_TX_PIN)
-        if tx_pin_schema:
-            if isinstance(tx_pin_schema, dict) and "number" in tx_pin_schema:
-                tx_pin_num = tx_pin_schema["number"]
-            elif isinstance(tx_pin_schema, int):
-                tx_pin_num = tx_pin_schema
-        rx_pin_schema = uart_config_found.get(CONF_RX_PIN)
-        if rx_pin_schema:
-            if isinstance(rx_pin_schema, dict) and "number" in rx_pin_schema:
-                rx_pin_num = rx_pin_schema["number"]
-            elif isinstance(rx_pin_schema, int):
-                rx_pin_num = rx_pin_schema
-    return tx_pin_num, rx_pin_num
-
 
 def get_uart_port_index(core_config, target_uart_id_str):
     # ESPHome does not expose the controller index directly; we infer it
@@ -448,8 +424,6 @@ def to_code(config):
     cg.add(uart_var.set_stop_bits(1))
 
     uart_id_str_for_lookup = str(uart_id_object)
-    tx_pin, rx_pin = get_uart_pins_from_config(CORE.config, uart_id_str_for_lookup)
-    cg.add(var.set_tx_rx_pins(tx_pin, rx_pin))
     uart_port_index = get_uart_port_index(CORE.config, uart_id_str_for_lookup)
     cg.add(var.set_uart_port(uart_port_index))
 
