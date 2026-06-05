@@ -88,9 +88,7 @@ void RequestScheduler::send_request(uint8_t code, CN105Climate* context) {
         // Manage the timeout if configured and if the callback is available
         if (req.soft_timeout_ms > 0 && timeout_callback_) {
             uint8_t code_copy = req.code;
-            const std::string tname = req.timeout_name.empty() ?
-                (std::string("info_timeout_") + std::to_string(code_copy)) :
-                req.timeout_name;
+            const char* tname = req.timeout_name;
 
             timeout_callback_(tname, req.soft_timeout_ms, [this, code_copy]() {
                 // Get context for send_next_after
