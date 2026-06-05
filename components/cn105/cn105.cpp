@@ -54,7 +54,7 @@ CN105Climate::CN105Climate(uart::UARTComponent* uart) :
 
     // state_ is initialized to BOOT in the header
     this->wideVaneAdj = false;
-    this->functions = heatpumpFunctions();
+    this->functions = HeatpumpFunctions();
     this->autoUpdate = false;
     this->firstRun = true;
     this->externalUpdate = false;

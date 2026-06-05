@@ -13,7 +13,7 @@ struct heatpumpFunctionCodes {
 
 
 
-class heatpumpFunctions {
+class HeatpumpFunctions {
 private:
     uint8_t raw[MAX_FUNCTION_CODE_COUNT];
     bool _isValid1;
@@ -23,7 +23,7 @@ private:
     int getValue(uint8_t b);
 
 public:
-    heatpumpFunctions();
+    HeatpumpFunctions();
 
     bool isValid() const;
 
@@ -40,6 +40,6 @@ public:
 
     heatpumpFunctionCodes getAllCodes();
 
-    bool operator==(const heatpumpFunctions& rhs);
-    bool operator!=(const heatpumpFunctions& rhs);
+    bool operator==(const HeatpumpFunctions& rhs);
+    bool operator!=(const HeatpumpFunctions& rhs);
 };

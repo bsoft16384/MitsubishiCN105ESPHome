@@ -47,7 +47,7 @@ void CN105Climate::functionsArrived() {
     }
 }
 
-bool CN105Climate::setFunctions(heatpumpFunctions const& functions) {
+bool CN105Climate::setFunctions(HeatpumpFunctions const& functions) {
     if (!functions.isValid()) {
         return false;
     }
@@ -99,47 +99,47 @@ bool CN105Climate::setFunctions(heatpumpFunctions const& functions) {
 }
 
 
-heatpumpFunctions::heatpumpFunctions() {
+HeatpumpFunctions::HeatpumpFunctions() {
     clear();
 }
 
-bool heatpumpFunctions::isValid() const {
+bool HeatpumpFunctions::isValid() const {
     return _isValid1 && _isValid2;
 }
 
-void heatpumpFunctions::setData1(uint8_t* data) {
+void HeatpumpFunctions::setData1(uint8_t* data) {
     memcpy(raw, data, 15);
     _isValid1 = true;
 }
 
-void heatpumpFunctions::setData2(uint8_t* data) {
+void HeatpumpFunctions::setData2(uint8_t* data) {
     memcpy(raw + 15, data, 15);
     _isValid2 = true;
 }
 
-void heatpumpFunctions::getData1(uint8_t* data) const {
+void HeatpumpFunctions::getData1(uint8_t* data) const {
     memcpy(data, raw, 15);
 }
 
-void heatpumpFunctions::getData2(uint8_t* data) const {
+void HeatpumpFunctions::getData2(uint8_t* data) const {
     memcpy(data, raw + 15, 15);
 }
 
-void heatpumpFunctions::clear() {
+void HeatpumpFunctions::clear() {
     memset(raw, 0, sizeof(raw));
     _isValid1 = false;
     _isValid2 = false;
 }
 
-int heatpumpFunctions::getCode(uint8_t b) {
+int HeatpumpFunctions::getCode(uint8_t b) {
     return ((b >> 2) & 0xff) + 100;
 }
 
-int heatpumpFunctions::getValue(uint8_t b) {
+int HeatpumpFunctions::getValue(uint8_t b) {
     return b & 3;
 }
 
-int heatpumpFunctions::getValue(int code) {
+int HeatpumpFunctions::getValue(int code) {
     if (code > 128 || code < 101)
         return 0;
 
@@ -151,7 +151,7 @@ int heatpumpFunctions::getValue(int code) {
     return 0;
 }
 
-bool heatpumpFunctions::setValue(int code, int value) {
+bool HeatpumpFunctions::setValue(int code, int value) {
     if (code > 128 || code < 101)
         return false;
 
@@ -168,7 +168,7 @@ bool heatpumpFunctions::setValue(int code, int value) {
     return false;
 }
 
-heatpumpFunctionCodes heatpumpFunctions::getAllCodes() {
+heatpumpFunctionCodes HeatpumpFunctions::getAllCodes() {
     heatpumpFunctionCodes result;
     for (int i = 0; i < MAX_FUNCTION_CODE_COUNT; ++i) {
         int code = getCode(raw[i]);
@@ -179,11 +179,11 @@ heatpumpFunctionCodes heatpumpFunctions::getAllCodes() {
     return result;
 }
 
-bool heatpumpFunctions::operator==(const heatpumpFunctions& rhs) {
+bool HeatpumpFunctions::operator==(const HeatpumpFunctions& rhs) {
     return this->isValid() == rhs.isValid() && memcmp(this->raw, rhs.raw, MAX_FUNCTION_CODE_COUNT * sizeof(int)) == 0;
 }
 
-bool heatpumpFunctions::operator!=(const heatpumpFunctions& rhs) {
+bool HeatpumpFunctions::operator!=(const HeatpumpFunctions& rhs) {
     return !(*this == rhs);
 }
 //#endregion heatpump_functions

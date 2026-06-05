@@ -296,7 +296,7 @@ namespace esphome {
 
 
         void functionsArrived();
-        bool setFunctions(heatpumpFunctions const& functions);
+        bool setFunctions(HeatpumpFunctions const& functions);
         bool isGetFunctions_ = false;
         bool isSetFunctions_ = false;
 
@@ -458,7 +458,7 @@ namespace esphome {
 
         // All fields are default-initialized via heatpumpStatus struct defaults (NAN, false, etc.)
         heatpumpStatus currentStatus{};
-        heatpumpFunctions functions;
+        HeatpumpFunctions functions;
 
         bool wideVaneAdj;
         bool autoUpdate;
