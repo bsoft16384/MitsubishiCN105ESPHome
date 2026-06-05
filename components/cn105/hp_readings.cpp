@@ -702,10 +702,6 @@ void CN105Climate::checkWideVaneSettings(heatpumpSettings& settings, bool update
         ESP_LOGD(TAG, "Swing mode is: %i", this->swing_mode);
     }
 
-    /*if (this->hasChanged(this->van_orientation->state.c_str(), settings.vane, "select vane")) {
-        ESP_LOGI(TAG, "vane setting (extra select component) changed");
-        this->van_orientation->publish_state(currentSettings.vane);
-    }*/
 
     updateExtraSelectComponents(settings);
 }

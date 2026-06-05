@@ -56,7 +56,6 @@ namespace esphome {
 
     class CN105Climate : public climate::Climate, public Component, public esphome::uart::UARTDevice {
 
-        //friend class VaneOrientationSelect;
 
     public:
 
@@ -119,7 +118,6 @@ namespace esphome {
         void set_low_temp_hysteresis(float low_temp_hysteresis) { this->low_temp_hysteresis_ = low_temp_hysteresis; }
         void evaluate_fan_stop_and_ltp();
 
-        //sensor::Sensor* compressor_frequency_sensor;
         binary_sensor::BinarySensor* iSee_sensor_ = nullptr;
         binary_sensor::BinarySensor* remote_temp_sensor_ = nullptr;
         float remote_temp_margin_ = 0.4f;
@@ -146,7 +144,6 @@ namespace esphome {
         int functions_code_;
         int functions_value_;
 
-        //select::Select* van_orientation;
 
 
         VaneOrientationSelect* vertical_vane_select_ =
@@ -209,7 +206,6 @@ namespace esphome {
         void set_baud_rate(int baud_rate);
         void set_tx_rx_pins(int tx_pin, int rx_pin);
         void set_uart_port(int uart_port) { this->uart_port_ = uart_port; }
-        //void set_wifi_connected_state(bool state);
         void setupUART();
         void disconnectUART();
         void reconnectUART();
@@ -313,7 +309,6 @@ namespace esphome {
 
         void sendFirstConnectionPacket();
         void terminateCycle();
-        //bool can_proceed() override;
 
 
         void functionsArrived();
@@ -411,11 +406,9 @@ namespace esphome {
         void checkFanSettings(heatpumpSettings& settings, bool updateCurrentSettings = true);
         void checkVaneSettings(heatpumpSettings& settings, bool updateCurrentSettings = true);
         void checkWideVaneSettings(heatpumpSettings& settings, bool updateCurrentSettings = true);
-        //        void checkAirflowControlSettings(heatpumpRunStates& settings, bool updateCurrentSettings = true);
         void updateExtraSelectComponents(heatpumpSettings& settings);
         void updateTargetTemperaturesFromSettings(float temperature);
 
-        //void statusChanged();
         void updateAction();
         void setActionIfOperatingTo(climate::ClimateAction action);
         void setActionIfOperatingAndCompressorIsActiveTo(climate::ClimateAction action);
@@ -477,7 +470,6 @@ namespace esphome {
 
 
 
-        //HardwareSerial* _HardSerial{ nullptr };
         unsigned long lastSend;
         unsigned long lastConnectRqTimeMs;
         unsigned long lastReconnectTimeMs;
