@@ -532,7 +532,7 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
 
     // 3. Update diagnostic status text sensor
     if (this->diagnostic_sensor_ != nullptr) {
-        std::string status = "Normal";
+        const char* status = "Normal";
         if (this->ltp_active_) {
             status = "Low Temp Protection";
         } else if (this->fan_stop_switch_ != nullptr && this->fan_stop_switch_->state &&
