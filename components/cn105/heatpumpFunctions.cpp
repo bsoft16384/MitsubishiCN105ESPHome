@@ -180,7 +180,7 @@ heatpumpFunctionCodes HeatpumpFunctions::get_all_codes() {
 }
 
 bool HeatpumpFunctions::operator==(const HeatpumpFunctions& rhs) {
-    return this->is_valid() == rhs.is_valid() && memcmp(this->raw, rhs.raw, MAX_FUNCTION_CODE_COUNT * sizeof(int)) == 0;
+    return this->is_valid() == rhs.is_valid() && memcmp(this->raw, rhs.raw, sizeof(this->raw)) == 0;
 }
 
 bool HeatpumpFunctions::operator!=(const HeatpumpFunctions& rhs) {

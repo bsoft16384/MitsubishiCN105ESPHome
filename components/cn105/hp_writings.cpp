@@ -49,8 +49,6 @@ void CN105Climate::send_first_connection_packet() {
     } else {
         ESP_LOGE(LOG_CONN_TAG, "UART doesn't seem to be connected...");
         this->setup_uart();
-        // this delay to prevent a logging flood should never happen
-        CUSTOM_DELAY(750);
     }
 }
 
@@ -300,6 +298,10 @@ void CN105Climate::publish_wanted_settings_state_to_ha() {
         this->update_target_temperatures_from_settings(this->get_temperature_setting());
     }
 
+    if ((this->wantedSettings.vane != HPVaneMode::UNKNOWN) || (this->wantedSettings.wideVane != HPWideVaneMode::UNKNOWN)) {
+        this->update_extra_select_components(this->wantedSettings);
+    }
+
     // publish to HA
     this->publish_state();
 
@@ -482,7 +484,7 @@ void CN105Climate::send_remote_temperature_packet() {
     prepare_set_packet(packet, PACKET_LEN);
 
     packet[5] = 0x07;
-    if (this->remoteTemperature_ > 0) {
+    if (this->remoteTemperature_ != 0.0f) {
         packet[6] = 0x01;
         float clamped_temp = std::max(8.0f, std::min(this->remoteTemperature_, 37.5f));
         cn105_protocol::encode_remote_temperature(clamped_temp, packet[7], packet[8]);

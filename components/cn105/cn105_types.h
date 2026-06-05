@@ -390,7 +390,8 @@ struct heatpumpSettings {
             temp_equal &&
             fan == other.fan &&
             vane == other.vane &&
-            wideVane == other.wideVane;
+            wideVane == other.wideVane &&
+            iSee == other.iSee;
     }
 
     bool operator!=(const heatpumpSettings& other) const {
@@ -402,7 +403,7 @@ struct wantedHeatpumpSettings : heatpumpSettings {
     bool hasChanged = false;
     bool hasBeenSent = false;
     uint8_t nb_deferred_requests = 0;
-    long lastChange = 0;
+    uint32_t lastChange = 0;
 
     void resetSettings() {
         heatpumpSettings::resetSettings();
@@ -497,7 +498,7 @@ struct heatpumpRunStates {
 struct wantedHeatpumpRunStates : heatpumpRunStates {
     bool hasChanged = false;
     bool hasBeenSent = false;
-    long lastChange = 0;
+    uint32_t lastChange = 0;
 
     void resetSettings() {
         heatpumpRunStates::resetSettings();

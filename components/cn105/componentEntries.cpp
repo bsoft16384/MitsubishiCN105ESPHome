@@ -77,13 +77,11 @@ void CN105Climate::loop() {
 
     if (can_talk_to_hp) {
         uint32_t now = CUSTOM_MILLIS;
-        static uint32_t last_evaluation_time = 0;
-        static float last_room_temp = NAN;
         float current_room_temp = this->current_temperature;
-        bool temp_changed = !std::isnan(current_room_temp) && (std::isnan(last_room_temp) || fabsf(current_room_temp - last_room_temp) >= 0.1f);
-        if (temp_changed || (now - last_evaluation_time >= 5000)) {
-            last_evaluation_time = now;
-            last_room_temp = current_room_temp;
+        bool temp_changed = !std::isnan(current_room_temp) && (std::isnan(this->last_room_temp_) || fabsf(current_room_temp - this->last_room_temp_) >= 0.1f);
+        if (temp_changed || (now - this->last_evaluation_time_ >= 5000)) {
+            this->last_evaluation_time_ = now;
+            this->last_room_temp_ = current_room_temp;
             this->evaluate_fan_stop_and_ltp();
         }
     }
@@ -165,8 +163,16 @@ void CN105Climate::maybe_start_connection_() {
             }
             ESP_LOGI(LOG_CONN_TAG, "Bootstrap connection: initializing UART + sending CONNECT (loop)");
             this->setup_uart();
-            this->send_first_connection_packet();
-            // setup_uart() transitions to CONNECTING if UART config is valid
+            if (this->is_uart_ready()) {
+                this->send_first_connection_packet();
+            } else {
+                ESP_LOGE(LOG_CONN_TAG, "UART configuration invalid (not SERIAL_8E1). Retrying setup in 10s...");
+                this->transition_to_(DriverState::BOOT);
+                this->set_timeout("retry_bootstrap_connection", 10000, [this]() {
+                    this->transition_to_(DriverState::WAIT_GRACE);
+                    this->boot_ms_ = CUSTOM_MILLIS;
+                });
+            }
             return;
         }
 

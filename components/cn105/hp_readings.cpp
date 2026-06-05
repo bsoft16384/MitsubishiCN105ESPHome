@@ -74,25 +74,13 @@ uint8_t CN105Climate::get_payload_byte(int index, uint8_t default_val) const {
 
 
 
-void CN105Climate::get_auto_mode_state_from_response_packet() {
-    heatpumpSettings receivedSettings{};
 
-    if (get_payload_byte(10) == 0x00) {
-        ESP_LOGD("Decoder", "[0x10 is 0x00]");
-
-    } else if (get_payload_byte(10) == 0x01) {
-        ESP_LOGD("Decoder", "[0x10 is 0x01]");
-
-    } else if (get_payload_byte(10) == 0x02) {
-        ESP_LOGD("Decoder", "[0x10 is 0x02]");
-
-    } else {
-        ESP_LOGD("Decoder", "[0x10 is unknown]");
-
-    }
-}
 
 void CN105Climate::get_power_from_response_packet() {
+    if (this->parser_.data_length() < 6) {
+        ESP_LOGW("Decoder", "Power/Standby packet too short (%d < 6)", this->parser_.data_length());
+        return;
+    }
     ESP_LOGD("Decoder", "[0x09 is sub modes]");
 
     heatpumpSettings receivedSettings{};
@@ -157,6 +145,10 @@ void CN105Climate::get_power_from_response_packet() {
 }
 
 void CN105Climate::get_settings_from_response_packet() {
+    if (this->parser_.data_length() < 15) {
+        ESP_LOGW("Decoder", "Settings packet too short (%d < 15)", this->parser_.data_length());
+        return;
+    }
     heatpumpSettings receivedSettings{};
     heatpumpRunStates receivedRunStates{};
     ESP_LOGD("Decoder", "[0x02 is settings]");
@@ -177,8 +169,12 @@ void CN105Climate::get_settings_from_response_packet() {
     if (mode_opt) {
         receivedSettings.mode = *mode_opt;
         if (receivedSettings.mode == HPMode::AUTO) {
-            ESP_LOGI("Decoder", "IR Remote set mode to AUTO — mapping to FAN mode");
-            receivedSettings.mode = HPMode::FAN;
+            if (this->traits_.supports_mode(climate::CLIMATE_MODE_HEAT_COOL)) {
+                // Keep HPMode::AUTO
+            } else {
+                ESP_LOGI("Decoder", "IR Remote set mode to AUTO — mapping to FAN mode as HEAT_COOL mode is not supported/configured");
+                receivedSettings.mode = HPMode::FAN;
+            }
         }
     } else {
         ESP_LOGW("Decoder", "Unknown mode byte 0x%02X — keeping previous value", modeByte);
@@ -298,6 +294,10 @@ void CN105Climate::get_settings_from_response_packet() {
 }
 
 void CN105Climate::get_room_temperature_from_response_packet() {
+    if (this->parser_.data_length() < 7) {
+        ESP_LOGW("Decoder", "Room temperature packet too short (%d < 7)", this->parser_.data_length());
+        return;
+    }
 
     heatpumpStatus receivedStatus{};
 
@@ -336,8 +336,8 @@ void CN105Climate::get_room_temperature_from_response_packet() {
     // Update the remote temperature control sensor (Issue 290)
     if (this->remote_temp_sensor_ != nullptr) {
         bool is_remote = false;
-        if (this->remote_temp_keepalive_active_ && this->remoteTemperature_ > 0) {
-            float diff = abs(receivedStatus.roomTemperature - this->remoteTemperature_);
+        if (this->remote_temp_keepalive_active_ && this->remoteTemperature_ != 0.0f) {
+            float diff = fabsf(receivedStatus.roomTemperature - this->remoteTemperature_);
             if (diff <= this->remote_temp_margin_) {
                 is_remote = true;
             }
@@ -345,7 +345,11 @@ void CN105Climate::get_room_temperature_from_response_packet() {
         this->remote_temp_sensor_->publish_state(is_remote);
     }
 
-    receivedStatus.runtimeHours = float((get_payload_byte(11) << 16) | (get_payload_byte(12) << 8) | get_payload_byte(13)) / 60;
+    if (this->parser_.data_length() >= 14) {
+        receivedStatus.runtimeHours = float((get_payload_byte(11) << 16) | (get_payload_byte(12) << 8) | get_payload_byte(13)) / 60;
+    } else {
+        receivedStatus.runtimeHours = this->currentStatus.runtimeHours;
+    }
 
     ESP_LOGD("Decoder", "[Room °C: %f]", receivedStatus.roomTemperature);
     ESP_LOGD("Decoder", "[OAT  °C: %f]", receivedStatus.outsideAirTemperature);
@@ -359,6 +363,10 @@ void CN105Climate::get_room_temperature_from_response_packet() {
 }
 
 void CN105Climate::get_operating_and_compressor_freq_from_response_packet() {
+    if (this->parser_.data_length() < 9) {
+        ESP_LOGW("Decoder", "Status packet too short (%d < 9)", this->parser_.data_length());
+        return;
+    }
     //FC 62 01 30 10 06 00 00 1A 01 00 00 00 00 00 00 00 00 00 00 00 3C
     //MSZ-RW25VGHZ-SC1 / MUZ-RW25VGHZ-SC1
     //FC 62 01 30 10 06 00 00 00 01 00 08 05 50 00 00 42 00 00 00 00 B7
@@ -391,6 +399,10 @@ void CN105Climate::get_operating_and_compressor_freq_from_response_packet() {
 }
 
 void CN105Climate::get_hvac_options_from_response_packet() {
+    if (this->parser_.data_length() < 4) {
+        ESP_LOGW("Decoder", "HVAC options packet too short (%d < 4)", this->parser_.data_length());
+        return;
+    }
     //MSZ-LN25VG2W
     //FC 62 01 30 10 42 01 01 01 00 00 00 00 00 00 00 00 00 00 00 00 18
     //                  AP NM CL
@@ -445,6 +457,10 @@ void CN105Climate::terminate_cycle() {
     this->nbCompleteCycles_++;
 }
 void CN105Climate::get_error_info_from_response_packet() {
+    if (this->parser_.data_length() < 6) {
+        ESP_LOGW("Decoder", "Error info packet too short (%d < 6)", this->parser_.data_length());
+        return;
+    }
     ESP_LOGD("Decoder", "0x04 error info");
     if (this->error_code_sensor_ != nullptr) {
         uint8_t error_raw = get_payload_byte(4);
@@ -630,6 +646,8 @@ void CN105Climate::publish_state_to_ha(heatpumpSettings& settings) {
     this->mode = this->desired_mode_;
     this->target_temperature = this->desired_temp_;
 
+    this->update_extra_select_components(settings);
+
     // publish to HA
     this->publish_state();
 
@@ -678,9 +696,6 @@ void CN105Climate::check_vane_settings(heatpumpSettings& settings, bool updateCu
         }
         ESP_LOGD(LOG_SETTINGS_TAG, "Swing mode is: %i", this->swing_mode);
     }
-
-
-    update_extra_select_components(settings);
 }
 
 void CN105Climate::check_wide_vane_settings(heatpumpSettings& settings, bool updateCurrentSettings) {
@@ -714,9 +729,6 @@ void CN105Climate::check_wide_vane_settings(heatpumpSettings& settings, bool upd
         }
         ESP_LOGD(TAG, "Swing mode is: %i", this->swing_mode);
     }
-
-
-    update_extra_select_components(settings);
 }
 void CN105Climate::update_extra_select_components(heatpumpSettings& settings) {
     if (this->vertical_vane_select_ != nullptr) {
@@ -779,6 +791,8 @@ void CN105Climate::check_power_and_mode_settings(heatpumpSettings& settings, boo
             physical_mode = climate::CLIMATE_MODE_COOL;
         } else if (settings.mode == HPMode::FAN) {
             physical_mode = climate::CLIMATE_MODE_FAN_ONLY;
+        } else if (settings.mode == HPMode::AUTO) {
+            physical_mode = climate::CLIMATE_MODE_HEAT_COOL;
         }
     }
 

@@ -16,7 +16,7 @@ void CN105Climate::check_pending_wanted_settings() {
         return;
     }
 
-    long now = CUSTOM_MILLIS;
+    uint32_t now = CUSTOM_MILLIS;
     if (!(this->wantedSettings.hasChanged) || (now - this->wantedSettings.lastChange < this->debounce_delay_)) {
         return;
     }
@@ -36,7 +36,7 @@ void CN105Climate::check_pending_wanted_run_states() {
         return;
     }
 
-    long now = CUSTOM_MILLIS;
+    uint32_t now = CUSTOM_MILLIS;
     if (!(this->wantedRunStates.hasChanged) || (now - this->wantedRunStates.lastChange < this->debounce_delay_)) {
         return;
     }
@@ -77,32 +77,7 @@ void CN105Climate::control_delegate(const esphome::climate::ClimateCall& call) {
     this->finalize_control_if_updated(updated);
 }
 
-bool CN105Climate::process_mode_change(const esphome::climate::ClimateCall& call) {
-    if (!call.get_mode().has_value()) {
-        return false;
-    }
 
-    ESP_LOGD("control", "Mode change asked");
-    this->mode = *call.get_mode();
-    this->control_mode();
-    this->control_temperature();
-    return true;
-}
-
-
-
-bool CN105Climate::process_temperature_change(const esphome::climate::ClimateCall& call) {
-    if (!call.get_target_temperature().has_value()) {
-        return false;
-    }
-    float temp_single = *call.get_target_temperature();
-    this->set_target_temperature(temp_single);
-    ESP_LOGI("control", "Setting heatpump setpoint : %.1f", this->get_target_temperature());
-
-    this->control_temperature();
-    ESP_LOGD("control", "controlled temperature to: %.1f", this->wantedSettings.temperature.value_or(0.0f));
-    return true;
-}
 
 bool CN105Climate::process_fan_change(const esphome::climate::ClimateCall& call) {
     if (!call.get_fan_mode().has_value()) {
@@ -137,9 +112,7 @@ void CN105Climate::finalize_control_if_updated(bool updated) {
 }
 
 void CN105Climate::control(const esphome::climate::ClimateCall& call) {
-    this->set_timeout("control_deferred", 0, [this, call]() {
-        this->control_delegate(call);
-    });
+    this->control_delegate(call);
 }
 
 
@@ -277,6 +250,11 @@ void CN105Climate::control_mode() {
         this->set_mode_setting("FAN");
         this->set_power_setting("ON");
         break;
+    case climate::CLIMATE_MODE_HEAT_COOL:
+        ESP_LOGI("control", "changing mode to HEAT_COOL (AUTO)");
+        this->set_mode_setting("AUTO");
+        this->set_power_setting("ON");
+        break;
     case climate::CLIMATE_MODE_OFF:
         ESP_LOGI("control", "changing mode to OFF");
         this->set_power_setting("OFF");
@@ -335,6 +313,26 @@ void CN105Climate::update_action() {
         break;
     case climate::CLIMATE_MODE_FAN_ONLY:
         this->action = climate::CLIMATE_ACTION_FAN;
+        break;
+    case climate::CLIMATE_MODE_HEAT_COOL:
+        if (this->currentSettings.auto_sub_mode == HPAutoSubMode::AUTO_COOL) {
+            this->set_action_if_operating_to(climate::CLIMATE_ACTION_COOLING);
+        } else if (this->currentSettings.auto_sub_mode == HPAutoSubMode::AUTO_HEAT) {
+            this->set_action_if_operating_to(climate::CLIMATE_ACTION_HEATING);
+        } else {
+            // Fallback: compare room temperature and target temperature
+            float target = this->get_target_temperature();
+            float current = this->get_current_temperature();
+            if (!std::isnan(current) && !std::isnan(target)) {
+                if (current < target) {
+                    this->set_action_if_operating_to(climate::CLIMATE_ACTION_HEATING);
+                } else {
+                    this->set_action_if_operating_to(climate::CLIMATE_ACTION_COOLING);
+                }
+            } else {
+                this->set_action_if_operating_to(climate::CLIMATE_ACTION_IDLE);
+            }
+        }
         break;
     default:
         this->action = climate::CLIMATE_ACTION_OFF;
@@ -402,7 +400,7 @@ void CN105Climate::set_remote_temperature(float setting) {
     this->ping_external_temperature();
 
     // Manage keep-alive timer based on temperature value
-    if (setting > 0) {
+    if (setting != 0.0f) {
         // Start keep-alive if not already running (periodic re-send like Kumo does)
         this->start_remote_temp_keep_alive();
     } else {

@@ -423,7 +423,7 @@ void CN105Climate::reconnect_if_connection_lost() {
 
 
 bool CN105Climate::is_heatpump_connection_active() {
-    long lrTimeMs = CUSTOM_MILLIS - this->lastResponseMs;
+    uint32_t lrTimeMs = CUSTOM_MILLIS - this->lastResponseMs;
 
     // if (lrTimeMs > MAX_DELAY_RESPONSE_FACTOR * this->update_interval_) {
     //     ESP_LOGV(TAG, "Heatpump has not replied for %ld s", lrTimeMs / 1000);

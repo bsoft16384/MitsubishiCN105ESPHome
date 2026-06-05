@@ -6,8 +6,8 @@
 #define MAX_FUNCTION_CODE_COUNT 30
 
 struct heatpumpFunctionCodes {
-    bool valid[MAX_FUNCTION_CODE_COUNT];
-    int code[MAX_FUNCTION_CODE_COUNT];
+    bool valid[MAX_FUNCTION_CODE_COUNT] = {};
+    int code[MAX_FUNCTION_CODE_COUNT] = {};
 };
 
 

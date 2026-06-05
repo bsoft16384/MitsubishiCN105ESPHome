@@ -269,7 +269,6 @@ namespace esphome {
         void process_data_packet();
         void get_error_info_from_response_packet();
     void get_data_from_response_packet();
-        void get_auto_mode_state_from_response_packet(); //NET added
         void get_power_from_response_packet(); //NET added
         void get_settings_from_response_packet();
         void get_room_temperature_from_response_packet();
@@ -323,8 +322,8 @@ namespace esphome {
         uint32_t hardware_settings_interval_ms_{ 86400000 };  // Default 24h
 
         // The value of the code and value for the functions set.
-        int functions_code_;
-        int functions_value_;
+        int functions_code_{0};
+        int functions_value_{0};
 
         VaneOrientationSelect* vertical_vane_select_ = nullptr;
         VaneOrientationSelect* horizontal_vane_select_ = nullptr;
@@ -390,8 +389,6 @@ namespace esphome {
 
         void control_delegate(const esphome::climate::ClimateCall& call);
         // Refactor helpers for control_delegate
-        bool process_mode_change(const esphome::climate::ClimateCall& call);
-        bool process_temperature_change(const esphome::climate::ClimateCall& call);
         bool process_fan_change(const esphome::climate::ClimateCall& call);
         bool process_swing_change(const esphome::climate::ClimateCall& call);
         void finalize_control_if_updated(bool updated);
@@ -409,7 +406,7 @@ namespace esphome {
         RequestScheduler scheduler_;
         void register_info_requests();
         void register_hardware_settings_requests();
-        unsigned long lastResponseMs = 0;
+        uint32_t lastResponseMs{0};
 
 
         uint32_t remote_temp_timeout_;
@@ -425,9 +422,9 @@ namespace esphome {
 
 
 
-        unsigned long lastSend;
-        unsigned long lastConnectRqTimeMs;
-        unsigned long lastReconnectTimeMs;
+        uint32_t lastSend{0};
+        uint32_t lastConnectRqTimeMs{0};
+        uint32_t lastReconnectTimeMs{0};
 
         cn105_protocol::FrameParser parser_;     // UART frame assembler (Phase 3A)
         uint8_t* data;
@@ -437,11 +434,11 @@ namespace esphome {
         heatpumpStatus currentStatus{};
         HeatpumpFunctions functions;
 
-        bool wideVaneAdj;
-        bool autoUpdate;
-        bool firstRun;
-        int infoMode;
-        bool externalUpdate;
+        bool wideVaneAdj{false};
+        bool autoUpdate{false};
+        bool firstRun{true};
+        int infoMode{0};
+        bool externalUpdate{false};
 
         // counter for status request for checking heatpump is still connected
         // is the counter > MAX_NON_RESPONSE_REQ then we conclude uart is not connected anymore
@@ -485,6 +482,8 @@ namespace esphome {
         uint32_t last_mode_command_time_ms_{0};
         bool first_real_state_received_{false};
         bool ltp_active_{false};
+        uint32_t last_evaluation_time_{0};
+        float last_room_temp_{NAN};
 
         climate::ClimateMode last_commanded_real_mode_{climate::CLIMATE_MODE_OFF};
         float last_commanded_real_temp_{22.0f};
