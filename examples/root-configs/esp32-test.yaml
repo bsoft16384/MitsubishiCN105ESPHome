@@ -9,76 +9,13 @@ esphome:
 esp32:
   board: esp32doit-devkit-v1
   framework:
-    type: esp-idf     
-    #version: 5.3.0
-    #platform_version: 6.8.0
+    type: esp-idf
 
-    #type: arduino
-
-
-mqtt:  
-  #broker: homeassistant.local
-  broker: home-io.local           # if HA instance name is custom
-  username: heatpumpSejour
-  password: !secret mqtt_password
-  discovery: true
-
-
-
-debug:
-  update_interval: 5s
-
-
-
-# Enable logging
 logger:    
   level: DEBUG
-  logs:
-    EVT_SETS : DEBUG
-    WIFI : INFO
-    MQTT : INFO
-    WRITE_SETTINGS : DEBUG
-    SETTINGS : DEBUG
-    STATUS : INFO
-    CN105Climate: WARN
-    CN105: INFO
-    climate: WARN
-    sensor: WARN
-    chkSum : INFO
-    WRITE : WARN
-    READ : WARN
-    Update-ACK : ERROR
-    Header: INFO
-    Decoder : INFO
-    CONTROL_WANTED_SETTINGS: INFO    
-    testMutex: DEBUG
-    UPDT_ITVL: DEBUG
-    CYCLE: DEBUG
 
 
-# Enable Home Assistant API
 api:
-  services:    
-    - service: reboot
-      then:
-        - logger.log: "Redémarrage en cours..."
-        - lambda: |-
-            esp_restart();
-
-    - service: set_remote_temperature
-      variables:
-        temperature: float
-      then:
-        - lambda: 'id(esp32_clim).set_remote_temperature(temperature);'
-
-    - service: use_internal_temperature
-      then:
-        - lambda: 'id(esp32_clim).set_remote_temperature(0);'
-    # - service: test-mutex
-    #   then:
-    #     - logger.log: "Test de la fonction mutex..."
-    #     - lambda: |-
-    #         id(esp32_clim).testMutex();
   encryption:
     key: !secret encryption_key_sejour
 
@@ -87,64 +24,15 @@ ota:
     password: !secret ota_pwd
 
 wifi:
-  #ssid: !secret wifi_ssid
-  #password: !secret wifi_password
-  
-  networks:
-  - ssid : !secret wifi_ssid3
-    password: !secret wifi_password3
-  - ssid: !secret wifi_ssid
-    password: !secret wifi_password
-  #- ssid: !secret wifi_ssid2
-  #  password: !secret wifi_password2
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
 
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: "Heatpump-Sejour Fallback Hotspot"
-    password: !secret ota_pwd
-
-captive_portal:
-
-web_server:
-  port: 80
-  
-time:
-  - platform: homeassistant
-    id: homeassistant_time
-
-# this setting is for local component (code is not on github)
 external_components:
-#   - source: github://echavet/MitsubishiCN105ESPHome
  - source:
      type: local
      path: ../../components 
 
-        # Text sensors with general information.
-text_sensor:
-  # Expose ESPHome version as sensor.
-  - platform: version
-    name: ${name} ESPHome Version
-  # Expose WiFi information as sensors.
-  - platform: wifi_info
-    ip_address:
-      name: ${name} IP
-    ssid:
-      name: ${name} SSID
-    bssid:
-      name: ${name} BSSID
-
-  - platform: debug
-    device:
-      name: "Device Info"
-    reset_reason:
-      name: "Reset Reason"
-
-
-  
-
-# Sensors with general information.
 sensor:
-
   - platform: template
     name: "dg_uart_connected"
     entity_category: DIAGNOSTIC
@@ -194,28 +82,6 @@ sensor:
         return 0.0;
       }
       return (float) nbCompleteCycles / nbCycles * 100.0;
-    update_interval: 60s
-    
-  - platform: debug
-    free:
-      name: "Heap Free"
-    # fragmentation:
-    #   name: "Heap Fragmentation"
-    # block:
-    #   name: "Heap Max Block"
-    # loop_time:
-    #   name: "Loop Time"
-    # psram:
-    #   name: "Free PSRAM"
-
-
-  # Uptime sensor.
-  - platform: uptime
-    name: ${name} Uptime
-
-  # WiFi Signal sensor.
-  - platform: wifi_signal
-    name: ${name} WiFi Signal
     update_interval: 60s
 
   - platform: homeassistant
