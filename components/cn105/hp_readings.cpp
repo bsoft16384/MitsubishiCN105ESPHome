@@ -184,15 +184,9 @@ void CN105Climate::getSettingsFromResponsePacket() {
         int temp = data[11];
         temp -= 128;
         receivedSettings.temperature = (float)temp / 2;
-        this->use_temperature_encoding_b_ = true;
     } else {
-        uint8_t temp_byte = data[5];
-        if (temp_byte <= 15) {
-            receivedSettings.temperature = static_cast<float>(31 - temp_byte);
-        } else {
-            ESP_LOGW("Decoder", "Unknown temperature byte 0x%02X — keeping previous value", data[5]);
-            receivedSettings.temperature = this->currentSettings.temperature;
-        }
+        ESP_LOGW("Decoder", "Legacy temperature encoding detected! This unit does not support high-precision target temperature (data[11] is 0x00).");
+        receivedSettings.temperature = this->currentSettings.temperature;
     }
  
     ESP_LOGD("Decoder", "[Temp °C: %f]", receivedSettings.temperature);

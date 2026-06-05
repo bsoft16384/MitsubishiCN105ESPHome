@@ -489,7 +489,6 @@ namespace esphome {
         heatpumpStatus currentStatus{};
         heatpumpFunctions functions;
 
-        bool use_temperature_encoding_b_ = false;
         bool wideVaneAdj;
         bool autoUpdate;
         bool firstRun;

@@ -53,7 +53,6 @@ CN105Climate::CN105Climate(uart::UARTComponent* uart) :
 
 
     // state_ is initialized to BOOT in the header
-    this->use_temperature_encoding_b_ = false;
     this->wideVaneAdj = false;
     this->functions = heatpumpFunctions();
     this->autoUpdate = false;
