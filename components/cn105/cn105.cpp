@@ -1,9 +1,5 @@
 
 #include "cn105.h"
-#include <driver/uart.h>
-#include <driver/gpio.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 
 using namespace esphome;
 
@@ -400,9 +396,6 @@ void CN105Climate::reconnect_uart() {
     ESP_LOGD(TAG, "reconnectUART()");
     this->lastReconnectTimeMs = CUSTOM_MILLIS;
     this->disconnect_uart();
-    // Disabled: Low-level UART fallback (ESP-IDF 5.4.x) can interfere with the
-    // handshake/fallback tests. We let UARTComponent generate the standard reset.
-    this->force_low_level_uart_reinit();
     this->setup_uart();
     this->send_first_connection_packet();
 }
@@ -438,77 +431,4 @@ bool CN105Climate::is_heatpump_connection_active() {
     // }
 
     return  (lrTimeMs < MAX_DELAY_RESPONSE_FACTOR * this->update_interval_);
-}
-
-void CN105Climate::force_low_level_uart_reinit() {
-    // Low layer reset: reconfigure user control by UARTComponent
-    // We use the port passed by set_uart_port (fallback UART0 if unknown)
-    const uart_port_t port = (this->uart_port_ == 1) ? UART_NUM_1 :
-#ifdef UART_NUM_2
-    (this->uart_port_ == 2) ? UART_NUM_2 :
-#endif
-        UART_NUM_0;
-
-    ESP_LOGI(TAG, "Forcing low-level UART reinit on port %d (tx=%d, rx=%d)", (int)port, this->tx_pin_, this->rx_pin_);
-
-    // IMPORTANT: do not delete/reinstall the driver here to avoid conflict with UARTComponent
-    // We reconfigure in-place and sanitize the GPIOs
-    if (this->tx_pin_ >= 0) gpio_reset_pin((gpio_num_t)this->tx_pin_);
-    if (this->rx_pin_ >= 0) gpio_reset_pin((gpio_num_t)this->rx_pin_);
-    CUSTOM_DELAY(2);
-
-    // Settings SERIAL_8E1 @ 2400 bauds (values ​​from the UARTComponent config)
-    uart_config_t cfg = {};
-    cfg.baud_rate = this->parent_ ? (int)this->parent_->get_baud_rate() : 2400;
-    cfg.data_bits = UART_DATA_8_BITS;
-    cfg.parity = UART_PARITY_EVEN;
-    cfg.stop_bits = UART_STOP_BITS_1;
-    cfg.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
-    cfg.rx_flow_ctrl_thresh = 0;
-
-    uart_param_config(port, &cfg);
-
-    // Reconfigure the pins if known; otherwise GPIO1/2 (Atom S3 yaml)
-    int tx = (this->tx_pin_ >= 0) ? this->tx_pin_ : 1;
-    int rx = (this->rx_pin_ >= 0) ? this->rx_pin_ : 2;
-    esp_err_t pin_err = uart_set_pin(port, (gpio_num_t)tx, (gpio_num_t)rx, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    if (pin_err != ESP_OK) {
-        ESP_LOGE(TAG, "uart_set_pin failed: %s", esp_err_to_name(pin_err));
-    }
-
-    // RX idle high: ensure a pull-up (useful at low bitrates/8E1)
-    if (this->rx_pin_ >= 0) {
-        gpio_set_pull_mode((gpio_num_t)this->rx_pin_, GPIO_PULLUP_ONLY);
-    }
-
-    // Ensure classic UART mode
-    uart_set_mode(port, UART_MODE_UART);
-
-    // Wait for any TX in progress to finish (if driver already installed)
-    uart_wait_tx_done(port, pdMS_TO_TICKS(20));
-
-    // Fix UART clock source (lower bits may be sensitive)
-#if defined(UART_SCLK_XTAL)
-    uart_set_sclk(port, UART_SCLK_XTAL);
-#elif defined(UART_SCLK_APB)
-    uart_set_sclk(port, UART_SCLK_APB);
-#endif
-    // Explicitly re-force baud after sclk
-    uart_set_baudrate(port, cfg.baud_rate);
-
-    // Disable inversion/flow control
-    uart_set_line_inverse(port, UART_SIGNAL_INV_DISABLE);
-    uart_set_hw_flow_ctrl(port, UART_HW_FLOWCTRL_DISABLE, 0);
-
-    // Short RX timeout for quick emptying
-    uart_set_rx_timeout(port, 2);
-
-    // Purge buffers to avoid residue
-    uart_flush_input(port);
-    CUSTOM_DELAY(2);
-
-    // Diagnostics
-    uint32_t eff_baud = 0;
-    uart_get_baudrate(port, &eff_baud);
-    ESP_LOGD(TAG, "UART effective baud=%lu tx_pin=%d rx_pin=%d", (unsigned long)eff_baud, this->tx_pin_, this->rx_pin_);
 }

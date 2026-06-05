@@ -353,7 +353,6 @@ namespace esphome {
         void set_heatpump_connected(bool state);
 
     private:
-        void force_low_level_uart_reinit();
         int uart_port_ = -1;
         const char* lookup_byte_map_value(const char* valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue, const char* debugInfo = "", const char* defaultValue = nullptr);
         int lookup_byte_map_value(const int valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue, const char* debugInfo = "");
