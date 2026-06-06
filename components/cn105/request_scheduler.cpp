@@ -2,6 +2,7 @@
 #include "globals.h"
 #include "cn105.h"
 #include <esphome.h>
+#include <cstdio>
 
 using namespace esphome;
 
@@ -84,7 +85,10 @@ void RequestScheduler::send_request(uint8_t code, CN105Climate *context) {
     // Manage the timeout if configured and if the callback is available
     if (req.soft_timeout_ms > 0 && timeout_callback_) {
       uint8_t code_copy = req.code;
-      const char *tname = req.timeout_name;
+      // Unique-per-code scheduler key so re-arming the same request replaces any
+      // still-pending timeout instead of stacking duplicates.
+      char tname[24];
+      snprintf(tname, sizeof(tname), "info_timeout_0x%02X", req.code);
 
       timeout_callback_(tname, req.soft_timeout_ms, [this, code_copy]() {
         // Get context for send_next_after
