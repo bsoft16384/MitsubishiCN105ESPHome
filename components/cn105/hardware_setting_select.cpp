@@ -26,25 +26,9 @@ void HardwareSettingSelect::update_state_from_value(int value) {
 
   const std::string &new_state = it->second;
 
-  bool changed = false;
-  const char *cur_opt = nullptr;
-
-#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 1, 0)
-  // 2026.1+ : current_option() -> StringRef
   auto cur = this->current_option();
-  cur_opt = cur.c_str();
-  changed = cur_opt == nullptr || std::strcmp(cur_opt, new_state.c_str()) != 0;
-
-#elif ESPHOME_VERSION_CODE >= VERSION_CODE(2025, 11, 0)
-  // 2025.11 .. 2025.12 : current_option() -> const char*
-  cur_opt = this->current_option();
-  changed = cur_opt == nullptr || std::strcmp(cur_opt, new_state.c_str()) != 0;
-
-#else
-  // < 2025.11 : no current_option(), use state
-  cur_opt = this->state.c_str();
-  changed = (this->state != new_state);
-#endif
+  const char *cur_opt = cur.c_str();
+  bool changed = cur_opt == nullptr || std::strcmp(cur_opt, new_state.c_str()) != 0;
 
   if (changed) {
     ESP_LOGI(LOG_HARDWARE_SELECT_TAG, "Code %d state changed: %s -> %s (val: %d)", this->code_,
