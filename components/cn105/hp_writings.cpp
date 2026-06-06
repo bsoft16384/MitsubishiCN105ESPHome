@@ -52,18 +52,6 @@ void CN105Climate::send_first_connection_packet() {
   }
 }
 
-// void CN105Climate::statusChanged() {
-//     ESP_LOGD(TAG, "hpStatusChanged ->");
-//     this->current_temperature = current_status_.room_temperature;
-
-//     ESP_LOGD(TAG, "t°: %f", current_status_.room_temperature);
-//     ESP_LOGD(TAG, "operating: %d", current_status_.operating);
-//     ESP_LOGD(TAG, "compressor freq: %f", current_status_.compressor_frequency);
-
-//     this->updateAction();
-//     this->publish_state();
-// }
-
 void CN105Climate::prepare_info_packet(uint8_t *packet, int length) {
   ESP_LOGV(TAG, "preparing info packet...");
 
@@ -391,39 +379,6 @@ void CN105Climate::send_wanted_settings() {
   } else {
     this->reconnect_if_connection_lost();
   }
-}
-
-void CN105Climate::build_and_send_request_packet(int packet_type) {
-  // Legacy path kept temporarily if some callsites still pass packet_type indices.
-  // Map legacy indices to real codes and delegate to buildAndSendInfoPacket.
-  uint8_t code = 0x02;  // default to settings
-  switch (packet_type) {
-    case 0:
-      code = 0x02;
-      break;  // RQST_PKT_SETTINGS
-    case 1:
-      code = 0x03;
-      break;  // RQST_PKT_ROOM_TEMP
-    case 2:
-      code = 0x04;
-      break;  // RQST_PKT_UNKNOWN
-    case 3:
-      code = 0x05;
-      break;  // RQST_PKT_TIMERS
-    case 4:
-      code = 0x06;
-      break;  // RQST_PKT_STATUS
-    case 5:
-      code = 0x09;
-      break;  // RQST_PKT_STANDBY
-    case 6:
-      code = 0x42;
-      break;  // RQST_PKT_HVAC_OPTIONS
-    default:
-      code = 0x02;
-      break;
-  }
-  this->build_and_send_info_packet(code);
 }
 
 void CN105Climate::build_and_send_info_packet(uint8_t code) {

@@ -110,13 +110,6 @@ class RequestScheduler {
    */
   bool process_response(uint8_t code, CN105Climate *context = nullptr);
 
-  /**
-   * @brief Method to call in the main loop to manage timeouts
-   *Note: Timeout management is currently managed via callbacks,
-   *this method is intended for future management if necessary.
-   */
-  void loop();
-
  private:
   std::vector<InfoRequest> requests_;     // Requests queue
   int current_request_index_;             // Index of the current request

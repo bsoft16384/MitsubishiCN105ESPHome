@@ -76,7 +76,6 @@ CN105Climate::CN105Climate(uart::UARTComponent *uart)
   this->power_request_without_responses_ = 0;  // power request is not supported by all heatpump #112
 
   this->remote_temp_timeout_ = 4294967295;  // uint32_t max
-  this->generate_extra_components();
   this->loop_cycle_.init();
   this->wanted_settings_.reset_settings();
   this->wanted_run_states_.reset_settings();
@@ -245,11 +244,6 @@ void CN105Climate::register_hardware_settings_requests() {
 
 // The sendInfoRequest, markResponseSeenFor, sendNextAfter, and processInfoResponse methods
 // have been placed in RequestScheduler to comply with the Single Responsibility Principle (SRP).
-
-void CN105Climate::set_baud_rate(int baud) {
-  this->baud_ = baud;
-  ESP_LOGI(TAG, "setting baud rate to: %d", baud);
-}
 
 void CN105Climate::ping_external_temperature() {
   this->set_timeout(SHEDULER_REMOTE_TEMP_TIMEOUT, this->remote_temp_timeout_, [this]() {

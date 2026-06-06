@@ -210,21 +210,13 @@ void CN105Climate::hp_packet_debug(const uint8_t *packet, unsigned int length, c
         break;
       case 0x04:
         sub_label = ":Status";
-        break;  // Or "Unknown"? 0x04 is RQST_PKT_STATUS in cn105_types.h
+        break;
       case 0x05:
         sub_label = ":Standby";
-        break;  // RQST_PKT_STANDBY
+        break;
       case 0x06:
         sub_label = ":Status";
-        break;  // RQST_PKT_HVAC_OPTIONS? Wait, need to check types map.
-                // In cn105_types: 0x06 is RQST_PKT_HVAC_OPTIONS?
-                // Actually 0x06 in RCVD_PKT is TIMER?
-                // Let's stick to common ones seen in logs:
-                // 02=Settings, 03=RoomTemp, 06=Status/Timers?, 09=Power?
-                // 0x09 is RCVD_PKT_STATUS in some contexts or Power?
-                // Looking at logs:
-                // FC 62 ... 09 ... -> Power/Standby?
-                // FC 62 ... 06 ... -> Status?
+        break;
       case 0x09:
         sub_label = ":Power";
         break;

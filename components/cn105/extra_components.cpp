@@ -4,13 +4,6 @@
 
 using namespace esphome;
 
-void CN105Climate::generate_extra_components() {
-  /*this->iSee_sensor = new binary_sensor::BinarySensor();
-  this->iSee_sensor->set_name("i_see sensor");
-  this->iSee_sensor->publish_initial_state(false);
-  App.register_binary_sensor(this->iSee_sensor);*/
-}
-
 void CN105Climate::set_vertical_vane_select(VaneOrientationSelect *vertical_vane_select) {
   this->vertical_vane_select_ = vertical_vane_select;
 

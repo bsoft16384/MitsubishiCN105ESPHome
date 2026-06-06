@@ -51,14 +51,6 @@ static const uint8_t HEADER[HEADER_LEN] = {0xfc, 0x41, 0x01, 0x30, 0x10, 0x01, 0
 static const int INFOHEADER_LEN = 5;
 static const uint8_t INFOHEADER[INFOHEADER_LEN] = {0xfc, 0x42, 0x01, 0x30, 0x10};
 
-static const int RQST_PKT_SETTINGS = 0;
-static const int RQST_PKT_ROOM_TEMP = 1;
-static const int RQST_PKT_TIMERS = 3;
-static const int RQST_PKT_STATUS = 4;
-static const int RQST_PKT_STANDBY = 5;
-static const int RQST_PKT_UNKNOWN = 2;
-static const int RQST_PKT_HVAC_OPTIONS = 6;
-
 static const int RCVD_PKT_NONE = -1;
 static const int RCVD_PKT_FAIL = 0;
 static const int RCVD_PKT_CONNECT_SUCCESS = 1;

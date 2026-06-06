@@ -130,18 +130,14 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
     return setup_priority::AFTER_WIFI;  // Configure this component after WiFi
   }
 
-  void generate_extra_components();
-
   void setup() override;
   void loop() override;
 
-  void set_baud_rate(int baud_rate);
   void set_uart_port(int uart_port) { this->uart_port_ = uart_port; }
   void setup_uart();
   void disconnect_uart();
   void reconnect_uart();
   void build_and_send_requests_info_packets();
-  void build_and_send_request_packet(int packet_type);
   void build_and_send_info_packet(uint8_t code);
   bool is_heatpump_connection_active();
   void reconnect_if_connection_lost();
@@ -409,8 +405,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   std::optional<float> last_remote_temp_sent_{};  // Last remote temp actually sent (for change detection)
   uint32_t debounce_delay_;
 
-  int baud_ = 0;
-
   uint32_t last_send_{0};
   uint32_t last_connect_rq_time_ms_{0};
   uint32_t last_reconnect_time_ms_{0};
@@ -455,7 +449,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   bool installer_mode_fallback_done_{false};
   bool power_unit_is_btu_{false};  // true = the heatpump sends in BTU/s (requires conversion x3.412)
 
-  int horizontal_vanes_{1};  // Kept for legacy logging if needed, or can be removed if unused.
   VaneType vane_type_{VaneType::STANDARD};
 
   esphome::switch_::Switch *fan_stop_switch_{nullptr};

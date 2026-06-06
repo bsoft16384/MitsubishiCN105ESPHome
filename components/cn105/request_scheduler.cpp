@@ -211,9 +211,3 @@ bool RequestScheduler::process_response(uint8_t code, CN105Climate *context) {
   send_next_after(code, context);
   return true;
 }
-
-void RequestScheduler::loop() {
-  // Currently, timeouts are managed via callbacks
-  // This method is intended for future management if necessary
-  // (for example, to check timeouts manually in the main loop)
-}

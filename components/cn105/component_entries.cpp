@@ -39,8 +39,6 @@ void CN105Climate::setup() {
   // IMPORTANT: do not initiate the UART/CN105 connection in setup().
   // We start the sequence in loop() to avoid missing the first OTA logs.
 
-  ESP_LOGI(TAG, "Horizontal vanes configured: %d", this->horizontal_vanes_);
-
   // Restore set points from ESPHome preferences
   auto restore = this->restore_state_();
   if (restore.has_value()) {
