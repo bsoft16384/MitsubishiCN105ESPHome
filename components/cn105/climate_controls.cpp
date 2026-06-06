@@ -359,36 +359,29 @@ void CN105Climate::set_remote_temperature(float setting) {
     return;
   }
 
-  // Always update the internal target value
+  // 0 is the documented HA/YAML-facing sentinel meaning "revert to the unit's internal
+  // sensor". Internally a remote temperature is an optional, so translate it here.
+  if (setting == 0.0f) {
+    this->clear_remote_temperature();
+    return;
+  }
+
+  // Update the internal target value
   this->remote_temperature_ = setting;
 
   // Reset the watchdog timeout (HA sent us a fresh value)
   this->ping_external_temperature();
 
-  // Manage keep-alive timer based on temperature value
-  if (setting != 0.0f) {
-    // Start keep-alive if not already running (periodic re-send like Kumo does)
-    this->start_remote_temp_keep_alive();
-  } else {
-    // Stop keep-alive when reverting to internal sensor
-    this->stop_remote_temp_keep_alive();
-  }
+  // Start keep-alive if not already running (periodic re-send like Kumo does)
+  this->start_remote_temp_keep_alive();
 
-  if (setting == 0.0f) {
-    // Reverting to internal sensor: send immediately
-    this->cancel_timeout("deferred_remote_temp_send");
-    this->should_send_external_temperature_ = true;
-    return;
-  }
-
-  // Calculate precision bytes
+  // Check if the 0.5°C precision byte has actually changed since the last value we sent.
+  // We only skip if the byte is identical AND we have actually sent a temperature before
+  // (last_remote_temp_send_ms_ > 0).
   uint8_t new_byte = cn105_protocol::encode_temperature_b(setting);
-  uint8_t last_byte = cn105_protocol::encode_temperature_b(this->last_remote_temp_sent_);
-
-  // Check if the 0.5°C precision byte has actually changed
-  // We only skip if the byte is identical AND we have actually sent a temperature before (last_remote_temp_send_ms_ >
-  // 0)
-  if (new_byte == last_byte && this->last_remote_temp_send_ms_ > 0) {
+  bool byte_unchanged = this->last_remote_temp_sent_.has_value() &&
+                        cn105_protocol::encode_temperature_b(*this->last_remote_temp_sent_) == new_byte;
+  if (byte_unchanged && this->last_remote_temp_send_ms_ > 0) {
     ESP_LOGD(LOG_REMOTE_TEMP, "Remote temp byte unchanged (%02X). Skipping immediate write.", new_byte);
     // The unit already holds this value; drop any pending deferred write for an earlier sample.
     this->cancel_timeout("deferred_remote_temp_send");
@@ -412,13 +405,24 @@ void CN105Climate::set_remote_temperature(float setting) {
   }
 }
 
+void CN105Climate::clear_remote_temperature() {
+  // Revert to the unit's internal sensor: no remote temperature is held anymore.
+  this->remote_temperature_.reset();
+  this->ping_external_temperature();
+  this->stop_remote_temp_keep_alive();
+  // Send the revert packet immediately (drop any pending deferred write first).
+  this->cancel_timeout("deferred_remote_temp_send");
+  this->should_send_external_temperature_ = true;
+}
+
 void CN105Climate::send_remote_temperature_deferred() {
   // Queue the send via the same flag used by user updates and keep-alive, so the
   // packet is written at the end of an info cycle (terminate_cycle) rather than
   // mid-cycle from a timer callback. This preserves bus serialization and means
   // the update is not lost if the heatpump is momentarily disconnected when the
   // timer fires (it will be sent on the next completed cycle).
-  ESP_LOGD(LOG_REMOTE_TEMP, "Deferred remote temp timer fired, queueing send of %.1f", this->remote_temperature_);
+  ESP_LOGD(LOG_REMOTE_TEMP, "Deferred remote temp timer fired, queueing send of %.1f",
+           this->remote_temperature_.value_or(NAN));
   this->should_send_external_temperature_ = true;
 }
 

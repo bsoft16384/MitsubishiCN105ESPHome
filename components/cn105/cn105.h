@@ -21,6 +21,7 @@
 #include "cycle_management.h"
 #include <vector>
 #include <map>
+#include <optional>
 
 namespace esphome {
 
@@ -154,9 +155,11 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
 
   void send_wanted_settings();
   void send_wanted_settings_delegate();
-  // Use the temperature from an external sensor. Use
-  // set_remote_temp(0) to switch back to the internal sensor.
+  // Use the temperature from an external sensor. Passing 0 (the documented HA/YAML
+  // sentinel) reverts to the unit's internal sensor — equivalent to clear_remote_temperature().
   void set_remote_temperature(float);
+  // Revert to the unit's internal sensor (no remote temperature held).
+  void clear_remote_temperature();
   void send_remote_temperature();
   void send_remote_temperature_packet();  // Send packet only, without resetting watchdog
   void send_remote_temperature_deferred();
@@ -230,7 +233,7 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   // bool isUARTConnected_  → isUARTReady_()
   // bool isHeatpumpConnected_ → isHeatpumpConnected()
   bool should_send_external_temperature_ = false;
-  float remote_temperature_ = 0;
+  std::optional<float> remote_temperature_{};  // empty = use the unit's internal sensor
 
   unsigned long nb_complete_cycles_ = 0;
   unsigned long nb_cycles_ = 0;
@@ -403,7 +406,7 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   uint32_t remote_temp_keepalive_interval_ms_ = DEFAULT_REMOTE_TEMP_KEEPALIVE_INTERVAL_MS;
   bool remote_temp_keepalive_active_ = false;
   uint32_t last_remote_temp_send_ms_ = 0;  // Timestamp of last remote temp packet sent
-  float last_remote_temp_sent_ = 0;        // Last remote temp value actually sent (for change detection)
+  std::optional<float> last_remote_temp_sent_{};  // Last remote temp actually sent (for change detection)
   uint32_t debounce_delay_;
 
   int baud_ = 0;

@@ -336,9 +336,9 @@ void CN105Climate::get_room_temperature_from_response_packet() {
   // reports back matches the remote temperature we are feeding it (within margin), the unit
   // has adopted our remote value; otherwise it is using its own internal sensor.
   bool using_remote = false;
-  if (this->remote_temp_keepalive_active_ && this->remote_temperature_ != 0.0f &&
+  if (this->remote_temp_keepalive_active_ && this->remote_temperature_.has_value() &&
       !std::isnan(received_status.room_temperature)) {
-    float diff = fabsf(received_status.room_temperature - this->remote_temperature_);
+    float diff = fabsf(received_status.room_temperature - *this->remote_temperature_);
     using_remote = (diff <= this->remote_temp_margin_);
   }
 
@@ -353,7 +353,7 @@ void CN105Climate::get_room_temperature_from_response_packet() {
   // When the unit is using our remote temperature, report the full-precision value we sent
   // rather than the 0.5°C-quantized reading the unit echoes back.
   if (using_remote) {
-    received_status.room_temperature = this->remote_temperature_;
+    received_status.room_temperature = *this->remote_temperature_;
   }
 
   if (this->parser_.data_length() >= 14) {

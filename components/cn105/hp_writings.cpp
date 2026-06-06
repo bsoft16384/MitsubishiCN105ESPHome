@@ -478,9 +478,9 @@ void CN105Climate::send_remote_temperature_packet() {
   prepare_set_packet(packet, PACKET_LEN);
 
   packet[5] = 0x07;
-  if (this->remote_temperature_ != 0.0f) {
+  if (this->remote_temperature_.has_value()) {
     packet[6] = 0x01;
-    float clamped_temp = std::max(8.0f, std::min(this->remote_temperature_, 37.5f));
+    float clamped_temp = std::max(8.0f, std::min(*this->remote_temperature_, 37.5f));
     cn105_protocol::encode_remote_temperature(clamped_temp, packet[7], packet[8]);
   } else {
     packet[8] = 0x80;  // MHK1 send 80, even though it could be 00, since ControlByte is 00
@@ -489,8 +489,8 @@ void CN105Climate::send_remote_temperature_packet() {
   uint8_t chk_sum = check_sum(packet, 21);
   packet[21] = chk_sum;
 
-  ESP_LOGD(LOG_REMOTE_TEMP, "Sending remote temperature packet... -> %.1f%s", this->remote_temperature_,
-           temp_changed ? " (changed)" : " (keep-alive)");
+  ESP_LOGD(LOG_REMOTE_TEMP, "Sending remote temperature packet... -> %.1f%s",
+           this->remote_temperature_.value_or(NAN), temp_changed ? " (changed)" : " (keep-alive)");
   write_packet(packet, PACKET_LEN);
 
   // Cancel any outstanding deferred write since we just sent the latest value

@@ -254,8 +254,7 @@ void CN105Climate::set_baud_rate(int baud) {
 void CN105Climate::ping_external_temperature() {
   this->set_timeout(SHEDULER_REMOTE_TEMP_TIMEOUT, this->remote_temp_timeout_, [this]() {
     ESP_LOGW(LOG_REMOTE_TEMP, "Remote temperature timeout occured, fall back to internal temperature!");
-    this->stop_remote_temp_keep_alive();
-    this->set_remote_temperature(0);
+    this->clear_remote_temperature();
   });
 }
 
@@ -302,8 +301,8 @@ void CN105Climate::start_remote_temp_keep_alive() {
                   this->remote_temp_keepalive_interval_ms_);
 
   this->set_interval(SCHEDULER_REMOTE_TEMP_KEEPALIVE, this->remote_temp_keepalive_interval_ms_, [this]() {
-    if (this->remote_temperature_ > 0 && this->is_heatpump_connected()) {
-      ESP_LOGD(LOG_REMOTE_TEMP, "Keep-alive: re-sending remote temperature %.1f", this->remote_temperature_);
+    if (this->remote_temperature_.has_value() && this->is_heatpump_connected()) {
+      ESP_LOGD(LOG_REMOTE_TEMP, "Keep-alive: re-sending remote temperature %.1f", *this->remote_temperature_);
       // Send the temperature packet without resetting the watchdog timeout
       // (watchdog is only reset when HA sends a new value via set_remote_temperature)
       this->should_send_external_temperature_ = true;
@@ -311,7 +310,7 @@ void CN105Climate::start_remote_temp_keep_alive() {
       if (!this->is_heatpump_connected()) {
         ESP_LOGW(LOG_REMOTE_TEMP, "Keep-alive skipped: Heatpump not connected!");
       } else {
-        ESP_LOGD(LOG_REMOTE_TEMP, "Keep-alive skipped: remoteTemp %.1f <= 0", this->remote_temperature_);
+        ESP_LOGD(LOG_REMOTE_TEMP, "Keep-alive skipped: no remote temperature set");
       }
     }
   });
