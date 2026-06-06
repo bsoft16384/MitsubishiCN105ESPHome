@@ -2,15 +2,13 @@
 #include "globals.h"
 #include "cn105.h"
 #include <esphome.h>
-#include <cstdio>
 
 using namespace esphome;
 
-RequestScheduler::RequestScheduler(SendCallback send_callback, TimeoutCallback timeout_callback,
-                                   TerminateCallback terminate_callback, ContextCallback context_callback)
+RequestScheduler::RequestScheduler(SendCallback send_callback, TerminateCallback terminate_callback,
+                                   ContextCallback context_callback)
     : current_request_index_(-1),
       send_callback_(send_callback),
-      timeout_callback_(timeout_callback),
       terminate_callback_(terminate_callback),
       context_callback_(context_callback) {}
 
@@ -82,38 +80,6 @@ void RequestScheduler::send_request(uint8_t code, CN105Climate *context) {
       send_callback_(req.code);
     }
 
-    // Manage the timeout if configured and if the callback is available
-    if (req.soft_timeout_ms > 0 && timeout_callback_) {
-      uint8_t code_copy = req.code;
-      // Unique-per-code scheduler key so re-arming the same request replaces any
-      // still-pending timeout instead of stacking duplicates.
-      char tname[24];
-      snprintf(tname, sizeof(tname), "info_timeout_0x%02X", req.code);
-
-      timeout_callback_(tname, req.soft_timeout_ms, [this, code_copy]() {
-        // Get context for send_next_after
-        CN105Climate *ctx = nullptr;
-        if (this->context_callback_) {
-          ctx = this->context_callback_();
-        }
-
-        // If the response is still expected, consider it a soft failure and continue
-        for (auto &r : this->requests_) {
-          if (r.code == code_copy && r.awaiting) {
-            r.awaiting = false;
-            r.failures++;
-            ESP_LOGW(LOG_CYCLE_TAG, "Soft timeout for %s (0x%02X), failures: %d", r.description, r.code, r.failures);
-            if (r.failures >= r.max_failures) {
-              r.disabled = true;
-              ESP_LOGW(LOG_CYCLE_TAG, "%s (0x%02X) disabled (not supported)", r.description, r.code);
-            }
-            this->send_next_after(code_copy, ctx);
-            break;
-          }
-        }
-      });
-    }
-
     current_request_index_ = static_cast<int>(i);
     return;
   }
@@ -128,7 +94,6 @@ void RequestScheduler::mark_response_seen(uint8_t code, CN105Climate *context) {
   for (auto &req : requests_) {
     if (req.code == code) {
       req.awaiting = false;
-      req.failures = 0;
       ESP_LOGD(LOG_CYCLE_TAG, "Received %s <0x%02X>", req.description, req.code);
 
       // Call the on_response callback if present and if the context is available

@@ -25,14 +25,6 @@ class RequestScheduler {
   using SendCallback = std::function<void(uint8_t)>;
 
   /**
-   * @brief Type of callback for timeout management
-   * @param name Unique name of the timeout
-   * @param timeout_ms Duration of the timeout in milliseconds
-   * @param callback Function to call when timeout expires
-   */
-  using TimeoutCallback = std::function<void(const std::string &, uint32_t, std::function<void()>)>;
-
-  /**
    * @brief Type of callback to end a cycle
    */
   using TerminateCallback = std::function<void()>;
@@ -46,12 +38,11 @@ class RequestScheduler {
   /**
    * @brief Constructor
    * @param send_callback Callback to send a packet
-   * @param timeout_callback Callback to manage timeouts (can be nullptr if not used)
    * @param terminate_callback Callback to end a cycle
    * @param context_callback Callback to get the CN105Climate context (for can_send and on_response)
    */
-  RequestScheduler(SendCallback send_callback, TimeoutCallback timeout_callback = nullptr,
-                   TerminateCallback terminate_callback = nullptr, ContextCallback context_callback = nullptr);
+  RequestScheduler(SendCallback send_callback, TerminateCallback terminate_callback = nullptr,
+                   ContextCallback context_callback = nullptr);
 
   /**
    * @brief Saves a request to the queue
@@ -114,7 +105,6 @@ class RequestScheduler {
   std::vector<InfoRequest> requests_;     // Requests queue
   int current_request_index_;             // Index of the current request
   SendCallback send_callback_;            // Callback to send a packet
-  TimeoutCallback timeout_callback_;      // Callback to manage timeouts
   TerminateCallback terminate_callback_;  // Callback to end a cycle
   ContextCallback context_callback_;      // Callback to get the CN105Climate context
 

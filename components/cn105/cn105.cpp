@@ -34,10 +34,6 @@ CN105Climate::CN105Climate(uart::UARTComponent *uart)
       scheduler_(
           // send callback: send a packet via build_and_send_info_packet
           [this](uint8_t code) { this->build_and_send_info_packet(code); },
-          // timeout_callback: uses set_timeout from component
-          [this](const std::string &name, uint32_t timeout_ms, std::function<void()> callback) {
-            this->set_timeout(name.c_str(), timeout_ms, std::move(callback));
-          },
           // terminate_callback: completes the cycle
           [this]() { this->terminate_cycle(); },
           // context_callback: Returns 'this' for the 'can_send' and 'on_response' callbacks.
@@ -83,7 +79,7 @@ void CN105Climate::register_info_requests() {
   scheduler_.clear_requests();
 
   // 0x02 Settings
-  InfoRequest r_settings("settings", "Settings", 0x02, 3, 0);
+  InfoRequest r_settings("settings", "Settings", 0x02);
   r_settings.on_response = [this](CN105Climate &self) {
     (void) self;
     this->get_settings_from_response_packet();
@@ -91,7 +87,7 @@ void CN105Climate::register_info_requests() {
   scheduler_.register_request(r_settings);
 
   // 0x03 Room temperature
-  InfoRequest r_room("room_temp", "Room temperature", 0x03, 3, 0);
+  InfoRequest r_room("room_temp", "Room temperature", 0x03);
   r_room.on_response = [this](CN105Climate &self) {
     (void) self;
     this->get_room_temperature_from_response_packet();
@@ -99,15 +95,15 @@ void CN105Climate::register_info_requests() {
   scheduler_.register_request(r_room);
 
   // 0x06 Status
-  InfoRequest r_status("status", "Status", 0x06, 3, 0);
+  InfoRequest r_status("status", "Status", 0x06);
   r_status.on_response = [this](CN105Climate &self) {
     (void) self;
     this->get_operating_and_compressor_freq_from_response_packet();
   };
   scheduler_.register_request(r_status);
 
-  // 0x09 Standby/Power — core request on this fleet (all units support it), no soft-timeout needed
-  InfoRequest r_power("standby", "Power/Standby", 0x09, 3, 0);
+  // 0x09 Standby/Power — sub-mode / stage / auto-sub-mode (core request on this fleet)
+  InfoRequest r_power("standby", "Power/Standby", 0x09);
   r_power.on_response = [this](CN105Climate &self) {
     (void) self;
     this->get_power_from_response_packet();
@@ -115,14 +111,14 @@ void CN105Climate::register_info_requests() {
   scheduler_.register_request(r_power);
 
   // Placeholders
-  InfoRequest r_error_info("error_info", "Error Info", 0x04, 3, 0);
+  InfoRequest r_error_info("error_info", "Error Info", 0x04);
   r_error_info.on_response = [this](CN105Climate &self) {
     (void) self;
     this->get_error_info_from_response_packet();
   };
   scheduler_.register_request(r_error_info);
 
-  InfoRequest r_timers("timers", "Timers", 0x05, 1, 0);
+  InfoRequest r_timers("timers", "Timers", 0x05);
   r_timers.disabled = true;
   scheduler_.register_request(r_timers);
 
@@ -184,7 +180,7 @@ void CN105Climate::register_hardware_settings_requests() {
   };
 
   // --- Part 1 (0x20) ---
-  InfoRequest r_funcs1("functions1", "Functions Part 1", 0x20, 3, 0, interval, LOG_FUNCTIONS_TAG);
+  InfoRequest r_funcs1("functions1", "Functions Part 1", 0x20, interval, LOG_FUNCTIONS_TAG);
   r_funcs1.on_response = [this, check_and_disable](CN105Climate &self) {
     // Log the raw packet and decoded pairs even if the unit returns all zeros
     self.hp_packet_debug(self.data_, self.parser_.data_length(), "RX 0x20");
@@ -204,7 +200,7 @@ void CN105Climate::register_hardware_settings_requests() {
   }
 
   // --- Part 2 (0x22) ---
-  InfoRequest r_funcs2("functions2", "Functions Part 2", 0x22, 3, 0, interval, LOG_FUNCTIONS_TAG);
+  InfoRequest r_funcs2("functions2", "Functions Part 2", 0x22, interval, LOG_FUNCTIONS_TAG);
   r_funcs2.on_response = [this, check_and_disable](CN105Climate &self) {
     // Log the raw packet and decoded pairs even if the unit returns all zeros
     self.hp_packet_debug(self.data_, self.parser_.data_length(), "RX 0x22");
