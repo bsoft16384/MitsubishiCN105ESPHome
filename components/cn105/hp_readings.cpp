@@ -4,6 +4,20 @@
 
 using namespace esphome;
 
+namespace {
+// Resolve a decoded wire value: use it when present, otherwise log the unknown
+// byte and keep the previous value — falling back to a per-field default only
+// when there is no prior value yet. Relies on every mapped enum having an
+// UNKNOWN sentinel.
+template<typename E> E decode_or_keep(std::optional<E> decoded, uint8_t raw, E current, E fallback, const char *field) {
+  if (decoded.has_value()) {
+    return *decoded;
+  }
+  ESP_LOGW("Decoder", "Unknown %s byte 0x%02X — keeping previous value", field, raw);
+  return (current != E::UNKNOWN) ? current : fallback;
+}
+}  // namespace
+
 /**
  * processInput: reads available bytes from UART and feeds them to the FrameParser.
  * When a complete frame is detected, delegates to process_data_packet().
@@ -79,36 +93,14 @@ void CN105Climate::get_power_from_response_packet() {
 
   HeatpumpSettings received_settings{};
 
-  // Use std::optional lookups — keep previous value on unknown bytes
-  auto stage_opt = hp_stage_from_wire(get_payload_byte(4));
-  if (stage_opt) {
-    received_settings.stage = *stage_opt;
-  } else {
-    ESP_LOGW("Decoder", "Unknown stage byte 0x%02X — keeping previous value", get_payload_byte(4));
-    received_settings.stage = (this->current_settings_.stage != HPStage::UNKNOWN)
-                                 ? this->current_settings_.stage
-                                 : HPStage::IDLE;  // default to "IDLE" when no prior value exists
-  }
-
-  auto sub_mode_opt = hp_sub_mode_from_wire(get_payload_byte(3));
-  if (sub_mode_opt) {
-    received_settings.sub_mode = *sub_mode_opt;
-  } else {
-    ESP_LOGW("Decoder", "Unknown sub_mode byte 0x%02X — keeping previous value", get_payload_byte(3));
-    received_settings.sub_mode = (this->current_settings_.sub_mode != HPSubMode::UNKNOWN)
-                                    ? this->current_settings_.sub_mode
-                                    : HPSubMode::NORMAL;  // default to "NORMAL" when no prior value exists
-  }
-
-  auto auto_sub_mode_opt = hp_auto_sub_mode_from_wire(get_payload_byte(5));
-  if (auto_sub_mode_opt) {
-    received_settings.auto_sub_mode = *auto_sub_mode_opt;
-  } else {
-    ESP_LOGW("Decoder", "Unknown auto_sub_mode byte 0x%02X — keeping previous value", get_payload_byte(5));
-    received_settings.auto_sub_mode = (this->current_settings_.auto_sub_mode != HPAutoSubMode::UNKNOWN)
-                                         ? this->current_settings_.auto_sub_mode
-                                         : HPAutoSubMode::AUTO_OFF;  // default to "AUTO_OFF" when no prior value exists
-  }
+  // Decode each field; keep the previous value on unknown bytes (default only on first read).
+  received_settings.stage = decode_or_keep(hp_stage_from_wire(get_payload_byte(4)), get_payload_byte(4),
+                                           this->current_settings_.stage, HPStage::IDLE, "stage");
+  received_settings.sub_mode = decode_or_keep(hp_sub_mode_from_wire(get_payload_byte(3)), get_payload_byte(3),
+                                              this->current_settings_.sub_mode, HPSubMode::NORMAL, "sub_mode");
+  received_settings.auto_sub_mode =
+      decode_or_keep(hp_auto_sub_mode_from_wire(get_payload_byte(5)), get_payload_byte(5),
+                     this->current_settings_.auto_sub_mode, HPAutoSubMode::AUTO_OFF, "auto_sub_mode");
 
   ESP_LOGD("Decoder", "[Stage : %s]", hp_stage_to_str(received_settings.stage));
   ESP_LOGD("Decoder", "[Sub Mode  : %s]", hp_sub_mode_to_str(received_settings.sub_mode));
@@ -147,15 +139,8 @@ void CN105Climate::get_settings_from_response_packet() {
   HeatpumpRunStates received_run_states{};
   ESP_LOGD("Decoder", "[0x02 is settings]");
 
-  auto power_opt = hp_power_from_wire(get_payload_byte(3));
-  if (power_opt) {
-    received_settings.power = *power_opt;
-  } else {
-    ESP_LOGW("Decoder", "Unknown power byte 0x%02X — keeping previous value", get_payload_byte(3));
-    received_settings.power = (this->current_settings_.power != HPPower::UNKNOWN)
-                                 ? this->current_settings_.power
-                                 : HPPower::OFF;  // default to "OFF" when no prior value exists
-  }
+  received_settings.power = decode_or_keep(hp_power_from_wire(get_payload_byte(3)), get_payload_byte(3),
+                                           this->current_settings_.power, HPPower::OFF, "power");
 
   received_settings.i_see = get_payload_byte(4) > 0x08 ? true : false;
   uint8_t mode_byte = received_settings.i_see ? (get_payload_byte(4) - 0x08) : get_payload_byte(4);
@@ -194,26 +179,12 @@ void CN105Climate::get_settings_from_response_packet() {
 
   ESP_LOGD("Decoder", "[Temp °C: %f]", received_settings.temperature.value_or(NAN));
 
-  auto fan_opt = hp_fan_from_wire(get_payload_byte(6));
-  if (fan_opt) {
-    received_settings.fan = *fan_opt;
-  } else {
-    ESP_LOGW("Decoder", "Unknown fan byte 0x%02X — keeping previous value", get_payload_byte(6));
-    received_settings.fan = (this->current_settings_.fan != HPFanMode::UNKNOWN)
-                               ? this->current_settings_.fan
-                               : HPFanMode::AUTO;  // default to "AUTO" when no prior value exists
-  }
+  received_settings.fan = decode_or_keep(hp_fan_from_wire(get_payload_byte(6)), get_payload_byte(6),
+                                         this->current_settings_.fan, HPFanMode::AUTO, "fan");
   ESP_LOGD("Decoder", "[Fan: %s]", hp_fan_to_str(received_settings.fan));
 
-  auto vane_opt = hp_vane_from_wire(get_payload_byte(7));
-  if (vane_opt) {
-    received_settings.vane = *vane_opt;
-  } else {
-    ESP_LOGW("Decoder", "Unknown vane byte 0x%02X — keeping previous value", get_payload_byte(7));
-    received_settings.vane = (this->current_settings_.vane != HPVaneMode::UNKNOWN)
-                                ? this->current_settings_.vane
-                                : HPVaneMode::AUTO;  // default to "AUTO" when no prior value exists
-  }
+  received_settings.vane = decode_or_keep(hp_vane_from_wire(get_payload_byte(7)), get_payload_byte(7),
+                                          this->current_settings_.vane, HPVaneMode::AUTO, "vane");
   ESP_LOGD("Decoder", "[Vane: %s]", hp_vane_to_str(received_settings.vane));
 
   // --- START OF MODIFIED SECTION - Reverted widevane section back to more or less original state
