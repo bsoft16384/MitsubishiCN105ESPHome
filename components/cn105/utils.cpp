@@ -151,129 +151,104 @@ void CN105Climate::debug_settings_and_status(const char *setting_name, HeatpumpS
   this->debug_status(setting_name, status);
 }
 
+namespace {
+// Human-readable label for the command byte (offset 1 of a 0xFC-framed packet).
+const char *packet_command_label(uint8_t command) {
+  switch (command) {
+    case 0x5A:
+      return "CONNECT";
+    case 0x5B:
+      return "CONN_INST";  // installer mode
+    case 0x41:
+      return "SET";  // command sent to HP
+    case 0x42:
+      return "ACK/INFO";  // response/info from HP
+    case 0x61:
+      return "GET";  // request data from HP
+    case 0x62:
+      return "RESPONSE";  // data response from HP
+    default:
+      return "UNKNOWN";
+  }
+}
+
+// Human-readable label for the sub-command byte (offset 5), or "" if unknown.
+const char *packet_subcommand_label(uint8_t sub) {
+  switch (sub) {
+    case 0x01:
+      return ":Start";
+    case 0x02:
+      return ":Settings";
+    case 0x03:
+      return ":RoomTemp";
+    case 0x04:
+      return ":Status";
+    case 0x05:
+      return ":Standby";
+    case 0x06:
+      return ":Status";
+    case 0x09:
+      return ":Power";
+    case 0x10:
+      return ":Hello";  // connect response
+    case 0x20:
+      return ":Func1";  // functions part 1
+    case 0x22:
+      return ":Func2";  // functions part 2
+    default:
+      return "";
+  }
+}
+
+// Append "XX " for each byte in [begin, end) into buf, respecting its size.
+void append_hex(char *buf, size_t buf_size, const uint8_t *begin, const uint8_t *end) {
+  if (buf_size == 0)
+    return;
+  buf[0] = '\0';
+  char *p = buf;
+  size_t rem = buf_size;
+  for (const uint8_t *b = begin; b < end; ++b) {
+    int written = snprintf(p, rem, "%02X ", *b);
+    if (written <= 0 || (size_t) written >= rem)
+      break;
+    p += written;
+    rem -= written;
+  }
+}
+}  // namespace
+
 void CN105Climate::hp_packet_debug(const uint8_t *packet, unsigned int length, const char *packet_direction,
                                    const char *log_prefix) {
   if (length < 5) {
     // Fallback for too short packets
     char output[20] = "";
-    char *p = output;
-    size_t rem = sizeof(output);
-    for (unsigned int i = 0; i < length; i++) {
-      int written = snprintf(p, rem, "%02X ", packet[i]);
-      if (written > 0 && (size_t) written < rem) {
-        p += written;
-        rem -= written;
-      }
-    }
+    append_hex(output, sizeof(output), packet, packet + length);
     ESP_LOGD(packet_direction, "SHORT: %s", output);
     return;
   }
 
-  // Determine packet type label
-  const char *label = "UNKNOWN";
-  if (packet[0] == 0xFC) {
-    switch (packet[1]) {
-      case 0x5A:
-        label = "CONNECT";
-        break;
-      case 0x5B:
-        label = "CONN_INST";
-        break;  // Installer mode
-      case 0x41:
-        label = "SET";
-        break;  // Command sent to HP
-      case 0x42:
-        label = "ACK/INFO";
-        break;  // Response/Info from HP
-      case 0x61:
-        label = "GET";
-        break;  // Request data from HP
-      case 0x62:
-        label = "RESPONSE";
-        break;  // Data response from HP
-    }
-  }
-
-  // Determine specific command/data type (Semantic decoding)
-  // Byte 5 (index 5) is usually the subcommand
-  const char *sub_label = "";
-  if (length > 5) {
-    switch (packet[5]) {
-      case 0x01:
-        sub_label = ":Start";
-        break;  // Or "Connect" ?
-      case 0x02:
-        sub_label = ":Settings";
-        break;
-      case 0x03:
-        sub_label = ":RoomTemp";
-        break;
-      case 0x04:
-        sub_label = ":Status";
-        break;
-      case 0x05:
-        sub_label = ":Standby";
-        break;
-      case 0x06:
-        sub_label = ":Status";
-        break;
-      case 0x09:
-        sub_label = ":Power";
-        break;
-      case 0x10:
-        sub_label = ":Hello";
-        break;  // Connect response
-      case 0x20:
-        sub_label = ":Func1";
-        break;  // Functions part 1
-      case 0x22:
-        sub_label = ":Func2";
-        break;  // Functions part 2
-    }
-  }
-
-  // For 0x06 specifically, in many logs it's Status or Timers.
-  // In types.h: RCVD_PKT_STATUS = 5, RCVD_PKT_TIMER = 6.
-  // Let's use generic names if unsure, but user wants semantic.
-  if (packet[5] == 0x06)
-    sub_label = ":Status";
+  const char *label = (packet[0] == 0xFC) ? packet_command_label(packet[1]) : "UNKNOWN";
+  // Byte 5 (index 5) is the sub-command; only present once we have more than the 5-byte header.
+  const char *sub_label = (length > 5) ? packet_subcommand_label(packet[5]) : "";
 
   char full_label[20];
   snprintf(full_label, sizeof(full_label), "%s%s", label, sub_label);
 
-  // Format strings
+  // HEADER: first 5 bytes
   char header_str[18] = "";
+  append_hex(header_str, sizeof(header_str), packet, packet + 5);
+
+  // DATA: payload (bytes 5 .. length-2, i.e. excluding header and checksum)
   char data_str[380] = "";
-  char cs_str[4] = "";
-
-  // HEADER: First 5 bytes
-  char *p = header_str;
-  size_t header_rem = sizeof(header_str);
-  for (unsigned int i = 0; i < 5 && i < length; i++) {
-    int written = snprintf(p, header_rem, "%02X ", packet[i]);
-    if (written > 0 && (size_t) written < header_rem) {
-      p += written;
-      header_rem -= written;
-    }
-  }
-
-  // DATA: Bytes 5 to Length-2 (payload)
-  p = data_str;
-  size_t data_rem = sizeof(data_str);
   if (length > 6) {
-    for (unsigned int i = 5; i < length - 1; i++) {
-      int written = snprintf(p, data_rem, "%02X ", packet[i]);
-      if (written > 0 && (size_t) written < data_rem) {
-        p += written;
-        data_rem -= written;
-      }
-    }
+    append_hex(data_str, sizeof(data_str), packet + 5, packet + (length - 1));
   }
 
-  // CHECKSUM: Last byte
+  // CHECKSUM: last byte
+  char cs_str[4] = "";
   snprintf(cs_str, sizeof(cs_str), "%02X", packet[length - 1]);
 
-  // Output format: [LABEL:SubLabel ] HEADER -> [ PAYLOAD ] CS
+  // Output format: prefix|HEADER|->[PAYLOAD](CS) <LABEL:SubLabel>
   ESP_LOGD(packet_direction, "%s|%s|->[%s](%s) <%s>", log_prefix, header_str, data_str, cs_str, full_label);
 }
 
