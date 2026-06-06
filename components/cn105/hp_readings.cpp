@@ -381,49 +381,6 @@ void CN105Climate::get_operating_and_compressor_freq_from_response_packet() {
   this->status_changed(received_status);
 }
 
-void CN105Climate::get_hvac_options_from_response_packet() {
-  if (this->parser_.data_length() < 4) {
-    ESP_LOGW("Decoder", "HVAC options packet too short (%d < 4)", this->parser_.data_length());
-    return;
-  }
-  // MSZ-LN25VG2W
-  // FC 62 01 30 10 42 01 01 01 00 00 00 00 00 00 00 00 00 00 00 00 18
-  //                   AP NM CL
-  //  AP = air purifier (1 = on, 0 = off)
-  //  NM = night mode (1 = on, 0 = off)
-  //  CL = circulator (1 = on, 0 = off) ! MIGHT BE SAME BYTE AS ECONOCOOL - NEEDS TESTING !
-  HeatpumpRunStates received_run_states{};
-  ESP_LOGD("Decoder", "[0x42 is HVAC options]");
-
-  if (this->air_purifier_switch_ != nullptr) {
-    received_run_states.air_purifier = get_payload_byte(1);
-    ESP_LOGD("Decoder", "[Air purifier : %s]", received_run_states.air_purifier ? "ON" : "OFF");
-    if (received_run_states.air_purifier != this->current_run_states_.air_purifier ||
-        received_run_states.air_purifier != this->air_purifier_switch_->state) {
-      this->current_run_states_.air_purifier = received_run_states.air_purifier;
-      this->air_purifier_switch_->publish_state(received_run_states.air_purifier);
-    }
-  }
-  if (this->night_mode_switch_ != nullptr) {
-    received_run_states.night_mode = get_payload_byte(2);
-    ESP_LOGD("Decoder", "[Night mode : %s]", received_run_states.night_mode ? "ON" : "OFF");
-    if (received_run_states.night_mode != this->current_run_states_.night_mode ||
-        received_run_states.night_mode != this->night_mode_switch_->state) {
-      this->current_run_states_.night_mode = received_run_states.night_mode;
-      this->night_mode_switch_->publish_state(received_run_states.night_mode);
-    }
-  }
-  if (this->circulator_switch_ != nullptr) {
-    received_run_states.circulator = get_payload_byte(3);
-    ESP_LOGD("Decoder", "[Circulator : %s]", received_run_states.circulator ? "ON" : "OFF");
-    if (received_run_states.circulator != this->current_run_states_.circulator ||
-        received_run_states.circulator != this->circulator_switch_->state) {
-      this->current_run_states_.circulator = received_run_states.circulator;
-      this->circulator_switch_->publish_state(received_run_states.circulator);
-    }
-  }
-}
-
 void CN105Climate::terminate_cycle() {
   if (this->should_send_external_temperature_) {
     // We will receive ACK packet for this.
@@ -496,9 +453,6 @@ void CN105Climate::get_data_from_response_packet() {
 
     case 0x20:  // fallthrough
     case 0x22:
-      break;  // orchestrator
-
-    case 0x42:
       break;  // orchestrator
 
     default:

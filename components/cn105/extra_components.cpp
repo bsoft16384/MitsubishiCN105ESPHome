@@ -178,41 +178,6 @@ void CN105Climate::set_functions_set_value(FunctionsNumber *Number) {
   });
 }
 
-void CN105Climate::set_air_purifier_switch(HVACOptionSwitch *Switch) {
-  this->air_purifier_switch_ = Switch;
-  this->air_purifier_switch_->set_callback_function([this](bool state) {
-    this->wanted_run_states_.air_purifier = state;
-
-    this->wanted_run_states_.has_changed = true;
-    this->wanted_run_states_.has_been_sent = false;
-    this->wanted_run_states_.last_change = CUSTOM_MILLIS;
-  });
-}
-
-void CN105Climate::set_night_mode_switch(HVACOptionSwitch *Switch) {
-  this->night_mode_switch_ = Switch;
-  this->night_mode_switch_->set_callback_function([this](bool state) {
-    this->wanted_run_states_.night_mode = state;
-
-    this->wanted_run_states_.has_changed = true;
-    this->wanted_run_states_.has_been_sent = false;
-    this->wanted_run_states_.last_change = CUSTOM_MILLIS;
-  });
-}
-
-void CN105Climate::set_circulator_switch(
-    HVACOptionSwitch
-        *Switch) {  // only in HEAT mode? Manual says so, but it is possible to set the bit. The remote will not do it.
-  this->circulator_switch_ = Switch;
-  this->circulator_switch_->set_callback_function([this](bool state) {
-    this->wanted_run_states_.circulator = state;
-
-    this->wanted_run_states_.has_changed = true;
-    this->wanted_run_states_.has_been_sent = false;
-    this->wanted_run_states_.last_change = CUSTOM_MILLIS;
-  });
-}
-
 void CN105Climate::set_sub_mode_sensor(esphome::text_sensor::TextSensor *Sub_mode_sensor) {
   this->sub_mode_sensor_ = Sub_mode_sensor;
 }

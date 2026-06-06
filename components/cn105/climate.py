@@ -96,9 +96,6 @@ CONF_REMOTE_TEMP_SOURCE = "remote_temperature_source"
 CONF_REMOTE_TEMP_SOURCE_SENSOR_ID = "sensor_id"
 CONF_REMOTE_TEMP_SOURCE_INFO = "info"
 CONF_AIRFLOW_CONTROL_SELECT = "airflow_control_select"
-CONF_AIR_PURIFIER_SWITCH = "air_purifier_switch"
-CONF_NIGHT_MODE_SWITCH = "night_mode_switch"
-CONF_CIRCULATOR_SWITCH = "circulator_switch"
 CONF_FAN_STOP_SWITCH = "fan_stop_switch"
 CONF_LOW_TEMP_PROTECTION_SWITCH = "low_temp_protection_switch"
 CONF_DIAGNOSTIC_SENSOR = "diagnostic_sensor"
@@ -134,7 +131,6 @@ cn105_ns = cg.esphome_ns.namespace("cn105")
 HpUpTimeConnectionSensor = cn105_ns.class_(
     "HpUpTimeConnectionSensor", sensor.Sensor, cg.PollingComponent
 )
-HVACOptionSwitch = cg.esphome_ns.class_("HVACOptionSwitch", switch.Switch, cg.Component)
 HardwareSettingSelect = cg.esphome_ns.class_(
     "HardwareSettingSelect", select.Select, cg.Component
 )
@@ -292,10 +288,6 @@ HP_UP_TIME_CONNECTION_SENSOR_SCHEMA = sensor.sensor_schema(
     entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
 ).extend(cv.polling_component_schema("60s"))
 
-HVAC_OPTION_SWITCH_SCHEMA = switch.switch_schema(HVACOptionSwitch).extend(
-    {cv.GenerateID(CONF_ID): cv.declare_id(HVACOptionSwitch)}
-)
-
 HARDWARE_SETTING_ITEM_SCHEMA = select.select_schema(HardwareSettingSelect).extend(
     {
         cv.Required(CONF_CODE): cv.int_range(min=101, max=128),
@@ -371,9 +363,6 @@ CONFIG_SCHEMA = (
                 CONF_HP_UP_TIME_CONNECTION_SENSOR
             ): HP_UP_TIME_CONNECTION_SENSOR_SCHEMA,
             cv.Optional(CONF_AIRFLOW_CONTROL_SELECT): SELECT_SCHEMA,
-            cv.Optional(CONF_AIR_PURIFIER_SWITCH): HVAC_OPTION_SWITCH_SCHEMA,
-            cv.Optional(CONF_NIGHT_MODE_SWITCH): HVAC_OPTION_SWITCH_SCHEMA,
-            cv.Optional(CONF_CIRCULATOR_SWITCH): HVAC_OPTION_SWITCH_SCHEMA,
             cv.Optional(CONF_HARDWARE_SETTINGS): HARDWARE_SETTING_SCHEMA,
             cv.Optional(
                 CONF_CURRENT_TEMP_SOURCE_SENSOR
@@ -574,18 +563,6 @@ async def to_code(config):
             conf_item, min_value=1.0, max_value=3.0, step=1.0
         )
         cg.add(var.set_functions_set_value(number_var))
-
-    if CONF_AIR_PURIFIER_SWITCH in config:
-        switch_var = await switch.new_switch(config[CONF_AIR_PURIFIER_SWITCH])
-        cg.add(var.set_air_purifier_switch(switch_var))
-
-    if CONF_NIGHT_MODE_SWITCH in config:
-        switch_var = await switch.new_switch(config[CONF_NIGHT_MODE_SWITCH])
-        cg.add(var.set_night_mode_switch(switch_var))
-
-    if CONF_CIRCULATOR_SWITCH in config:
-        switch_var = await switch.new_switch(config[CONF_CIRCULATOR_SWITCH])
-        cg.add(var.set_circulator_switch(switch_var))
 
     # --- STAGE_SENSOR TREATMENT WITH NEW OPTION ---
     if CONF_STAGE_SENSOR in config:

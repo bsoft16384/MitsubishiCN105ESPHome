@@ -157,30 +157,21 @@ TEST(HeatpumpStatusTest, InequalityOperating) {
 
 TEST(HeatpumpRunStatesTest, ResetSettings) {
     HeatpumpRunStates rs{};
-    rs.air_purifier = 1;
-    rs.night_mode = 1;
-    rs.circulator = 1;
     rs.airflow_control = HPAirflowControl::DIRECT;
 
     rs.reset_settings();
 
-    EXPECT_EQ(rs.air_purifier, -1);
-    EXPECT_EQ(rs.night_mode, -1);
-    EXPECT_EQ(rs.circulator, -1);
     EXPECT_EQ(rs.airflow_control, HPAirflowControl::UNKNOWN);
 }
 
 TEST(HeatpumpRunStatesTest, EqualityOperator) {
     HeatpumpRunStates a{};
-    a.air_purifier = 1;
-    a.night_mode = 0;
-    a.circulator = 1;
     a.airflow_control = HPAirflowControl::EVEN;
 
     HeatpumpRunStates b = a;
     EXPECT_TRUE(a == b);
 
-    b.circulator = 0;
+    b.airflow_control = HPAirflowControl::DIRECT;
     EXPECT_TRUE(a != b);
 }
 
@@ -188,11 +179,11 @@ TEST(WantedRunStatesTest, ResetClearsFlags) {
     WantedHeatpumpRunStates wrs{};
     wrs.has_changed = true;
     wrs.has_been_sent = true;
-    wrs.air_purifier = 1;
+    wrs.airflow_control = HPAirflowControl::DIRECT;
 
     wrs.reset_settings();
 
     EXPECT_FALSE(wrs.has_changed);
     EXPECT_FALSE(wrs.has_been_sent);
-    EXPECT_EQ(wrs.air_purifier, -1);
+    EXPECT_EQ(wrs.airflow_control, HPAirflowControl::UNKNOWN);
 }

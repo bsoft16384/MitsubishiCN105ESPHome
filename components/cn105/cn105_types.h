@@ -66,7 +66,6 @@ static const int MAX_NON_RESPONSE_REQ = 5;
 static const uint8_t CONTROL_PACKET_1[5] = {0x01, 0x02, 0x04, 0x08, 0x10};
 static const uint8_t CONTROL_PACKET_2[1] = {0x01};
 static const uint8_t RUN_STATE_PACKET_1[5] = {0x01, 0x04, 0x08, 0x10, 0x20};
-static const uint8_t RUN_STATE_PACKET_2[5] = {0x02, 0x04, 0x08, 0x10, 0x20};
 
 static const int TIMER_INCREMENT_MINUTES = 10;
 
@@ -450,24 +449,13 @@ struct HeatpumpStatus {
 };
 
 struct HeatpumpRunStates {
-  int8_t air_purifier = -1;
-  int8_t night_mode = -1;
-  int8_t circulator = -1;
   HPAirflowControl airflow_control = HPAirflowControl::UNKNOWN;
 
-  void reset_settings() {
-    air_purifier = -1;
-    night_mode = -1;
-    circulator = -1;
-    airflow_control = HPAirflowControl::UNKNOWN;
-  }
+  void reset_settings() { airflow_control = HPAirflowControl::UNKNOWN; }
 
   HeatpumpRunStates &operator=(const HeatpumpRunStates &other) = default;
 
-  bool operator==(const HeatpumpRunStates &other) const {
-    return air_purifier == other.air_purifier && night_mode == other.night_mode && circulator == other.circulator &&
-           airflow_control == other.airflow_control;
-  }
+  bool operator==(const HeatpumpRunStates &other) const { return airflow_control == other.airflow_control; }
 
   bool operator!=(const HeatpumpRunStates &other) const { return !(this->operator==(other)); }
 };

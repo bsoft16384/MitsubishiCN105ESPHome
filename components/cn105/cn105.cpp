@@ -69,10 +69,6 @@ CN105Climate::CN105Climate(uart::UARTComponent *uart)
   this->kwh_sensor_ = nullptr;
   this->runtime_hours_sensor_ = nullptr;
 
-  this->air_purifier_switch_ = nullptr;
-  this->night_mode_switch_ = nullptr;
-  this->circulator_switch_ = nullptr;
-
   this->power_request_without_responses_ = 0;  // power request is not supported by all heatpump #112
 
   this->remote_temp_timeout_ = 4294967295;  // uint32_t max
@@ -110,26 +106,13 @@ void CN105Climate::register_info_requests() {
   };
   scheduler_.register_request(r_status);
 
-  // 0x09 Standby/Power
-  InfoRequest r_power("standby", "Power/Standby", 0x09, 3, 500);
+  // 0x09 Standby/Power — core request on this fleet (all units support it), no soft-timeout needed
+  InfoRequest r_power("standby", "Power/Standby", 0x09, 3, 0);
   r_power.on_response = [this](CN105Climate &self) {
     (void) self;
     this->get_power_from_response_packet();
   };
   scheduler_.register_request(r_power);
-
-  // 0x42 HVAC options
-  InfoRequest r_hvac_opts("hvac_options", "HVAC options", 0x42, 3, 500);
-  r_hvac_opts.can_send = [this](const CN105Climate &self) {
-    (void) self;
-    return (this->air_purifier_switch_ != nullptr || this->night_mode_switch_ != nullptr ||
-            this->circulator_switch_ != nullptr);
-  };
-  r_hvac_opts.on_response = [this](CN105Climate &self) {
-    (void) self;
-    this->get_hvac_options_from_response_packet();
-  };
-  scheduler_.register_request(r_hvac_opts);
 
   // Placeholders
   InfoRequest r_error_info("error_info", "Error Info", 0x04, 3, 0);
@@ -330,9 +313,6 @@ float CN105Climate::get_input_power() { return current_status_.input_power; }
 float CN105Climate::get_kwh() { return current_status_.kwh; }
 float CN105Climate::get_runtime_hours() { return current_status_.runtime_hours; }
 bool CN105Climate::is_operating() { return current_status_.operating; }
-bool CN105Climate::is_air_purifier() { return current_run_states_.air_purifier > 0; }
-bool CN105Climate::is_night_mode() { return current_run_states_.night_mode > 0; }
-bool CN105Climate::is_circulator() { return current_run_states_.circulator > 0; }
 
 // SERIAL_8E1
 void CN105Climate::setup_uart() {

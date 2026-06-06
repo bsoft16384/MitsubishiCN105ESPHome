@@ -8,7 +8,6 @@
 #include "uptime_connection_sensor.h"
 #include "functions_number.h"
 #include "functions_button.h"
-#include "hvac_option_switch.h"
 #include "hardware_setting_select.h"
 #include "info_request.h"
 #include "request_scheduler.h"
@@ -59,10 +58,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   void set_isee_sensor(esphome::binary_sensor::BinarySensor *iSee_sensor);
   void set_stage_sensor(esphome::text_sensor::TextSensor *Stage_sensor);
   void set_use_stage_for_operating_status(bool value);
-  void set_air_purifier_switch(HVACOptionSwitch *air_purifier_switch);
-  void set_night_mode_switch(HVACOptionSwitch *night_mode_switch);
-  void set_circulator_switch(HVACOptionSwitch *circulator_switch);
-
   void add_hardware_setting(HardwareSettingSelect *setting);
   void set_hardware_settings_interval(uint32_t interval_ms) { this->hardware_settings_interval_ms_ = interval_ms; }
 
@@ -110,9 +105,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   float get_kwh();
   float get_runtime_hours();
   bool is_operating();
-  bool is_air_purifier();
-  bool is_night_mode();
-  bool is_circulator();
 
   // checks if the field has changed
 
@@ -264,7 +256,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   void get_settings_from_response_packet();
   void get_room_temperature_from_response_packet();
   void get_operating_and_compressor_freq_from_response_packet();
-  void get_hvac_options_from_response_packet();
 
   void update_success();
   void process_command();
@@ -278,9 +269,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   const char *get_airflow_control_setting();
   const char *get_fan_speed_setting();
   float get_temperature_setting();
-  bool get_air_purifier_run_state();
-  bool get_night_mode_run_state();
-  bool get_circulator_run_state();
 
   void set_mode_setting(const char *setting);
   void set_power_setting(const char *setting);
@@ -306,9 +294,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   text_sensor::TextSensor *current_temp_source_sensor_{nullptr};
   sensor::Sensor *remote_temp_source_{nullptr};
   text_sensor::TextSensor *remote_temp_source_info_sensor_{nullptr};
-  HVACOptionSwitch *air_purifier_switch_ = nullptr;
-  HVACOptionSwitch *night_mode_switch_ = nullptr;
-  HVACOptionSwitch *circulator_switch_ = nullptr;
   std::vector<HardwareSettingSelect *> hardware_settings_;
   uint32_t hardware_settings_interval_ms_{86400000};  // Default 24h
 

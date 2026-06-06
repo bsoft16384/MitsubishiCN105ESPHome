@@ -132,12 +132,6 @@ climate:
     temperature_margin: 0.4
 
     # Extra options (commented out by default, showcasing available features)
-    # air_purifier_switch:
-    #   name: "Air Purifier clim Sejour"
-    # night_mode_switch:
-    #   name: "Night Mode clim Sejour"
-    # circulator_switch:
-    #   name: "Circulator clim Sejour"
     # functions_get_button:
     #   name: "Get Functions clim Sejour"
     # hardware_settings:

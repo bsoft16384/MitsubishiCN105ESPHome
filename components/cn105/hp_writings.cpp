@@ -157,27 +157,6 @@ const char *CN105Climate::get_airflow_control_setting() {
                             : this->current_run_states_.airflow_control;
   return hp_airflow_control_to_str(ac);
 }
-bool CN105Climate::get_air_purifier_run_state() {
-  if (this->wanted_run_states_.air_purifier != this->current_run_states_.air_purifier) {
-    return this->wanted_run_states_.air_purifier;
-  } else {
-    return this->current_run_states_.air_purifier;
-  }
-}
-bool CN105Climate::get_night_mode_run_state() {
-  if (this->wanted_run_states_.night_mode != this->current_run_states_.night_mode) {
-    return this->wanted_run_states_.night_mode;
-  } else {
-    return this->current_run_states_.night_mode;
-  }
-}
-bool CN105Climate::get_circulator_run_state() {
-  if (this->wanted_run_states_.circulator != this->current_run_states_.circulator) {
-    return this->wanted_run_states_.circulator;
-  } else {
-    return this->current_run_states_.circulator;
-  }
-}
 
 void CN105Climate::create_packet(uint8_t *packet) {
   prepare_set_packet(packet, PACKET_LEN);
@@ -321,25 +300,6 @@ void CN105Climate::publish_wanted_run_states_state_to_ha() {
       }
     }
   }
-  if (this->wanted_run_states_.air_purifier > -1) {
-    if (this->air_purifier_switch_ != nullptr &&
-        this->air_purifier_switch_->state != this->wanted_run_states_.air_purifier) {
-      ESP_LOGI(TAG, "air purifier setting changed");
-      this->air_purifier_switch_->publish_state(wanted_run_states_.air_purifier);
-    }
-  }
-  if (this->wanted_run_states_.night_mode > -1) {
-    if (this->night_mode_switch_ != nullptr && this->night_mode_switch_->state != this->wanted_run_states_.night_mode) {
-      ESP_LOGI(TAG, "night mode setting changed");
-      this->night_mode_switch_->publish_state(wanted_run_states_.night_mode);
-    }
-  }
-  if (this->wanted_run_states_.circulator > -1) {
-    if (this->circulator_switch_ != nullptr && this->circulator_switch_->state != this->wanted_run_states_.circulator) {
-      ESP_LOGI(TAG, "circulator setting changed");
-      this->circulator_switch_->publish_state(wanted_run_states_.circulator);
-    }
-  }
 }
 
 void CN105Climate::send_wanted_settings_delegate() {
@@ -475,27 +435,6 @@ void CN105Climate::send_wanted_run_states() {
     if (val_opt) {
       packet[11] = *val_opt;
       packet[6] += RUN_STATE_PACKET_1[4];
-    }
-  }
-  if (this->wanted_run_states_.air_purifier > -1) {
-    if (get_air_purifier_run_state() != current_run_states_.air_purifier) {
-      ESP_LOGI(TAG, "air purifier switch state -> %s", get_air_purifier_run_state() ? "ON" : "OFF");
-      packet[17] = get_air_purifier_run_state() ? 0x01 : 0x00;
-      packet[7] += RUN_STATE_PACKET_2[1];
-    }
-  }
-  if (this->wanted_run_states_.night_mode > -1) {
-    if (get_night_mode_run_state() != current_run_states_.night_mode) {
-      ESP_LOGI(TAG, "night mode switch state -> %s", this->get_night_mode_run_state() ? "ON" : "OFF");
-      packet[18] = get_night_mode_run_state() ? 0x01 : 0x00;
-      packet[7] += RUN_STATE_PACKET_2[2];
-    }
-  }
-  if (this->wanted_run_states_.circulator > -1) {
-    if (get_circulator_run_state() != current_run_states_.circulator) {
-      ESP_LOGI(TAG, "circulator switch state -> %s", get_circulator_run_state() ? "ON" : "OFF");
-      packet[19] = get_circulator_run_state() ? 0x01 : 0x00;
-      packet[7] += RUN_STATE_PACKET_2[3];
     }
   }
 
