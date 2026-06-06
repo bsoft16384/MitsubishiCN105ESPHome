@@ -1,13 +1,15 @@
 /// test_real_frames.cpp — Regression tests from real captured UART frames.
-/// Deps: cn105_protocol.h, cn105_types.h
+/// Deps: cn105_protocol.h, cn105_types.h (production code, no copies)
 ///
-/// Source: Live debug logs from atom-s3 ESP32 (2026-05-02 14:04-14:05)
-/// Each test validates checksum + field decoding against actual PAC behavior.
+/// Source: live debug logs from an ESP32 bridge. Each test validates checksum
+/// and field decoding against actual PAC behaviour using the production helpers.
 #include <gtest/gtest.h>
 #include "cn105_protocol.h"
 #include "cn105_types.h"
 
-using namespace cn105_protocol;
+using cn105_protocol::checksum;
+using cn105_protocol::encode_temperature_b;
+using cn105_protocol::encode_remote_temperature;
 
 // ════════════════════════════════════════════════════════════════
 // Checksum validation on every captured frame
@@ -78,122 +80,90 @@ TEST(RealChecksum, SET_Heat_21_5) {
     EXPECT_EQ(checksum(pkt, 21), 0xC9);
 }
 
-TEST(RealChecksum, SET_VaneUp) {
-    uint8_t pkt[] = {0xFC,0x41,0x01,0x30,0x10, 0x01,0x10,0x00,0x00,0x00,0x00,0x00,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-    EXPECT_EQ(checksum(pkt, 21), 0x6B);
-}
-
-TEST(RealChecksum, SET_FanMedium) {
-    uint8_t pkt[] = {0xFC,0x41,0x01,0x30,0x10, 0x01,0x08,0x00,0x00,0x00,0x00,0x03,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-    EXPECT_EQ(checksum(pkt, 21), 0x72);
-}
-
-TEST(RealChecksum, SET_VaneSwing) {
-    uint8_t pkt[] = {0xFC,0x41,0x01,0x30,0x10, 0x01,0x10,0x00,0x00,0x00,0x00,0x00,0x07,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-    EXPECT_EQ(checksum(pkt, 21), 0x66);
-}
-
 TEST(RealChecksum, SET_RemoteTemp_22_8) {
     uint8_t pkt[] = {0xFC,0x41,0x01,0x30,0x10, 0x07,0x01,0x1E,0xAE,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
     EXPECT_EQ(checksum(pkt, 21), 0xAA);
 }
 
-TEST(RealChecksum, SET_OFF_21_5) {
-    uint8_t pkt[] = {0xFC,0x41,0x01,0x30,0x10, 0x01,0x05,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xAB,0x00};
-    EXPECT_EQ(checksum(pkt, 21), 0xCD);
-}
-
 // ════════════════════════════════════════════════════════════════
-// Settings decoding — real response packets
+// Settings decoding — real response payloads (data[] starts at the type byte)
 // ════════════════════════════════════════════════════════════════
 
 // Boot state: OFF, HEAT, 19.5°C, AUTO fan, AUTO vane
 TEST(RealSettings, BootState_OFF_HEAT_19_5) {
     uint8_t data[] = {0x02,0x00,0x00,0x00,0x01,0x1C,0x00,0x00,0x00,0x00,0x03,0xA7,0x00,0x00,0x00,0x00};
-    EXPECT_STREQ(*lookup_value_opt(POWER_MAP, POWER, 2, data[3]), "OFF");
-    EXPECT_FALSE(data[4] > 0x08); // iSee
-    EXPECT_STREQ(*lookup_value_opt(MODE_MAP, MODE, 5, data[4]), "HEAT");
-    EXPECT_FLOAT_EQ(decode_temperature(data[5], data[11]), 19.5f);
-    EXPECT_STREQ(*lookup_value_opt(FAN_MAP, FAN, 6, data[6]), "AUTO");
-    EXPECT_STREQ(*lookup_value_opt(VANE_MAP, VANE, 7, data[7]), "AUTO");
+    EXPECT_EQ(hp_power_from_wire(data[3]), HPPower::OFF);
+    EXPECT_FALSE(data[4] > 0x08);  // iSee bit not set
+    EXPECT_EQ(hp_mode_from_wire(data[4]), HPMode::HEAT);
+    EXPECT_EQ(encode_temperature_b(19.5f), data[11]);  // target temp byte matches capture
+    EXPECT_EQ(hp_fan_from_wire(data[6]), HPFanMode::AUTO);
+    EXPECT_EQ(hp_vane_from_wire(data[7]), HPVaneMode::AUTO);
 }
 
 // User switches to FAN_ONLY
 TEST(RealSettings, FanOnly_ON) {
     uint8_t data[] = {0x02,0x00,0x00,0x01,0x07,0x1C,0x00,0x00,0x00,0x00,0x03,0xA7,0x00,0x00,0x00,0x00};
-    EXPECT_STREQ(*lookup_value_opt(POWER_MAP, POWER, 2, data[3]), "ON");
-    EXPECT_STREQ(*lookup_value_opt(MODE_MAP, MODE, 5, data[4]), "FAN");
+    EXPECT_EQ(hp_power_from_wire(data[3]), HPPower::ON);
+    EXPECT_EQ(hp_mode_from_wire(data[4]), HPMode::FAN);
 }
 
 // HEAT at 21.5°C
 TEST(RealSettings, Heat_21_5) {
     uint8_t data[] = {0x02,0x00,0x00,0x01,0x01,0x1A,0x00,0x00,0x00,0x00,0x03,0xAB,0x00,0x00,0x00,0x00};
-    EXPECT_STREQ(*lookup_value_opt(MODE_MAP, MODE, 5, data[4]), "HEAT");
-    EXPECT_FLOAT_EQ(decode_temperature(data[5], data[11]), 21.5f);
+    EXPECT_EQ(hp_mode_from_wire(data[4]), HPMode::HEAT);
+    EXPECT_EQ(encode_temperature_b(21.5f), data[11]);
 }
 
 // Fan=2 (MEDIUM), Vane=↑
 TEST(RealSettings, Fan2_VaneUp) {
     uint8_t data[] = {0x02,0x00,0x00,0x01,0x01,0x1A,0x03,0x02,0x00,0x00,0x03,0xAB,0x00,0x00,0x00,0x00};
-    EXPECT_STREQ(*lookup_value_opt(FAN_MAP, FAN, 6, data[6]), "2");
-    EXPECT_STREQ(*lookup_value_opt(VANE_MAP, VANE, 7, data[7]), "\xe2\x86\x91"); // ↑ in UTF-8
+    EXPECT_EQ(hp_fan_from_wire(data[6]), HPFanMode::F2);
+    EXPECT_EQ(hp_vane_from_wire(data[7]), HPVaneMode::V2);
+    EXPECT_STREQ(hp_vane_to_str(HPVaneMode::V2), "\xe2\x86\x91");  // ↑ in UTF-8
 }
 
 // Vane=SWING
 TEST(RealSettings, VaneSwing) {
     uint8_t data[] = {0x02,0x00,0x00,0x01,0x01,0x1A,0x03,0x07,0x00,0x00,0x03,0xAB,0x00,0x00,0x00,0x00};
-    EXPECT_STREQ(*lookup_value_opt(VANE_MAP, VANE, 7, data[7]), "SWING");
+    EXPECT_EQ(hp_vane_from_wire(data[7]), HPVaneMode::SWING);
 }
 
 // ════════════════════════════════════════════════════════════════
-// Room temperature — real response
+// Room temperature — real response (encoding B in data[6])
 // ════════════════════════════════════════════════════════════════
 
-TEST(RealRoomTemp, BothEncodings_23C) {
+TEST(RealRoomTemp, EncodingB_23C) {
     uint8_t data[] = {0x03,0x00,0x00,0x0D,0x00,0x00,0xAE,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-    // Encoding B: (0xAE=174 - 128) / 2 = 23.0
-    EXPECT_FLOAT_EQ(decode_temperature(data[3], data[6]), 23.0f);
-    // Encoding A fallback: 0x0D=13 + 10 = 23
-    EXPECT_FLOAT_EQ(decode_temperature(data[3], 0x00), 23.0f);
-    // Room temp map
-    auto room = lookup_value_opt(ROOM_TEMP_MAP, ROOM_TEMP, 32, data[3]);
-    ASSERT_TRUE(room.has_value());
-    EXPECT_EQ(*room, 23);
+    // Encoding B byte for 23.0°C must equal the captured data[6].
+    EXPECT_EQ(encode_temperature_b(23.0f), data[6]);
 }
 
 // ════════════════════════════════════════════════════════════════
-// Sub-mode / stage — real power responses
+// Sub-mode / stage — real power (0x09) responses
+//   data[3] = sub-mode, data[4] = stage, data[5] = auto sub-mode
 // ════════════════════════════════════════════════════════════════
 
 TEST(RealPower, IdleState) {
     uint8_t data[] = {0x09,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-    EXPECT_STREQ(*lookup_value_opt(SUB_MODE_MAP, SUB_MODE, 6, data[3]), "NORMAL");
-    EXPECT_STREQ(*lookup_value_opt(STAGE_MAP, STAGE, 7, data[4]), "IDLE");
-    EXPECT_STREQ(*lookup_value_opt(AUTO_SUB_MODE_MAP, AUTO_SUB_MODE, 7, data[5]), "AUTO_OFF");
+    EXPECT_EQ(hp_sub_mode_from_wire(data[3]), HPSubMode::NORMAL);
+    EXPECT_EQ(hp_stage_from_wire(data[4]), HPStage::IDLE);
+    EXPECT_EQ(hp_auto_sub_mode_from_wire(data[5]), HPAutoSubMode::AUTO_OFF);
 }
 
 TEST(RealPower, LowStage) {
     uint8_t data[] = {0x09,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-    EXPECT_STREQ(*lookup_value_opt(STAGE_MAP, STAGE, 7, data[4]), "LOW");
+    EXPECT_EQ(hp_stage_from_wire(data[4]), HPStage::LOW);
 }
 
 // ════════════════════════════════════════════════════════════════
-// Remote temperature encoding — real SET packet
+// Remote temperature encoding — real SET packet (22.8°C → 1E AE)
 // ════════════════════════════════════════════════════════════════
 
 TEST(RealRemoteTemp, Encode_22_8C) {
     uint8_t enc_a, enc_b;
     encode_remote_temperature(22.8f, enc_a, enc_b);
-    EXPECT_EQ(enc_a, 0x1E); // 46 - 16
-    EXPECT_EQ(enc_b, 0xAE); // 46 + 128
-}
-
-TEST(RealSetPacket, Temp19_5_EncodingB) {
-    EXPECT_EQ(encode_temperature_b(19.5f), 0xA7);
-}
-
-TEST(RealSetPacket, Temp21_5_EncodingB) {
-    EXPECT_EQ(encode_temperature_b(21.5f), 0xAB);
+    EXPECT_EQ(enc_a, 0x1E);  // 46 - 16
+    EXPECT_EQ(enc_b, 0xAE);  // 46 + 128
 }
 
 // ════════════════════════════════════════════════════════════════

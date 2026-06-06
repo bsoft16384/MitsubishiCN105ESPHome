@@ -1,212 +1,198 @@
-/// test_types.cpp — Tests de non-régression pour les structs du protocole CN105
-/// Deps: cn105_types.h, esphome_stubs.h
+/// test_types.cpp — Regression tests for the CN105 protocol structs.
+/// Deps: cn105_types.h (production structs + enums, no copies)
+///
+/// Covers reset_settings(), equality operators (including NaN and optional
+/// temperature handling) on the enum-based settings/status/run-state structs.
 #include <gtest/gtest.h>
-#include "esphome_stubs.h"
+#include <cmath>
 #include "cn105_types.h"
 
-// ========================================================
-// heatpumpSettings tests
-// ========================================================
+// ════════════════════════════════════════════════════════════════
+// HeatpumpSettings
+// ════════════════════════════════════════════════════════════════
 
-TEST(HeatpumpSettingsTest, ResetSettings_NullsAndDefaults) {
-    heatpumpSettings s{};
-    s.power = "ON";
-    s.mode = "COOL";
+TEST(HeatpumpSettingsTest, ResetSettingsRestoresUnknown) {
+    HeatpumpSettings s{};
+    s.power = HPPower::ON;
+    s.mode = HPMode::COOL;
     s.temperature = 24.0f;
-    s.fan = "AUTO";
-    s.vane = "SWING";
-    s.wideVane = "|";
+    s.fan = HPFanMode::AUTO;
+    s.vane = HPVaneMode::SWING;
+    s.wide_vane = HPWideVaneMode::CENTER;
+    s.stage = HPStage::HIGH;
 
-    s.resetSettings();
+    s.reset_settings();
 
-    EXPECT_EQ(s.power, nullptr);
-    EXPECT_EQ(s.mode, nullptr);
-    EXPECT_FLOAT_EQ(s.temperature, -1.0f);
-    EXPECT_FLOAT_EQ(s.dual_low_target, -100.0f);
-    EXPECT_FLOAT_EQ(s.dual_high_target, -100.0f);
-    EXPECT_EQ(s.fan, nullptr);
-    EXPECT_EQ(s.vane, nullptr);
-    EXPECT_EQ(s.wideVane, nullptr);
+    EXPECT_EQ(s.power, HPPower::UNKNOWN);
+    EXPECT_EQ(s.mode, HPMode::UNKNOWN);
+    EXPECT_FALSE(s.temperature.has_value());
+    EXPECT_EQ(s.fan, HPFanMode::UNKNOWN);
+    EXPECT_EQ(s.vane, HPVaneMode::UNKNOWN);
+    EXPECT_EQ(s.wide_vane, HPWideVaneMode::UNKNOWN);
+    EXPECT_EQ(s.stage, HPStage::UNKNOWN);
 }
 
-TEST(HeatpumpSettingsTest, EqualityOperator_IdenticalSettings) {
-    heatpumpSettings a{};
-    a.power = "ON";
-    a.mode = "HEAT";
+TEST(HeatpumpSettingsTest, EqualityIdentical) {
+    HeatpumpSettings a{};
+    a.power = HPPower::ON;
+    a.mode = HPMode::HEAT;
     a.temperature = 22.0f;
-    a.fan = "AUTO";
-    a.vane = "AUTO";
-    a.wideVane = "|";
+    a.fan = HPFanMode::AUTO;
+    a.vane = HPVaneMode::AUTO;
+    a.wide_vane = HPWideVaneMode::CENTER;
 
-    heatpumpSettings b{};
-    b.power = "ON";
-    b.mode = "HEAT";
-    b.temperature = 22.0f;
-    b.fan = "AUTO";
-    b.vane = "AUTO";
-    b.wideVane = "|";
-
+    HeatpumpSettings b = a;
     EXPECT_TRUE(a == b);
 }
 
-TEST(HeatpumpSettingsTest, EqualityOperator_DifferentTemp) {
-    heatpumpSettings a{};
-    a.power = "ON";
-    a.mode = "HEAT";
-    a.temperature = 22.0f;
-    a.fan = "AUTO";
-    a.vane = "AUTO";
-    a.wideVane = "|";
-
-    heatpumpSettings b = a;
-    b.temperature = 24.0f;
-
-    EXPECT_FALSE(a == b);
+TEST(HeatpumpSettingsTest, EqualityBothTemperatureUnset) {
+    HeatpumpSettings a{};
+    HeatpumpSettings b{};
+    // Both temperatures are nullopt → considered equal.
+    EXPECT_TRUE(a == b);
 }
 
-TEST(HeatpumpSettingsTest, EqualityOperator_DifferentMode) {
-    heatpumpSettings a{};
-    a.power = "ON";
-    a.mode = "HEAT";
+TEST(HeatpumpSettingsTest, InequalityOneTemperatureUnset) {
+    HeatpumpSettings a{};
     a.temperature = 22.0f;
-    a.fan = "AUTO";
-    a.vane = "AUTO";
-    a.wideVane = "|";
-
-    heatpumpSettings b = a;
-    b.mode = "COOL";
-
-    // operator== compares const char* pointers, not string content
-    // Since "HEAT" and "COOL" are different string literals, pointers differ
-    EXPECT_FALSE(a == b);
-}
-
-TEST(HeatpumpSettingsTest, InequalityOperator_Works) {
-    heatpumpSettings a{};
-    a.power = "ON";
-    a.mode = "HEAT";
-    a.temperature = 22.0f;
-    a.fan = "AUTO";
-    a.vane = "AUTO";
-    a.wideVane = "|";
-
-    heatpumpSettings b = a;
-    b.temperature = 25.0f;
-
+    HeatpumpSettings b{};  // temperature stays nullopt
     EXPECT_TRUE(a != b);
 }
 
-// ========================================================
-// wantedHeatpumpSettings tests
-// ========================================================
+TEST(HeatpumpSettingsTest, TemperatureToleranceWithinEpsilon) {
+    HeatpumpSettings a{};
+    a.temperature = 22.000f;
+    HeatpumpSettings b = a;
+    b.temperature = 22.005f;  // within the 0.01 tolerance
+    EXPECT_TRUE(a == b);
+}
 
-TEST(WantedHeatpumpSettingsTest, ResetSettings_IncludesFlags) {
-    wantedHeatpumpSettings ws{};
-    ws.hasChanged = true;
-    ws.hasBeenSent = true;
-    ws.power = "ON";
+TEST(HeatpumpSettingsTest, InequalityDifferentMode) {
+    HeatpumpSettings a{};
+    a.mode = HPMode::HEAT;
+    HeatpumpSettings b = a;
+    b.mode = HPMode::COOL;
+    EXPECT_TRUE(a != b);
+}
+
+TEST(HeatpumpSettingsTest, EqualityIgnoresStageAndSubMode) {
+    // operator== intentionally does not compare stage / sub_mode / auto_sub_mode.
+    HeatpumpSettings a{};
+    a.mode = HPMode::HEAT;
+    HeatpumpSettings b = a;
+    b.stage = HPStage::HIGH;
+    b.sub_mode = HPSubMode::DEFROST;
+    EXPECT_TRUE(a == b);
+}
+
+// ════════════════════════════════════════════════════════════════
+// WantedHeatpumpSettings
+// ════════════════════════════════════════════════════════════════
+
+TEST(WantedHeatpumpSettingsTest, ResetClearsFlags) {
+    WantedHeatpumpSettings ws{};
+    ws.has_changed = true;
+    ws.has_been_sent = true;
+    ws.power = HPPower::ON;
     ws.temperature = 24.0f;
 
-    ws.resetSettings();
+    ws.reset_settings();
 
-    EXPECT_FALSE(ws.hasChanged);
-    EXPECT_FALSE(ws.hasBeenSent);
-    EXPECT_EQ(ws.power, nullptr);
-    EXPECT_FLOAT_EQ(ws.temperature, -1.0f);
+    EXPECT_FALSE(ws.has_changed);
+    EXPECT_FALSE(ws.has_been_sent);
+    EXPECT_EQ(ws.power, HPPower::UNKNOWN);
+    EXPECT_FALSE(ws.temperature.has_value());
 }
 
-// ========================================================
-// heatpumpStatus tests
-// ========================================================
+TEST(WantedHeatpumpSettingsTest, AssignFromBaseSettings) {
+    HeatpumpSettings base{};
+    base.mode = HPMode::COOL;
+    base.temperature = 20.0f;
+
+    WantedHeatpumpSettings ws{};
+    ws = base;  // uses the HeatpumpSettings assignment overload
+
+    EXPECT_EQ(ws.mode, HPMode::COOL);
+    ASSERT_TRUE(ws.temperature.has_value());
+    EXPECT_FLOAT_EQ(*ws.temperature, 20.0f);
+}
+
+// ════════════════════════════════════════════════════════════════
+// HeatpumpStatus — NaN-aware equality
+// ════════════════════════════════════════════════════════════════
 
 TEST(HeatpumpStatusTest, EqualityWithNaN) {
-    // NaN == NaN should be true in our custom operator
-    heatpumpStatus a{};
-    a.roomTemperature = NAN;
-    a.outsideAirTemperature = NAN;
-    a.operating = false;
-    a.compressorFrequency = 0;
-    a.inputPower = 0;
-    a.kWh = 0;
-    a.runtimeHours = 0;
-
-    heatpumpStatus b = a;
-
-    EXPECT_TRUE(a == b) << "Two statuses with NaN should be equal";
+    HeatpumpStatus a{};  // room/outside/freq/power/kwh/runtime default to NAN
+    HeatpumpStatus b = a;
+    EXPECT_TRUE(a == b) << "Two fresh statuses (all NaN) should compare equal";
 }
 
-TEST(HeatpumpStatusTest, InequalityWithDifferentTemp) {
-    heatpumpStatus a{};
-    a.roomTemperature = 21.0f;
-    a.outsideAirTemperature = NAN;
-    a.operating = false;
-    a.compressorFrequency = 0;
-    a.inputPower = 0;
-    a.kWh = 0;
-    a.runtimeHours = 0;
-
-    heatpumpStatus b = a;
-    b.roomTemperature = 22.0f;
-
+TEST(HeatpumpStatusTest, InequalityDifferentRoomTemp) {
+    HeatpumpStatus a{};
+    a.room_temperature = 21.0f;
+    HeatpumpStatus b = a;
+    b.room_temperature = 22.0f;
     EXPECT_TRUE(a != b);
 }
 
-TEST(HeatpumpStatusTest, InequalityWithOperatingDiff) {
-    heatpumpStatus a{};
-    a.roomTemperature = 21.0f;
-    a.outsideAirTemperature = NAN;
-    a.operating = false;
-    a.compressorFrequency = 0;
-    a.inputPower = 0;
-    a.kWh = 0;
-    a.runtimeHours = 0;
+TEST(HeatpumpStatusTest, InequalityNaNVsValue) {
+    HeatpumpStatus a{};
+    a.room_temperature = NAN;
+    HeatpumpStatus b = a;
+    b.room_temperature = 21.0f;
+    EXPECT_TRUE(a != b);
+}
 
-    heatpumpStatus b = a;
+TEST(HeatpumpStatusTest, InequalityOperating) {
+    HeatpumpStatus a{};
+    a.operating = false;
+    HeatpumpStatus b = a;
     b.operating = true;
-
     EXPECT_TRUE(a != b);
 }
 
-// ========================================================
-// heatpumpRunStates tests
-// ========================================================
+// ════════════════════════════════════════════════════════════════
+// HeatpumpRunStates
+// ════════════════════════════════════════════════════════════════
 
 TEST(HeatpumpRunStatesTest, ResetSettings) {
-    heatpumpRunStates rs{};
+    HeatpumpRunStates rs{};
     rs.air_purifier = 1;
     rs.night_mode = 1;
     rs.circulator = 1;
-    rs.airflow_control = "DIRECT";
+    rs.airflow_control = HPAirflowControl::DIRECT;
 
-    rs.resetSettings();
+    rs.reset_settings();
 
     EXPECT_EQ(rs.air_purifier, -1);
     EXPECT_EQ(rs.night_mode, -1);
     EXPECT_EQ(rs.circulator, -1);
-    EXPECT_EQ(rs.airflow_control, nullptr);
+    EXPECT_EQ(rs.airflow_control, HPAirflowControl::UNKNOWN);
 }
 
 TEST(HeatpumpRunStatesTest, EqualityOperator) {
-    heatpumpRunStates a{};
+    HeatpumpRunStates a{};
     a.air_purifier = 1;
     a.night_mode = 0;
     a.circulator = 1;
-    a.airflow_control = "EVEN";
+    a.airflow_control = HPAirflowControl::EVEN;
 
-    heatpumpRunStates b = a;
-
+    HeatpumpRunStates b = a;
     EXPECT_TRUE(a == b);
+
+    b.circulator = 0;
+    EXPECT_TRUE(a != b);
 }
 
-TEST(WantedRunStatesTest, ResetSettings_IncludesFlags) {
-    wantedHeatpumpRunStates wrs{};
-    wrs.hasChanged = true;
-    wrs.hasBeenSent = true;
+TEST(WantedRunStatesTest, ResetClearsFlags) {
+    WantedHeatpumpRunStates wrs{};
+    wrs.has_changed = true;
+    wrs.has_been_sent = true;
     wrs.air_purifier = 1;
 
-    wrs.resetSettings();
+    wrs.reset_settings();
 
-    EXPECT_FALSE(wrs.hasChanged);
-    EXPECT_FALSE(wrs.hasBeenSent);
+    EXPECT_FALSE(wrs.has_changed);
+    EXPECT_FALSE(wrs.has_been_sent);
     EXPECT_EQ(wrs.air_purifier, -1);
 }

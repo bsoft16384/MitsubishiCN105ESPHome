@@ -1,204 +1,150 @@
-/// test_lookup_tables.cpp — Tests de non-régression pour lookupByteMapValue/Index
-/// Deps: cn105_types.h (tables MODE, FAN, VANE, TEMP, etc.), esphome_stubs.h
+/// test_lookup_tables.cpp — Regression tests for the EnumTable mapping API.
+/// Deps: cn105_types.h (enum tables + helpers — production code, no copies)
+///
+/// Validates the wire↔enum↔string lookups that replaced the old parallel
+/// *_MAP / * byte arrays. Exercises the real production helpers directly.
 #include <gtest/gtest.h>
-#include "esphome_stubs.h"
 #include "cn105_types.h"
 
-// Standalone reimplementations of lookup functions (copy from utils.cpp)
-// Avoids pulling in CN105Climate class dependencies.
+// ════════════════════════════════════════════════════════════════
+// wire byte → enum  (hp_*_from_wire / wire_to_enum)
+// ════════════════════════════════════════════════════════════════
 
-static const char* lookupByteMapValue(const char* valuesMap[], const uint8_t byteMap[],
-                                       int len, uint8_t byteValue,
-                                       const char* debugInfo = "",
-                                       const char* defaultValue = nullptr) {
-    for (int i = 0; i < len; i++) {
-        if (byteMap[i] == byteValue) {
-            return valuesMap[i];
-        }
+TEST(EnumTables, PowerFromWire) {
+    EXPECT_EQ(hp_power_from_wire(0x00), HPPower::OFF);
+    EXPECT_EQ(hp_power_from_wire(0x01), HPPower::ON);
+    EXPECT_FALSE(hp_power_from_wire(0xFF).has_value());
+}
+
+TEST(EnumTables, ModeFromWire) {
+    EXPECT_EQ(hp_mode_from_wire(0x01), HPMode::HEAT);
+    EXPECT_EQ(hp_mode_from_wire(0x02), HPMode::DRY);
+    EXPECT_EQ(hp_mode_from_wire(0x03), HPMode::COOL);
+    EXPECT_EQ(hp_mode_from_wire(0x07), HPMode::FAN);
+    EXPECT_EQ(hp_mode_from_wire(0x08), HPMode::AUTO);
+    // 0x0A could be a future "ECO" mode — must be nullopt, NOT a silent fallback.
+    EXPECT_FALSE(hp_mode_from_wire(0x0A).has_value());
+}
+
+TEST(EnumTables, FanFromWire) {
+    EXPECT_EQ(hp_fan_from_wire(0x00), HPFanMode::AUTO);
+    EXPECT_EQ(hp_fan_from_wire(0x01), HPFanMode::QUIET);
+    EXPECT_EQ(hp_fan_from_wire(0x06), HPFanMode::F4);
+    EXPECT_FALSE(hp_fan_from_wire(0x09).has_value());
+}
+
+TEST(EnumTables, VaneFromWire) {
+    EXPECT_EQ(hp_vane_from_wire(0x00), HPVaneMode::AUTO);
+    EXPECT_EQ(hp_vane_from_wire(0x07), HPVaneMode::SWING);
+    EXPECT_FALSE(hp_vane_from_wire(0x06).has_value());
+}
+
+TEST(EnumTables, WideVaneFromWire) {
+    EXPECT_EQ(hp_wide_vane_from_wire(0x01), HPWideVaneMode::LEFT_LEFT);
+    EXPECT_EQ(hp_wide_vane_from_wire(0x0c), HPWideVaneMode::SWING);
+    EXPECT_EQ(hp_wide_vane_from_wire(0x00), HPWideVaneMode::AIRFLOW_CONTROL);
+}
+
+TEST(EnumTables, StageFromWire) {
+    EXPECT_EQ(hp_stage_from_wire(0x00), HPStage::IDLE);
+    EXPECT_EQ(hp_stage_from_wire(0x01), HPStage::LOW);
+    EXPECT_EQ(hp_stage_from_wire(0x06), HPStage::DIFFUSE);
+}
+
+TEST(EnumTables, SubModeFromWire) {
+    EXPECT_EQ(hp_sub_mode_from_wire(0x00), HPSubMode::NORMAL);
+    EXPECT_EQ(hp_sub_mode_from_wire(0x02), HPSubMode::DEFROST);
+}
+
+TEST(EnumTables, AutoSubModeFromWire) {
+    EXPECT_EQ(hp_auto_sub_mode_from_wire(0x00), HPAutoSubMode::AUTO_OFF);
+    EXPECT_EQ(hp_auto_sub_mode_from_wire(0x43), HPAutoSubMode::AUTO_ACTIVE);
+}
+
+TEST(EnumTables, AirflowControlFromWire) {
+    EXPECT_EQ(hp_airflow_control_from_wire(0x00), HPAirflowControl::EVEN);
+    EXPECT_EQ(hp_airflow_control_from_wire(0x02), HPAirflowControl::DIRECT);
+    EXPECT_FALSE(hp_airflow_control_from_wire(0x03).has_value());
+}
+
+// ════════════════════════════════════════════════════════════════
+// enum → string  (hp_*_to_str)
+// ════════════════════════════════════════════════════════════════
+
+TEST(EnumTables, ModeToStr) {
+    EXPECT_STREQ(hp_mode_to_str(HPMode::HEAT), "HEAT");
+    EXPECT_STREQ(hp_mode_to_str(HPMode::AUTO), "AUTO");
+    EXPECT_STREQ(hp_mode_to_str(HPMode::UNKNOWN), "UNKNOWN");
+}
+
+TEST(EnumTables, FanToStr) {
+    EXPECT_STREQ(hp_fan_to_str(HPFanMode::AUTO), "AUTO");
+    EXPECT_STREQ(hp_fan_to_str(HPFanMode::F4), "4");
+}
+
+TEST(EnumTables, VaneSwingToStr) {
+    EXPECT_STREQ(hp_vane_to_str(HPVaneMode::SWING), "SWING");
+}
+
+TEST(EnumTables, AirflowControlToStr) {
+    EXPECT_STREQ(hp_airflow_control_to_str(HPAirflowControl::EVEN), "EVEN");
+    EXPECT_STREQ(hp_airflow_control_to_str(HPAirflowControl::DIRECT), "DIRECT");
+}
+
+// ════════════════════════════════════════════════════════════════
+// string → enum  (hp_*_from_str, case-insensitive)
+// ════════════════════════════════════════════════════════════════
+
+TEST(EnumTables, ModeFromStr) {
+    EXPECT_EQ(hp_mode_from_str("COOL"), HPMode::COOL);
+    EXPECT_EQ(hp_mode_from_str("cool"), HPMode::COOL);  // case-insensitive
+    EXPECT_EQ(hp_mode_from_str("TURBO"), HPMode::UNKNOWN);
+}
+
+TEST(EnumTables, PowerFromStr) {
+    EXPECT_EQ(hp_power_from_str("ON"), HPPower::ON);
+    EXPECT_EQ(hp_power_from_str("off"), HPPower::OFF);
+}
+
+// ════════════════════════════════════════════════════════════════
+// enum → wire byte  (hp_*_to_wire) + round-trip
+// ════════════════════════════════════════════════════════════════
+
+TEST(EnumTables, ModeToWire) {
+    EXPECT_EQ(hp_mode_to_wire(HPMode::COOL), std::optional<uint8_t>(0x03));
+    EXPECT_FALSE(hp_mode_to_wire(HPMode::UNKNOWN).has_value());
+}
+
+TEST(EnumTables, WireRoundTrip) {
+    // Every protocol byte that decodes must re-encode to the same byte.
+    for (const auto &entry : MODE_TABLE) {
+        auto decoded = hp_mode_from_wire(entry.protocol_byte);
+        ASSERT_TRUE(decoded.has_value());
+        EXPECT_EQ(hp_mode_to_wire(*decoded), std::optional<uint8_t>(entry.protocol_byte));
     }
-    if (defaultValue != nullptr) {
-        return defaultValue;
-    } else {
-        return valuesMap[0];
-    }
 }
 
-static int lookupByteMapValue_int(const int valuesMap[], const uint8_t byteMap[],
-                                   int len, uint8_t byteValue,
-                                   const char* debugInfo = "") {
-    for (int i = 0; i < len; i++) {
-        if (byteMap[i] == byteValue) {
-            return valuesMap[i];
-        }
-    }
-    return valuesMap[0];
-}
+// ════════════════════════════════════════════════════════════════
+// Table consistency — protocol bytes must be unique within a table
+// ════════════════════════════════════════════════════════════════
 
-static int lookupByteMapIndex_int(const int valuesMap[], int len, int lookupValue,
-                                   const char* debugInfo = "") {
-    for (int i = 0; i < len; i++) {
-        if (valuesMap[i] == lookupValue) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-static int lookupByteMapIndex_str(const char* valuesMap[], int len,
-                                   const char* lookupValue,
-                                   const char* debugInfo = "") {
-    for (int i = 0; i < len; i++) {
-        if (strcasecmp(valuesMap[i], lookupValue) == 0) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-// ---- MODE Tests ----
-
-TEST(LookupTablesTest, ModeByteToString_Heat) {
-    EXPECT_STREQ(lookupByteMapValue(MODE_MAP, MODE, 5, 0x01), "HEAT");
-}
-
-TEST(LookupTablesTest, ModeByteToString_Auto) {
-    EXPECT_STREQ(lookupByteMapValue(MODE_MAP, MODE, 5, 0x08), "AUTO");
-}
-
-TEST(LookupTablesTest, ModeByteToString_Cool) {
-    EXPECT_STREQ(lookupByteMapValue(MODE_MAP, MODE, 5, 0x03), "COOL");
-}
-
-TEST(LookupTablesTest, ModeByteToString_Dry) {
-    EXPECT_STREQ(lookupByteMapValue(MODE_MAP, MODE, 5, 0x02), "DRY");
-}
-
-TEST(LookupTablesTest, ModeByteToString_Fan) {
-    EXPECT_STREQ(lookupByteMapValue(MODE_MAP, MODE, 5, 0x07), "FAN");
-}
-
-TEST(LookupTablesTest, ModeByteToString_UnknownReturnsDefault) {
-    const char* result = lookupByteMapValue(MODE_MAP, MODE, 5, 0xFF, "test", "UNKNOWN");
-    EXPECT_STREQ(result, "UNKNOWN");
-}
-
-TEST(LookupTablesTest, ModeByteToString_UnknownNoDefaultReturnsIndex0) {
-    // Without defaultValue → returns valuesMap[0] = "HEAT"
-    const char* result = lookupByteMapValue(MODE_MAP, MODE, 5, 0xFF);
-    EXPECT_STREQ(result, "HEAT");
-}
-
-// ---- MODE Index Tests ----
-
-TEST(LookupTablesTest, ModeStringToIndex_Cool) {
-    EXPECT_EQ(lookupByteMapIndex_str(MODE_MAP, 5, "COOL"), 2);
-}
-
-TEST(LookupTablesTest, ModeStringToIndex_CaseInsensitive) {
-    EXPECT_EQ(lookupByteMapIndex_str(MODE_MAP, 5, "cool"), 2);
-}
-
-TEST(LookupTablesTest, ModeStringToIndex_NotFound) {
-    EXPECT_EQ(lookupByteMapIndex_str(MODE_MAP, 5, "TURBO"), -1);
-}
-
-// ---- FAN Tests ----
-
-TEST(LookupTablesTest, FanByteToString_Auto) {
-    EXPECT_STREQ(lookupByteMapValue(FAN_MAP, FAN, 6, 0x00), "AUTO");
-}
-
-TEST(LookupTablesTest, FanByteToString_Quiet) {
-    EXPECT_STREQ(lookupByteMapValue(FAN_MAP, FAN, 6, 0x01), "QUIET");
-}
-
-TEST(LookupTablesTest, FanByteToString_Speed4) {
-    EXPECT_STREQ(lookupByteMapValue(FAN_MAP, FAN, 6, 0x06), "4");
-}
-
-// ---- VANE Tests ----
-
-TEST(LookupTablesTest, VaneByteToString_Auto) {
-    EXPECT_STREQ(lookupByteMapValue(VANE_MAP, VANE, 7, 0x00), "AUTO");
-}
-
-TEST(LookupTablesTest, VaneByteToString_Swing) {
-    EXPECT_STREQ(lookupByteMapValue(VANE_MAP, VANE, 7, 0x07), "SWING");
-}
-
-// ---- TEMP Tests (int version) ----
-
-TEST(LookupTablesTest, TempByteToInt_31) {
-    int result = lookupByteMapValue_int(TEMP_MAP, TEMP, 16, 0x00);
-    EXPECT_EQ(result, 31);
-}
-
-TEST(LookupTablesTest, TempByteToInt_16) {
-    int result = lookupByteMapValue_int(TEMP_MAP, TEMP, 16, 0x0F);
-    EXPECT_EQ(result, 16);
-}
-
-TEST(LookupTablesTest, TempIndexFromValue_24) {
-    int idx = lookupByteMapIndex_int(TEMP_MAP, 16, 24);
-    EXPECT_EQ(idx, 7); // TEMP_MAP[7] = 24
-}
-
-TEST(LookupTablesTest, TempIndexFromValue_NotFound) {
-    int idx = lookupByteMapIndex_int(TEMP_MAP, 16, 99);
-    EXPECT_EQ(idx, -1);
-}
-
-// ---- POWER Tests ----
-
-TEST(LookupTablesTest, PowerByteToString_Off) {
-    EXPECT_STREQ(lookupByteMapValue(POWER_MAP, POWER, 2, 0x00), "OFF");
-}
-
-TEST(LookupTablesTest, PowerByteToString_On) {
-    EXPECT_STREQ(lookupByteMapValue(POWER_MAP, POWER, 2, 0x01), "ON");
-}
-
-// ---- Table Consistency Tests ----
-
-TEST(LookupTablesTest, ModeTableConsistency_AllBytesUnique) {
-    for (int i = 0; i < 5; i++) {
-        for (int j = i + 1; j < 5; j++) {
-            EXPECT_NE(MODE[i], MODE[j])
-                << "MODE bytes at index " << i << " and " << j << " collide";
+template<typename Table> static void expect_unique_bytes(const Table &table, const char *name) {
+    for (size_t i = 0; i < table.size(); ++i) {
+        for (size_t j = i + 1; j < table.size(); ++j) {
+            EXPECT_NE(table[i].protocol_byte, table[j].protocol_byte)
+                << name << " bytes at index " << i << " and " << j << " collide";
         }
     }
 }
 
-TEST(LookupTablesTest, FanTableConsistency_AllBytesUnique) {
-    for (int i = 0; i < 6; i++) {
-        for (int j = i + 1; j < 6; j++) {
-            EXPECT_NE(FAN[i], FAN[j])
-                << "FAN bytes at index " << i << " and " << j << " collide";
-        }
-    }
-}
-
-TEST(LookupTablesTest, VaneTableConsistency_AllBytesUnique) {
-    for (int i = 0; i < 7; i++) {
-        for (int j = i + 1; j < 7; j++) {
-            EXPECT_NE(VANE[i], VANE[j])
-                << "VANE bytes at index " << i << " and " << j << " collide";
-        }
-    }
-}
-
-// ---- WIDEVANE Tests ----
-
-TEST(LookupTablesTest, WideVaneByteToString_Swing) {
-    EXPECT_STREQ(lookupByteMapValue(WIDEVANE_MAP, WIDEVANE, 8, 0x0c), "SWING");
-}
-
-// ---- AIRFLOW CONTROL Tests ----
-
-TEST(LookupTablesTest, AirflowControlByteToString_Even) {
-    EXPECT_STREQ(lookupByteMapValue(AIRFLOW_CONTROL_MAP, AIRFLOW_CONTROL, 3, 0x00), "EVEN");
-}
-
-TEST(LookupTablesTest, AirflowControlByteToString_Direct) {
-    EXPECT_STREQ(lookupByteMapValue(AIRFLOW_CONTROL_MAP, AIRFLOW_CONTROL, 3, 0x02), "DIRECT");
+TEST(EnumTables, NoByteCollisions) {
+    expect_unique_bytes(POWER_TABLE, "POWER");
+    expect_unique_bytes(MODE_TABLE, "MODE");
+    expect_unique_bytes(FAN_TABLE, "FAN");
+    expect_unique_bytes(VANE_TABLE, "VANE");
+    expect_unique_bytes(WIDEVANE_TABLE, "WIDEVANE");
+    expect_unique_bytes(STAGE_TABLE, "STAGE");
+    expect_unique_bytes(SUB_MODE_TABLE, "SUB_MODE");
+    expect_unique_bytes(AUTO_SUB_MODE_TABLE, "AUTO_SUB_MODE");
+    expect_unique_bytes(AIRFLOW_CONTROL_TABLE, "AIRFLOW_CONTROL");
 }

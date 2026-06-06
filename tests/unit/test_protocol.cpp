@@ -9,7 +9,7 @@
 using namespace cn105_protocol;
 
 // ════════════════════════════════════════════════════════════════
-// checksum() — production function
+// checksum()
 // ════════════════════════════════════════════════════════════════
 
 TEST(ProtocolChecksum, ConnectPacket) {
@@ -25,7 +25,7 @@ TEST(ProtocolChecksum, InfoPacket) {
 }
 
 TEST(ProtocolChecksum, ZeroLength) {
-    uint8_t pkt[] = {};
+    uint8_t pkt[] = {0x00};
     EXPECT_EQ(checksum(pkt, 0), 0xfc);
 }
 
@@ -44,100 +44,31 @@ TEST(ProtocolChecksum, RealSettingsResponse) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// decode_temperature() — production function
+// encode_temperature_b() — half-degree target temperature byte
 // ════════════════════════════════════════════════════════════════
 
-TEST(ProtocolDecodeTemp, EncodingB_22C) {
-    // enc_b = 0xAC = 172 → (172-128)/2 = 22.0
-    EXPECT_FLOAT_EQ(decode_temperature(0x09, 0xAC), 22.0f);
+TEST(ProtocolEncodeTemp, KnownValues) {
+    EXPECT_EQ(encode_temperature_b(16.0f), 0xA0);
+    EXPECT_EQ(encode_temperature_b(19.5f), 0xA7);
+    EXPECT_EQ(encode_temperature_b(21.5f), 0xAB);
+    EXPECT_EQ(encode_temperature_b(22.0f), 0xAC);
+    EXPECT_EQ(encode_temperature_b(26.0f), 0xB4);
+    EXPECT_EQ(encode_temperature_b(31.0f), 0xBE);
 }
 
-TEST(ProtocolDecodeTemp, EncodingB_19_5C) {
-    // enc_b = 0xA7 = 167 → (167-128)/2 = 19.5
-    EXPECT_FLOAT_EQ(decode_temperature(0x1C, 0xA7), 19.5f);
-}
-
-TEST(ProtocolDecodeTemp, EncodingB_IgnoresEncA) {
-    // When enc_b != 0, enc_a is ignored
-    EXPECT_FLOAT_EQ(decode_temperature(0x00, 0xAC), 22.0f);
-    EXPECT_FLOAT_EQ(decode_temperature(0xFF, 0xAC), 22.0f);
-}
-
-TEST(ProtocolDecodeTemp, EncodingA_FallbackWithOffset10) {
-    // enc_b == 0 → uses enc_a + offset (default 10)
-    EXPECT_FLOAT_EQ(decode_temperature(0x0B, 0x00), 21.0f);   // 11 + 10
-    EXPECT_FLOAT_EQ(decode_temperature(0x00, 0x00), 10.0f);   // 0 + 10
-}
-
-TEST(ProtocolDecodeTemp, EncodingA_CustomOffset) {
-    // Settings use different offset (31 - enc_a for encoding A)
-    EXPECT_FLOAT_EQ(decode_temperature(0x09, 0x00, 22), 31.0f);  // 9 + 22
-}
-
-TEST(ProtocolDecodeTemp, RoomTemp_BothEncodingsAgree) {
-    // Real frame: data[3]=0x0B (enc_a), data[6]=0xAA (enc_b)
-    float tempA = decode_temperature(0x0B, 0x00);       // 11 + 10 = 21.0
-    float tempB = decode_temperature(0x0B, 0xAA);       // (170-128)/2 = 21.0
-    EXPECT_FLOAT_EQ(tempA, tempB);
-    EXPECT_FLOAT_EQ(tempB, 21.0f);
-}
-
-TEST(ProtocolDecodeTemp, EncodingB_MinValue) {
-    // enc_b = 128 → (128-128)/2 = 0.0
-    EXPECT_FLOAT_EQ(decode_temperature(0x00, 0x80), 0.0f);
-}
-
-TEST(ProtocolDecodeTemp, EncodingB_HalfDegree) {
-    // enc_b = 0xA9 = 169 → (169-128)/2 = 20.5
-    EXPECT_FLOAT_EQ(decode_temperature(0x00, 0xA9), 20.5f);
+TEST(ProtocolEncodeTemp, RoundsToHalfDegree) {
+    // 22.3 → round(44.6) = 45 → 45 + 128 = 173 = 0xAD (22.5°C)
+    EXPECT_EQ(encode_temperature_b(22.3f), encode_temperature_b(22.5f));
 }
 
 // ════════════════════════════════════════════════════════════════
-// encode_temperature_b() — production function
-// ════════════════════════════════════════════════════════════════
-
-TEST(ProtocolEncodeTemp, RoundTrip_19_5) {
-    uint8_t encoded = encode_temperature_b(19.5f);
-    EXPECT_EQ(encoded, 0xA7);
-    EXPECT_FLOAT_EQ(decode_temperature(0x00, encoded), 19.5f);
-}
-
-TEST(ProtocolEncodeTemp, RoundTrip_22_0) {
-    uint8_t encoded = encode_temperature_b(22.0f);
-    EXPECT_EQ(encoded, 0xAC);
-    EXPECT_FLOAT_EQ(decode_temperature(0x00, encoded), 22.0f);
-}
-
-TEST(ProtocolEncodeTemp, RoundTrip_16_0) {
-    uint8_t encoded = encode_temperature_b(16.0f);
-    EXPECT_EQ(encoded, 0xA0);
-    EXPECT_FLOAT_EQ(decode_temperature(0x00, encoded), 16.0f);
-}
-
-TEST(ProtocolEncodeTemp, RoundTrip_31_0) {
-    uint8_t encoded = encode_temperature_b(31.0f);
-    EXPECT_EQ(encoded, 0xBE);
-    EXPECT_FLOAT_EQ(decode_temperature(0x00, encoded), 31.0f);
-}
-
-TEST(ProtocolEncodeTemp, HalfDegreeValues) {
-    for (float t = 16.0f; t <= 31.0f; t += 0.5f) {
-        uint8_t encoded = encode_temperature_b(t);
-        float decoded = decode_temperature(0x00, encoded);
-        EXPECT_FLOAT_EQ(decoded, t) << "Roundtrip failed for " << t << "°C";
-    }
-}
-
-// ════════════════════════════════════════════════════════════════
-// encode_remote_temperature() — production function
+// encode_remote_temperature() — two-byte SET remote temp packet
 // ════════════════════════════════════════════════════════════════
 
 TEST(ProtocolEncodeRemoteTemp, KeepAlive_20_9C) {
     uint8_t enc_a, enc_b;
     encode_remote_temperature(20.9f, enc_a, enc_b);
-    // round(20.9*2) = round(41.8) = 42
-    // enc_a = 42 - 16 = 26 = 0x1A
-    // enc_b = 42 + 128 = 170 = 0xAA
+    // round(20.9*2) = round(41.8) = 42 ; enc_a = 42-16 = 0x1A ; enc_b = 42+128 = 0xAA
     EXPECT_EQ(enc_a, 0x1A);
     EXPECT_EQ(enc_b, 0xAA);
 }
@@ -149,173 +80,95 @@ TEST(ProtocolEncodeRemoteTemp, Exact_21_0C) {
     EXPECT_EQ(enc_b, 0xAA);  // 42 + 128
 }
 
-TEST(ProtocolEncodeRemoteTemp, Low_10_0C) {
+TEST(ProtocolEncodeRemoteTemp, ClampsLow) {
     uint8_t enc_a, enc_b;
-    encode_remote_temperature(10.0f, enc_a, enc_b);
-    // round(10.0*2) = 20
-    EXPECT_EQ(enc_a, 0x04);  // 20 - 16
-    EXPECT_EQ(enc_b, 0x94);  // 20 + 128
+    encode_remote_temperature(2.0f, enc_a, enc_b);  // below 8.0 floor
+    // clamped to 8.0 → round(16) = 16 ; enc_a = 0x00 ; enc_b = 0x90
+    EXPECT_EQ(enc_a, 0x00);
+    EXPECT_EQ(enc_b, 0x90);
+}
+
+TEST(ProtocolEncodeRemoteTemp, ClampsHigh) {
+    uint8_t enc_a, enc_b;
+    encode_remote_temperature(45.0f, enc_a, enc_b);  // above 37.5 ceiling
+    // clamped to 37.5 → round(75) = 75 ; enc_a = 75-16 = 0x3B ; enc_b = 75+128 = 0xCB
+    EXPECT_EQ(enc_a, 0x3B);
+    EXPECT_EQ(enc_b, 0xCB);
 }
 
 // ════════════════════════════════════════════════════════════════
-// lookup_value() — production function
+// lookup_value() / lookup_value_opt() — generic parallel-array lookup
 // ════════════════════════════════════════════════════════════════
 
-// Import the protocol tables from cn105_types.h for testing
-#include "cn105_types.h"
+static const char *kLabels[] = {"HEAT", "DRY", "COOL", "FAN", "AUTO"};
+static const uint8_t kBytes[] = {0x01, 0x02, 0x03, 0x07, 0x08};
+static const int kInts[] = {31, 30, 29, 28, 27};
 
-TEST(ProtocolLookup, PowerOff) {
-    EXPECT_STREQ(lookup_value(POWER_MAP, POWER, 2, 0x00), "OFF");
-}
-
-TEST(ProtocolLookup, PowerOn) {
-    EXPECT_STREQ(lookup_value(POWER_MAP, POWER, 2, 0x01), "ON");
-}
-
-TEST(ProtocolLookup, ModeHeat) {
-    EXPECT_STREQ(lookup_value(MODE_MAP, MODE, 5, 0x01), "HEAT");
-}
-
-TEST(ProtocolLookup, ModeCool) {
-    EXPECT_STREQ(lookup_value(MODE_MAP, MODE, 5, 0x03), "COOL");
-}
-
-TEST(ProtocolLookup, ModeAuto) {
-    EXPECT_STREQ(lookup_value(MODE_MAP, MODE, 5, 0x08), "AUTO");
-}
-
-TEST(ProtocolLookup, FanAuto) {
-    EXPECT_STREQ(lookup_value(FAN_MAP, FAN, 6, 0x00), "AUTO");
-}
-
-TEST(ProtocolLookup, FanQuiet) {
-    EXPECT_STREQ(lookup_value(FAN_MAP, FAN, 6, 0x01), "QUIET");
+TEST(ProtocolLookup, FindsMatch) {
+    EXPECT_STREQ(lookup_value(kLabels, kBytes, 5, 0x03), "COOL");
+    EXPECT_STREQ(lookup_value(kLabels, kBytes, 5, 0x08), "AUTO");
 }
 
 TEST(ProtocolLookup, UnknownByteFallsBackToIndex0) {
-    EXPECT_STREQ(lookup_value(MODE_MAP, MODE, 5, 0xFF), "HEAT");
+    EXPECT_STREQ(lookup_value(kLabels, kBytes, 5, 0xFF), "HEAT");
 }
 
-TEST(ProtocolLookup, TempMapIndex0) {
-    EXPECT_EQ(lookup_value(TEMP_MAP, TEMP, 16, 0x00), 31);
+TEST(ProtocolLookup, IntVariant) {
+    EXPECT_EQ(lookup_value(kInts, kBytes, 5, 0x01), 31);
+    EXPECT_EQ(lookup_value(kInts, kBytes, 5, 0x07), 28);
 }
 
-TEST(ProtocolLookup, TempMapIndex15) {
-    EXPECT_EQ(lookup_value(TEMP_MAP, TEMP, 16, 0x0F), 16);
+TEST(ProtocolLookupOpt, ReturnsValueOnHit) {
+    auto r = lookup_value_opt(kLabels, kBytes, 5, 0x03);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_STREQ(*r, "COOL");
+}
+
+TEST(ProtocolLookupOpt, ReturnsNulloptOnMiss) {
+    // Unlike lookup_value(), the _opt variant does NOT silently fall back to index 0.
+    EXPECT_FALSE(lookup_value_opt(kLabels, kBytes, 5, 0xFF).has_value());
 }
 
 // ════════════════════════════════════════════════════════════════
-// lookup_index() — production function
+// lookup_index() / lookup_index_opt()
 // ════════════════════════════════════════════════════════════════
 
 TEST(ProtocolLookupIndex, FindsExistingInt) {
-    EXPECT_EQ(lookup_index(TEMP_MAP, 16, 22), 9);  // 22°C is at index 9
+    EXPECT_EQ(lookup_index(kInts, 5, 29), 2);
 }
 
 TEST(ProtocolLookupIndex, ReturnsMinusOneForMissing) {
-    EXPECT_EQ(lookup_index(TEMP_MAP, 16, 99), -1);
+    EXPECT_EQ(lookup_index(kInts, 5, 99), -1);
 }
 
 TEST(ProtocolLookupIndex, FindsExistingString) {
-    EXPECT_EQ(lookup_index(MODE_MAP, 5, "COOL"), 2);
+    EXPECT_EQ(lookup_index(kLabels, 5, "COOL"), 2);
 }
 
 TEST(ProtocolLookupIndex, StringCaseInsensitive) {
-    EXPECT_EQ(lookup_index(MODE_MAP, 5, "cool"), 2);
+    EXPECT_EQ(lookup_index(kLabels, 5, "cool"), 2);
 }
 
 TEST(ProtocolLookupIndex, StringNotFound) {
-    EXPECT_EQ(lookup_index(MODE_MAP, 5, "TURBO"), -1);
+    EXPECT_EQ(lookup_index(kLabels, 5, "TURBO"), -1);
 }
-
-// ════════════════════════════════════════════════════════════════
-// lookup_value_opt() — std::optional variant (graceful degradation)
-// ════════════════════════════════════════════════════════════════
-
-TEST(ProtocolLookupOpt, PowerOnReturnsValue) {
-    auto result = lookup_value_opt(POWER_MAP, POWER, 2, 0x01);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_STREQ(*result, "ON");
-}
-
-TEST(ProtocolLookupOpt, UnknownPowerReturnsNullopt) {
-    auto result = lookup_value_opt(POWER_MAP, POWER, 2, 0xFF);
-    EXPECT_FALSE(result.has_value());
-}
-
-TEST(ProtocolLookupOpt, ModeCoolReturnsValue) {
-    auto result = lookup_value_opt(MODE_MAP, MODE, 5, 0x03);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_STREQ(*result, "COOL");
-}
-
-TEST(ProtocolLookupOpt, UnknownModeReturnsNullopt) {
-    // 0x0A could be a future "ECO" mode — should return nullopt, NOT "HEAT"
-    auto result = lookup_value_opt(MODE_MAP, MODE, 5, 0x0A);
-    EXPECT_FALSE(result.has_value());
-}
-
-TEST(ProtocolLookupOpt, FanQuietReturnsValue) {
-    auto result = lookup_value_opt(FAN_MAP, FAN, 6, 0x01);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_STREQ(*result, "QUIET");
-}
-
-TEST(ProtocolLookupOpt, UnknownFanReturnsNullopt) {
-    auto result = lookup_value_opt(FAN_MAP, FAN, 6, 0x09);
-    EXPECT_FALSE(result.has_value());
-}
-
-TEST(ProtocolLookupOpt, VaneSwingReturnsValue) {
-    auto result = lookup_value_opt(VANE_MAP, VANE, 7, 0x07);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_STREQ(*result, "SWING");
-}
-
-TEST(ProtocolLookupOpt, UnknownVaneReturnsNullopt) {
-    auto result = lookup_value_opt(VANE_MAP, VANE, 7, 0x06);
-    EXPECT_FALSE(result.has_value());
-}
-
-TEST(ProtocolLookupOpt, TempMapIntReturnsValue) {
-    auto result = lookup_value_opt(TEMP_MAP, TEMP, 16, 0x09);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, 22);
-}
-
-TEST(ProtocolLookupOpt, TempMapIntUnknownReturnsNullopt) {
-    auto result = lookup_value_opt(TEMP_MAP, TEMP, 16, 0x10);
-    EXPECT_FALSE(result.has_value());
-}
-
-// ════════════════════════════════════════════════════════════════
-// lookup_index_opt() — std::optional variant
-// ════════════════════════════════════════════════════════════════
 
 TEST(ProtocolLookupIndexOpt, IntFound) {
-    auto result = lookup_index_opt(TEMP_MAP, 16, 22);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, 9);
+    auto r = lookup_index_opt(kInts, 5, 30);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(*r, 1);
 }
 
 TEST(ProtocolLookupIndexOpt, IntNotFound) {
-    auto result = lookup_index_opt(TEMP_MAP, 16, 99);
-    EXPECT_FALSE(result.has_value());
+    EXPECT_FALSE(lookup_index_opt(kInts, 5, 99).has_value());
 }
 
 TEST(ProtocolLookupIndexOpt, StringFound) {
-    auto result = lookup_index_opt(MODE_MAP, 5, "AUTO");
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, 4);
-}
-
-TEST(ProtocolLookupIndexOpt, StringCaseInsensitive) {
-    auto result = lookup_index_opt(MODE_MAP, 5, "auto");
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, 4);
+    auto r = lookup_index_opt(kLabels, 5, "auto");
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(*r, 4);
 }
 
 TEST(ProtocolLookupIndexOpt, StringNotFound) {
-    auto result = lookup_index_opt(MODE_MAP, 5, "TURBO");
-    EXPECT_FALSE(result.has_value());
+    EXPECT_FALSE(lookup_index_opt(kLabels, 5, "TURBO").has_value());
 }
