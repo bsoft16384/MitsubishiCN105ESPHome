@@ -331,16 +331,29 @@ void CN105Climate::get_room_temperature_from_response_packet() {
     ESP_LOGD(LOG_TEMP_SENSOR_TAG, "data[3] map --> [Room °C : %f]", received_status.room_temperature);
   }
 
-  // Update the remote temperature control sensor (Issue 290)
-  if (this->remote_temp_sensor_ != nullptr) {
-    bool is_remote = false;
-    if (this->remote_temp_keepalive_active_ && this->remote_temperature_ != 0.0f) {
-      float diff = fabsf(received_status.room_temperature - this->remote_temperature_);
-      if (diff <= this->remote_temp_margin_) {
-        is_remote = true;
-      }
+  // Determine which temperature source the heatpump is effectively using (Issue 290).
+  // The unit does not tell us directly, so we use a heuristic: if the room temperature it
+  // reports back matches the remote temperature we are feeding it (within margin), the unit
+  // has adopted our remote value; otherwise it is using its own internal sensor.
+  bool using_remote = false;
+  if (this->remote_temp_keepalive_active_ && this->remote_temperature_ != 0.0f &&
+      !std::isnan(received_status.room_temperature)) {
+    float diff = fabsf(received_status.room_temperature - this->remote_temperature_);
+    using_remote = (diff <= this->remote_temp_margin_);
+  }
+
+  // Current temperature source diagnostic sensor ("Remote" / "Internal")
+  if (this->current_temp_source_sensor_ != nullptr) {
+    const char *source = using_remote ? "Remote" : "Internal";
+    if (this->current_temp_source_sensor_->state != source) {
+      this->current_temp_source_sensor_->publish_state(source);
     }
-    this->remote_temp_sensor_->publish_state(is_remote);
+  }
+
+  // When the unit is using our remote temperature, report the full-precision value we sent
+  // rather than the 0.5°C-quantized reading the unit echoes back.
+  if (using_remote) {
+    received_status.room_temperature = this->remote_temperature_;
   }
 
   if (this->parser_.data_length() >= 14) {

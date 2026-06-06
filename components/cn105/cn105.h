@@ -86,7 +86,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   void set_remote_temp_source_info_sensor(esphome::text_sensor::TextSensor *info_sensor);
   void set_hp_uptime_connection_sensor(cn105::HpUpTimeConnectionSensor *hp_up_connection_sensor);
 
-  void set_remote_temperature_control_sensor(esphome::binary_sensor::BinarySensor *sensor);
   void set_remote_temperature_margin(float margin);
   void set_fan_stop_switch(esphome::switch_::Switch *fan_stop_switch) { this->fan_stop_switch_ = fan_stop_switch; }
   void set_low_temp_protection_switch(esphome::switch_::Switch *low_temp_protection_switch) {
@@ -94,6 +93,9 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   }
   void set_diagnostic_sensor(esphome::text_sensor::TextSensor *diagnostic_sensor) {
     this->diagnostic_sensor_ = diagnostic_sensor;
+  }
+  void set_current_temperature_source_sensor(esphome::text_sensor::TextSensor *sensor) {
+    this->current_temp_source_sensor_ = sensor;
   }
   void set_hysteresis(float hysteresis) { this->hysteresis_ = hysteresis; }
   void set_low_temp_temp(float low_temp_temp) { this->low_temp_temp_ = low_temp_temp; }
@@ -291,7 +293,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   void set_heatpump_connected(bool state);
 
   binary_sensor::BinarySensor *isee_sensor_ = nullptr;
-  binary_sensor::BinarySensor *remote_temp_sensor_ = nullptr;
   float remote_temp_margin_ = 0.4f;
   text_sensor::TextSensor *stage_sensor_{nullptr};  // to save ref if needed
   bool use_stage_for_operating_status_{false};
@@ -303,6 +304,7 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   text_sensor::TextSensor *sub_mode_sensor_ = nullptr;
   text_sensor::TextSensor *auto_sub_mode_sensor_ = nullptr;
   text_sensor::TextSensor *error_code_sensor_{nullptr};
+  text_sensor::TextSensor *current_temp_source_sensor_{nullptr};
   sensor::Sensor *remote_temp_source_{nullptr};
   text_sensor::TextSensor *remote_temp_source_info_sensor_{nullptr};
   HVACOptionSwitch *air_purifier_switch_ = nullptr;

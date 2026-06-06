@@ -90,6 +90,7 @@ CONF_USE_AS_OPERATING_FALLBACK = "use_stage_for_operating_status"
 CONF_SUB_MODE_SENSOR = "sub_mode_sensor"
 CONF_AUTO_SUB_MODE_SENSOR = "auto_sub_mode_sensor"
 CONF_ERROR_CODE_SENSOR = "error_code_sensor"
+CONF_CURRENT_TEMP_SOURCE_SENSOR = "current_temperature_source_sensor"
 CONF_HP_UP_TIME_CONNECTION_SENSOR = "hp_uptime_connection_sensor"
 CONF_REMOTE_TEMP_SOURCE = "remote_temperature_source"
 CONF_REMOTE_TEMP_SOURCE_SENSOR_ID = "sensor_id"
@@ -107,7 +108,6 @@ CONF_LOW_TEMP_HYSTERESIS = "low_temp_hysteresis"
 CONF_HARDWARE_SETTINGS = "hardware_settings"
 CONF_CODE = "code"
 CONF_OPTIONS = "options"
-CONF_REMOTE_TEMPERATURE_CONTROL_SENSOR = "remote_temperature_control_sensor"
 CONF_TEMPERATURE_MARGIN = "temperature_margin"
 CONF_POWER_UNIT_IS_BTU = "power_unit_is_btu"
 
@@ -255,6 +255,14 @@ ERROR_CODE_SENSOR_SCHEMA = text_sensor.text_sensor_schema(text_sensor.TextSensor
     {cv.GenerateID(CONF_ID): cv.declare_id(text_sensor.TextSensor)}
 )
 
+# Diagnostic text sensor reporting which temperature source the unit is using
+# ("Remote" when it has adopted the value we feed it, "Internal" otherwise).
+CURRENT_TEMP_SOURCE_SENSOR_SCHEMA = text_sensor.text_sensor_schema(
+    text_sensor.TextSensor,
+    entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+    icon="mdi:thermometer-check",
+).extend({cv.GenerateID(CONF_ID): cv.declare_id(text_sensor.TextSensor)})
+
 REMOTE_TEMP_SOURCE_SCHEMA = cv.Schema(
     {
         cv.Required(CONF_REMOTE_TEMP_SOURCE_SENSOR_ID): cv.use_id(sensor.Sensor),
@@ -264,17 +272,6 @@ REMOTE_TEMP_SOURCE_SCHEMA = cv.Schema(
     }
 )
 
-REMOTE_TEMPERATURE_CONTROL_SENSOR_SCHEMA = binary_sensor.binary_sensor_schema(
-    binary_sensor.BinarySensor,
-    device_class="connectivity",
-    entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
-    icon="mdi:thermometer-check",
-).extend(
-    {
-        cv.GenerateID(CONF_ID): cv.declare_id(binary_sensor.BinarySensor),
-        cv.Optional(CONF_TEMPERATURE_MARGIN, default=0.4): cv.positive_float,
-    }
-)
 
 # Schema for STAGE_SENSOR (which is a text_sensor) WITH the new sub-option
 STAGE_SENSOR_CONFIG_SCHEMA = text_sensor.text_sensor_schema(text_sensor.TextSensor).extend(
@@ -379,8 +376,12 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_CIRCULATOR_SWITCH): HVAC_OPTION_SWITCH_SCHEMA,
             cv.Optional(CONF_HARDWARE_SETTINGS): HARDWARE_SETTING_SCHEMA,
             cv.Optional(
-                CONF_REMOTE_TEMPERATURE_CONTROL_SENSOR
-            ): REMOTE_TEMPERATURE_CONTROL_SENSOR_SCHEMA,
+                CONF_CURRENT_TEMP_SOURCE_SENSOR
+            ): CURRENT_TEMP_SOURCE_SENSOR_SCHEMA,
+            # Tolerance (°C) for deciding the unit has adopted our remote temperature:
+            # if its echoed room temp is within this margin of the value we sent, the
+            # current-temperature source is reported as "Remote".
+            cv.Optional(CONF_TEMPERATURE_MARGIN, default=0.4): cv.positive_float,
             cv.Optional(CONF_POWER_UNIT_IS_BTU, default=False): cv.boolean,
             cv.Optional(CONF_FAN_STOP_SWITCH): cv.use_id(switch.Switch),
             cv.Optional(CONF_LOW_TEMP_PROTECTION_SWITCH): cv.use_id(switch.Switch),
@@ -598,12 +599,13 @@ async def to_code(config):
             cg.add(var.set_use_stage_for_operating_status(True))
     # --- END OF STAGE_SENSOR TREATMENT ---
 
-    if CONF_REMOTE_TEMPERATURE_CONTROL_SENSOR in config:
-        conf = config[CONF_REMOTE_TEMPERATURE_CONTROL_SENSOR]
-        sensor_var = await binary_sensor.new_binary_sensor(conf)
-        cg.add(var.set_remote_temperature_control_sensor(sensor_var))
-        if CONF_TEMPERATURE_MARGIN in conf:
-            cg.add(var.set_remote_temperature_margin(conf[CONF_TEMPERATURE_MARGIN]))
+    cg.add(var.set_remote_temperature_margin(config[CONF_TEMPERATURE_MARGIN]))
+
+    if CONF_CURRENT_TEMP_SOURCE_SENSOR in config:
+        tsensor_var = await text_sensor.new_text_sensor(
+            config[CONF_CURRENT_TEMP_SOURCE_SENSOR]
+        )
+        cg.add(var.set_current_temperature_source_sensor(tsensor_var))
 
     if CONF_SUB_MODE_SENSOR in config:
         tsensor_var = await text_sensor.new_text_sensor(config[CONF_SUB_MODE_SENSOR])

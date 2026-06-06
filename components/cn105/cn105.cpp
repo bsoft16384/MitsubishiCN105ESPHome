@@ -284,11 +284,6 @@ void CN105Climate::set_remote_temp_keepalive_interval(uint32_t interval_ms) {
   log_info_uint32(LOG_REMOTE_TEMP, "Remote temperature keep-alive interval set to ", interval_ms);
 }
 
-void CN105Climate::set_remote_temperature_control_sensor(esphome::binary_sensor::BinarySensor *sensor) {
-  this->remote_temp_sensor_ = sensor;
-  ESP_LOGI(LOG_REMOTE_TEMP, "Remote temperature control sensor configured.");
-}
-
 void CN105Climate::set_remote_temperature_margin(float margin) {
   this->remote_temp_margin_ = margin;
   ESP_LOGI(LOG_REMOTE_TEMP, "Remote temperature margin set to %.1f", margin);

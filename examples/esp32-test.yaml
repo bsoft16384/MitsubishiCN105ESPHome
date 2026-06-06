@@ -125,6 +125,12 @@ climate:
     remote_temperature_source:
       sensor_id: ha_cdeg_sejour_et_cuisine
 
+    # Diagnostic: which sensor the unit uses for current temperature ("Remote"/"Internal")
+    current_temperature_source_sensor:
+      name: "Current temperature source"
+    # Tolerance (°C) for the Remote/Internal determination (default 0.4)
+    temperature_margin: 0.4
+
     # Extra options (commented out by default, showcasing available features)
     # air_purifier_switch:
     #   name: "Air Purifier clim Sejour"
