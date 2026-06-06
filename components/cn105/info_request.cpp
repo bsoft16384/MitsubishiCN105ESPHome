@@ -4,5 +4,3 @@
 using namespace esphome;
 
 // Intentionally minimal; logic will be driven from CN105Climate orchestrator
-
-

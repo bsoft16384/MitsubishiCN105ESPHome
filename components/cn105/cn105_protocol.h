@@ -19,18 +19,17 @@ namespace cn105_protocol {
 /// @param bytes  Pointer to the full packet (header + payload), excluding the checksum byte itself.
 /// @param len    Number of bytes to sum (packet length minus the final checksum byte).
 /// @return       The expected checksum byte.
-inline uint8_t checksum(const uint8_t* bytes, int len) {
-    uint8_t sum = 0;
-    for (int i = 0; i < len; i++) {
-        sum += bytes[i];
-    }
-    return (0xfc - sum) & 0xff;
+inline uint8_t checksum(const uint8_t *bytes, int len) {
+  uint8_t sum = 0;
+  for (int i = 0; i < len; i++) {
+    sum += bytes[i];
+  }
+  return (0xfc - sum) & 0xff;
 }
 
 // ════════════════════════════════════════════════════════════════
 // Temperature decoding / encoding
 // ════════════════════════════════════════════════════════════════
-
 
 /// Encode a target temperature into the encoding B format (half-degree precision).
 /// Formula: byte = round(temp * 2) + 128
@@ -38,7 +37,7 @@ inline uint8_t checksum(const uint8_t* bytes, int len) {
 /// @param temperature  Target temperature in °C.
 /// @return             The encoded byte value for encoding B.
 inline uint8_t encode_temperature_b(float temperature) {
-    return static_cast<uint8_t>(std::round(temperature * 2.0f) + 128);
+  return static_cast<uint8_t>(std::round(temperature * 2.0f) + 128);
 }
 
 /// Encode a remote temperature into the two-byte format used by SET remote temp packets.
@@ -48,15 +47,15 @@ inline uint8_t encode_temperature_b(float temperature) {
 /// @param temperature  Remote temperature in °C.
 /// @param[out] enc_a   Output: encoding A byte for the remote temp packet.
 /// @param[out] enc_b   Output: encoding B byte for the remote temp packet.
-inline void encode_remote_temperature(float temperature, uint8_t& enc_a, uint8_t& enc_b) {
-    if (temperature < 8.0f) {
-        temperature = 8.0f;
-    } else if (temperature > 37.5f) {
-        temperature = 37.5f;
-    }
-    float rounded = std::round(temperature * 2.0f);
-    enc_a = static_cast<uint8_t>(rounded - 16);
-    enc_b = static_cast<uint8_t>(rounded + 128);
+inline void encode_remote_temperature(float temperature, uint8_t &enc_a, uint8_t &enc_b) {
+  if (temperature < 8.0f) {
+    temperature = 8.0f;
+  } else if (temperature > 37.5f) {
+    temperature = 37.5f;
+  }
+  float rounded = std::round(temperature * 2.0f);
+  enc_a = static_cast<uint8_t>(rounded - 16);
+  enc_b = static_cast<uint8_t>(rounded + 128);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -73,14 +72,13 @@ inline void encode_remote_temperature(float temperature, uint8_t& enc_a, uint8_t
 /// @param len        Number of entries in both arrays.
 /// @param byteValue  The raw protocol byte to look up.
 /// @return           The corresponding value, or valuesMap[0] if not found.
-template <typename T>
-inline T lookup_value(const T valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue) {
-    for (int i = 0; i < len; i++) {
-        if (byteMap[i] == byteValue) {
-            return valuesMap[i];
-        }
+template<typename T> inline T lookup_value(const T valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue) {
+  for (int i = 0; i < len; i++) {
+    if (byteMap[i] == byteValue) {
+      return valuesMap[i];
     }
-    return valuesMap[0];
+  }
+  return valuesMap[0];
 }
 
 /// Look up the index of a value in a value-map.
@@ -90,14 +88,13 @@ inline T lookup_value(const T valuesMap[], const uint8_t byteMap[], int len, uin
 /// @param len         Number of entries.
 /// @param lookupValue The value to search for.
 /// @return            Index of the match, or -1 if not found.
-template <typename T>
-inline int lookup_index(const T valuesMap[], int len, T lookupValue) {
-    for (int i = 0; i < len; i++) {
-        if (valuesMap[i] == lookupValue) {
-            return i;
-        }
+template<typename T> inline int lookup_index(const T valuesMap[], int len, T lookupValue) {
+  for (int i = 0; i < len; i++) {
+    if (valuesMap[i] == lookupValue) {
+      return i;
     }
-    return -1;
+  }
+  return -1;
 }
 
 /// Look up the index of a string value in a value-map (case-insensitive).
@@ -106,13 +103,13 @@ inline int lookup_index(const T valuesMap[], int len, T lookupValue) {
 /// @param len         Number of entries.
 /// @param lookupValue The string to search for.
 /// @return            Index of the match, or -1 if not found.
-inline int lookup_index(const char* valuesMap[], int len, const char* lookupValue) {
-    for (int i = 0; i < len; i++) {
-        if (strcasecmp(valuesMap[i], lookupValue) == 0) {
-            return i;
-        }
+inline int lookup_index(const char *valuesMap[], int len, const char *lookupValue) {
+  for (int i = 0; i < len; i++) {
+    if (strcasecmp(valuesMap[i], lookupValue) == 0) {
+      return i;
     }
-    return -1;
+  }
+  return -1;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -129,14 +126,14 @@ inline int lookup_index(const char* valuesMap[], int len, const char* lookupValu
 /// @param len        Number of entries in both arrays.
 /// @param byteValue  The raw protocol byte to look up.
 /// @return           The corresponding value, or std::nullopt if not found.
-template <typename T>
+template<typename T>
 inline std::optional<T> lookup_value_opt(const T valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue) {
-    for (int i = 0; i < len; i++) {
-        if (byteMap[i] == byteValue) {
-            return valuesMap[i];
-        }
+  for (int i = 0; i < len; i++) {
+    if (byteMap[i] == byteValue) {
+      return valuesMap[i];
     }
-    return std::nullopt;
+  }
+  return std::nullopt;
 }
 
 /// Look up the index of a value in a value-map, returning std::nullopt on miss.
@@ -146,12 +143,12 @@ inline std::optional<T> lookup_value_opt(const T valuesMap[], const uint8_t byte
 /// @param lookupValue The value to search for.
 /// @return            Index of the match, or std::nullopt if not found.
 inline std::optional<int> lookup_index_opt(const int valuesMap[], int len, int lookupValue) {
-    for (int i = 0; i < len; i++) {
-        if (valuesMap[i] == lookupValue) {
-            return i;
-        }
+  for (int i = 0; i < len; i++) {
+    if (valuesMap[i] == lookupValue) {
+      return i;
     }
-    return std::nullopt;
+  }
+  return std::nullopt;
 }
 
 /// Look up the index of a string value (case-insensitive), returning std::nullopt on miss.
@@ -160,13 +157,13 @@ inline std::optional<int> lookup_index_opt(const int valuesMap[], int len, int l
 /// @param len         Number of entries.
 /// @param lookupValue The string to search for.
 /// @return            Index of the match, or std::nullopt if not found.
-inline std::optional<int> lookup_index_opt(const char* valuesMap[], int len, const char* lookupValue) {
-    for (int i = 0; i < len; i++) {
-        if (strcasecmp(valuesMap[i], lookupValue) == 0) {
-            return i;
-        }
+inline std::optional<int> lookup_index_opt(const char *valuesMap[], int len, const char *lookupValue) {
+  for (int i = 0; i < len; i++) {
+    if (strcasecmp(valuesMap[i], lookupValue) == 0) {
+      return i;
     }
-    return std::nullopt;
+  }
+  return std::nullopt;
 }
 
 }  // namespace cn105_protocol

@@ -9,30 +9,30 @@
 
 namespace esphome {
 
-    class HardwareSettingSelect : public select::Select, public Component {
-    public:
-        using CallbackFunction = std::function<void(const std::string& value, int int_value)>;
+class HardwareSettingSelect : public select::Select, public Component {
+ public:
+  using CallbackFunction = std::function<void(const std::string &value, int int_value)>;
 
-        HardwareSettingSelect(int code, const std::map<int, std::string>& options);
+  HardwareSettingSelect(int code, const std::map<int, std::string> &options);
 
-        void setCallbackFunction(CallbackFunction&& callback);
+  void setCallbackFunction(CallbackFunction &&callback);
 
-        int get_code() const;
+  int get_code() const;
 
-        void update_state_from_value(int value);
+  void update_state_from_value(int value);
 
-        void set_enabled(bool enabled);
+  void set_enabled(bool enabled);
 
-        bool is_available();
+  bool is_available();
 
-    protected:
-        void control(const std::string& value) override;
+ protected:
+  void control(const std::string &value) override;
 
-        int code_;
-        std::map<int, std::string> mapping_;
-        std::map<std::string, int> reverse_mapping_;
-        CallbackFunction callback_;
-        bool enabled_{ true };
-    };
+  int code_;
+  std::map<int, std::string> mapping_;
+  std::map<std::string, int> reverse_mapping_;
+  CallbackFunction callback_;
+  bool enabled_{true};
+};
 
 }  // namespace esphome

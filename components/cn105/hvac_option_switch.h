@@ -5,28 +5,24 @@
 
 namespace esphome {
 
-    class HVACOptionSwitch : public switch_::Switch, public Component {
-    public:
-        
-        using CallbackFunction = std::function<void(bool state)>;
+class HVACOptionSwitch : public switch_::Switch, public Component {
+ public:
+  using CallbackFunction = std::function<void(bool state)>;
 
-        //HVACOptionSwitch() {}
+  // HVACOptionSwitch() {}
 
-        // This callback function links the button press to the Climate component
-        void setCallbackFunction(CallbackFunction&& callback) {
-            this->callBackFunction = std::move(callback);
-        }
+  // This callback function links the button press to the Climate component
+  void setCallbackFunction(CallbackFunction &&callback) { this->callBackFunction = std::move(callback); }
 
-    protected:
-        void write_state(bool state) override {
-            if (callBackFunction) {
-                callBackFunction(state); // Trigger the callback function
-            }
-        }
+ protected:
+  void write_state(bool state) override {
+    if (callBackFunction) {
+      callBackFunction(state);  // Trigger the callback function
+    }
+  }
 
-    private:
-        CallbackFunction callBackFunction;
+ private:
+  CallbackFunction callBackFunction;
+};
 
-    };
-
-}
+}  // namespace esphome
