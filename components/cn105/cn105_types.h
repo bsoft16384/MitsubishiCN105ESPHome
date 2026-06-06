@@ -26,7 +26,7 @@ inline constexpr const char *LOG_FUNCTIONS_TAG = "FUNCTIONS";
 inline constexpr const char *LOG_HARDWARE_SELECT_TAG = "HardwareSelect";
 inline constexpr const char *LOG_CONN_TAG = "CN105_CONN";
 
-inline constexpr const char *SHEDULER_REMOTE_TEMP_TIMEOUT = "->remote_temp_timeout";
+inline constexpr const char *SCHEDULER_REMOTE_TEMP_TIMEOUT = "->remote_temp_timeout";
 inline constexpr const char *SCHEDULER_REMOTE_TEMP_KEEPALIVE = "->remote_temp_keepalive";
 
 // Default interval for remote temperature keep-alive (20 seconds, as observed on Kumo)

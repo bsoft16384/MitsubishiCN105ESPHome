@@ -147,7 +147,7 @@ TEST(FrameParser, BufferOverflowProtection) {
     parser.feed(0x62);
     parser.feed(0x01);
     parser.feed(0x30);
-    parser.feed(0xFF);  // data_length = 255 > MAX_DATA_BYTES
+    parser.feed(0xFF);  // data_length = 255 > MAX_FRAME_BYTES
     // Parser should have reset itself
     EXPECT_FALSE(parser.frame_complete());
 }

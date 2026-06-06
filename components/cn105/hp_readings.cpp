@@ -497,7 +497,7 @@ void CN105Climate::process_command() {
   }
 }
 
-void CN105Climate::status_changed(HeatpumpStatus status) {
+void CN105Climate::status_changed(const HeatpumpStatus &status) {
   if (status != current_status_) {
     this->debug_status("received", status);
     this->debug_status("current", current_status_);

@@ -108,15 +108,13 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
 
   // checks if the field has changed
 
-  bool has_changed(const char *before, const char *now, const char *field, bool check_not_null = false);
+  bool has_changed(const char *before, const char *now, const char *field);
 
-  inline bool has_changed(esphome::StringRef before, const char *now, const char *field, bool check_not_null = false) {
-    return has_changed(before.c_str(), now, field, check_not_null);
+  inline bool has_changed(esphome::StringRef before, const char *now, const char *field) {
+    return has_changed(before.c_str(), now, field);
   }
 
-  template<typename T> inline bool has_changed(T before, T now, const char *field, bool check_not_null = false) {
-    return before != now;
-  }
+  template<typename T> inline bool has_changed(T before, T now, const char *field) { return before != now; }
 
   float get_setup_priority() const override {
     return setup_priority::AFTER_WIFI;  // Configure this component after WiFi
@@ -340,7 +338,7 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
 
   void heatpump_update(HeatpumpSettings &settings);
 
-  void status_changed(HeatpumpStatus status);
+  void status_changed(const HeatpumpStatus &status);
 
   void check_pending_wanted_settings();
   void check_pending_wanted_run_states();

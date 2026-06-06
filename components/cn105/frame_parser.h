@@ -1,5 +1,5 @@
 /// frame_parser.h — Standalone UART frame parser for Mitsubishi CN105 protocol.
-/// Deps: cn105_protocol.h (checksum), cn105_types.h (MAX_DATA_BYTES)
+/// Deps: cn105_protocol.h (checksum), cn105_types.h (MAX_FRAME_BYTES)
 ///
 /// Extracts byte-by-byte frame assembly from CN105Climate into a pure,
 /// testable class with no ESPHome dependency.

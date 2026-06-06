@@ -198,7 +198,7 @@ void CN105Climate::set_remote_temp_source(esphome::sensor::Sensor *source) {
 
 void CN105Climate::set_remote_temp_source_info_sensor(esphome::text_sensor::TextSensor *info_sensor) {
   this->remote_temp_source_info_sensor_ = info_sensor;
-  // Publish the source sensor name on next loop
+  // Publish the source sensor name now (set_remote_temp_source already ran via codegen order)
   if (this->remote_temp_source_ != nullptr) {
     info_sensor->publish_state(this->remote_temp_source_->get_name());
   }

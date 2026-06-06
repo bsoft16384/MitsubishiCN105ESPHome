@@ -20,13 +20,9 @@ void esphome::log_debug_uint32(const char *tag, const char *msg, uint32_t value,
 #endif
 }
 
-bool CN105Climate::has_changed(const char *before, const char *now, const char *field, bool check_not_null) {
+bool CN105Climate::has_changed(const char *before, const char *now, const char *field) {
   if (now == NULL) {
-    if (check_not_null) {
-      ESP_LOGE(TAG, "CAUTION: expected value in has_changed() function for %s, got NULL", field);
-    } else {
-      ESP_LOGD(TAG, "No value in has_changed() function for %s", field);
-    }
+    ESP_LOGD(TAG, "No value in has_changed() function for %s", field);
     return false;
   }
   return ((before == NULL) || (strcmp(before, now) != 0));
