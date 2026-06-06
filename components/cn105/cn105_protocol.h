@@ -63,34 +63,34 @@ inline void encode_remote_temperature(float temperature, uint8_t &enc_a, uint8_t
 // ════════════════════════════════════════════════════════════════
 
 /// Look up a mapped value from a parallel byte-map / value-map pair.
-/// Scans the byteMap for a matching byteValue and returns the corresponding entry in valuesMap.
-/// Returns valuesMap[0] if no match is found (safe fallback for protocol continuity).
+/// Scans the byte_map for a matching byte_value and returns the corresponding entry in values_map.
+/// Returns values_map[0] if no match is found (safe fallback for protocol continuity).
 ///
 /// @tparam T         Value type (typically const char* or int).
-/// @param valuesMap  Array of mapped values.
-/// @param byteMap    Array of protocol byte codes (same length as valuesMap).
+/// @param values_map  Array of mapped values.
+/// @param byte_map    Array of protocol byte codes (same length as values_map).
 /// @param len        Number of entries in both arrays.
-/// @param byteValue  The raw protocol byte to look up.
-/// @return           The corresponding value, or valuesMap[0] if not found.
-template<typename T> inline T lookup_value(const T valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue) {
+/// @param byte_value  The raw protocol byte to look up.
+/// @return           The corresponding value, or values_map[0] if not found.
+template<typename T> inline T lookup_value(const T values_map[], const uint8_t byte_map[], int len, uint8_t byte_value) {
   for (int i = 0; i < len; i++) {
-    if (byteMap[i] == byteValue) {
-      return valuesMap[i];
+    if (byte_map[i] == byte_value) {
+      return values_map[i];
     }
   }
-  return valuesMap[0];
+  return values_map[0];
 }
 
 /// Look up the index of a value in a value-map.
 /// Returns the index (usable as an offset into the parallel byte-map), or -1 if not found.
 ///
-/// @param valuesMap   Array of mapped values (int variant).
+/// @param values_map   Array of mapped values (int variant).
 /// @param len         Number of entries.
-/// @param lookupValue The value to search for.
+/// @param lookup_value The value to search for.
 /// @return            Index of the match, or -1 if not found.
-template<typename T> inline int lookup_index(const T valuesMap[], int len, T lookupValue) {
+template<typename T> inline int lookup_index(const T values_map[], int len, T lookup_value) {
   for (int i = 0; i < len; i++) {
-    if (valuesMap[i] == lookupValue) {
+    if (values_map[i] == lookup_value) {
       return i;
     }
   }
@@ -99,13 +99,13 @@ template<typename T> inline int lookup_index(const T valuesMap[], int len, T loo
 
 /// Look up the index of a string value in a value-map (case-insensitive).
 ///
-/// @param valuesMap   Array of mapped string values.
+/// @param values_map   Array of mapped string values.
 /// @param len         Number of entries.
-/// @param lookupValue The string to search for.
+/// @param lookup_value The string to search for.
 /// @return            Index of the match, or -1 if not found.
-inline int lookup_index(const char *valuesMap[], int len, const char *lookupValue) {
+inline int lookup_index(const char *values_map[], int len, const char *lookup_value) {
   for (int i = 0; i < len; i++) {
-    if (strcasecmp(valuesMap[i], lookupValue) == 0) {
+    if (strcasecmp(values_map[i], lookup_value) == 0) {
       return i;
     }
   }
@@ -121,16 +121,16 @@ inline int lookup_index(const char *valuesMap[], int len, const char *lookupValu
 /// Callers can decide how to handle unknown bytes (keep previous value, log, etc.).
 ///
 /// @tparam T         Value type (typically const char* or int).
-/// @param valuesMap  Array of mapped values.
-/// @param byteMap    Array of protocol byte codes (same length as valuesMap).
+/// @param values_map  Array of mapped values.
+/// @param byte_map    Array of protocol byte codes (same length as values_map).
 /// @param len        Number of entries in both arrays.
-/// @param byteValue  The raw protocol byte to look up.
+/// @param byte_value  The raw protocol byte to look up.
 /// @return           The corresponding value, or std::nullopt if not found.
 template<typename T>
-inline std::optional<T> lookup_value_opt(const T valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue) {
+inline std::optional<T> lookup_value_opt(const T values_map[], const uint8_t byte_map[], int len, uint8_t byte_value) {
   for (int i = 0; i < len; i++) {
-    if (byteMap[i] == byteValue) {
-      return valuesMap[i];
+    if (byte_map[i] == byte_value) {
+      return values_map[i];
     }
   }
   return std::nullopt;
@@ -138,13 +138,13 @@ inline std::optional<T> lookup_value_opt(const T valuesMap[], const uint8_t byte
 
 /// Look up the index of a value in a value-map, returning std::nullopt on miss.
 ///
-/// @param valuesMap   Array of mapped values (int variant).
+/// @param values_map   Array of mapped values (int variant).
 /// @param len         Number of entries.
-/// @param lookupValue The value to search for.
+/// @param lookup_value The value to search for.
 /// @return            Index of the match, or std::nullopt if not found.
-inline std::optional<int> lookup_index_opt(const int valuesMap[], int len, int lookupValue) {
+inline std::optional<int> lookup_index_opt(const int values_map[], int len, int lookup_value) {
   for (int i = 0; i < len; i++) {
-    if (valuesMap[i] == lookupValue) {
+    if (values_map[i] == lookup_value) {
       return i;
     }
   }
@@ -153,13 +153,13 @@ inline std::optional<int> lookup_index_opt(const int valuesMap[], int len, int l
 
 /// Look up the index of a string value (case-insensitive), returning std::nullopt on miss.
 ///
-/// @param valuesMap   Array of mapped string values.
+/// @param values_map   Array of mapped string values.
 /// @param len         Number of entries.
-/// @param lookupValue The string to search for.
+/// @param lookup_value The string to search for.
 /// @return            Index of the match, or std::nullopt if not found.
-inline std::optional<int> lookup_index_opt(const char *valuesMap[], int len, const char *lookupValue) {
+inline std::optional<int> lookup_index_opt(const char *values_map[], int len, const char *lookup_value) {
   for (int i = 0; i < len; i++) {
-    if (strcasecmp(valuesMap[i], lookupValue) == 0) {
+    if (strcasecmp(values_map[i], lookup_value) == 0) {
       return i;
     }
   }

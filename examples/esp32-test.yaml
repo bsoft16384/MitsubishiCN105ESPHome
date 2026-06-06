@@ -53,7 +53,7 @@ sensor:
     entity_category: DIAGNOSTIC
     accuracy_decimals: 0
     lambda: |-
-      return (unsigned long) id(esp32_clim).nbCompleteCycles_;
+      return (unsigned long) id(esp32_clim).nb_complete_cycles_;
     update_interval: 60s
 
   - platform: template
@@ -61,14 +61,14 @@ sensor:
     accuracy_decimals: 0
     entity_category: DIAGNOSTIC
     lambda: |-
-      return (unsigned long) id(esp32_clim).nbCycles_;
+      return (unsigned long) id(esp32_clim).nb_cycles_;
     update_interval: 60s
   - platform: template
     name: "dg_nb_hp_connections"
     accuracy_decimals: 0
     entity_category: DIAGNOSTIC
     lambda: |-
-      return (unsigned int) id(esp32_clim).nbHeatpumpConnections_;
+      return (unsigned int) id(esp32_clim).nb_heatpump_connections_;
     update_interval: 60s
 
   - platform: template
@@ -77,8 +77,8 @@ sensor:
     accuracy_decimals: 1
     entity_category: DIAGNOSTIC
     lambda: |-      
-      unsigned long nbCompleteCycles = id(esp32_clim).nbCompleteCycles_;
-      unsigned long nbCycles = id(esp32_clim).nbCycles_;
+      unsigned long nbCompleteCycles = id(esp32_clim).nb_complete_cycles_;
+      unsigned long nbCycles = id(esp32_clim).nb_cycles_;
       if (nbCycles == 0) {
         return 0.0;
       }

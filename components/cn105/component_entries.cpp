@@ -9,7 +9,7 @@ using namespace esphome;
  * This method is call by the esphome framework to initialize the component
  * We don't try to connect to the heater here because errors could not be logged fine because the
  * UART is used for communication with the heatpump
- * setupUART will handle the
+ * setup_uart will handle the
  */
 void CN105Climate::setup() {
   ESP_LOGD(TAG, "Component initialization: setup call");
@@ -21,12 +21,12 @@ void CN105Climate::setup() {
   this->fan_mode = climate::CLIMATE_FAN_OFF;
   this->swing_mode = climate::CLIMATE_SWING_OFF;
   this->parser_.reset();
-  this->lastResponseMs = CUSTOM_MILLIS;
+  this->last_response_ms_ = CUSTOM_MILLIS;
 
   // initialize diagnostic stats
-  this->nbCompleteCycles_ = 0;
-  this->nbCycles_ = 0;
-  this->nbHeatpumpConnections_ = 0;
+  this->nb_complete_cycles_ = 0;
+  this->nb_cycles_ = 0;
+  this->nb_heatpump_connections_ = 0;
 
   // Register info requests here to ensure all dependencies (like hardware_settings) are ready
   this->register_info_requests();
@@ -88,21 +88,21 @@ void CN105Climate::loop() {
     if (!can_talk_to_hp) {
       return;
     }
-    if ((this->wantedSettings.hasChanged) && (!this->loopCycle.is_cycle_running())) {
+    if ((this->wanted_settings_.has_changed) && (!this->loop_cycle_.is_cycle_running())) {
       this->check_pending_wanted_settings();
-    } else if ((this->wantedRunStates.hasChanged) && (!this->loopCycle.is_cycle_running())) {
+    } else if ((this->wanted_run_states_.has_changed) && (!this->loop_cycle_.is_cycle_running())) {
       this->check_pending_wanted_run_states();
-    } else if ((this->isSetFunctions_) && (!this->loopCycle.is_cycle_running())) {
-      this->isSetFunctions_ = false;
+    } else if ((this->is_set_functions_) && (!this->loop_cycle_.is_cycle_running())) {
+      this->is_set_functions_ = false;
       this->set_functions(this->functions);
       // Also request to get function settings from heat pump to update UI with latest values.
-      this->isGetFunctions_ = true;
+      this->is_get_functions_ = true;
     } else {
-      if (this->loopCycle.is_cycle_running()) {  // if we are  running an update cycle
-        this->loopCycle.check_timeout(this->update_interval_);
+      if (this->loop_cycle_.is_cycle_running()) {  // if we are  running an update cycle
+        this->loop_cycle_.check_timeout(this->update_interval_);
       } else {  // we are not running a cycle
-        if (this->loopCycle.has_update_interval_passed(this->get_update_interval())) {
-          if (this->isGetFunctions_) {
+        if (this->loop_cycle_.has_update_interval_passed(this->get_update_interval())) {
+          if (this->is_get_functions_) {
             // Reactivate requests 0x20/0x22 and bypass interval timers.
             // This must be done before starting a new cycle to prevent a race hazard of
             // request 0x22 occurring before request 0x20.
@@ -110,7 +110,7 @@ void CN105Climate::loop() {
             this->scheduler_.timer_bypass(0x20);
             this->scheduler_.enable_request(0x22);
             this->scheduler_.timer_bypass(0x22);
-            this->isGetFunctions_ = false;
+            this->is_get_functions_ = false;
           }
           this->build_and_send_requests_info_packets();  // initiate an update cycle with this->cycleStarted();
         }
@@ -189,5 +189,5 @@ void CN105Climate::set_update_interval(uint32_t update_interval) {
   log_debug_uint32(TAG, "Setting update interval to ", update_interval);
 
   this->update_interval_ = update_interval;
-  this->autoUpdate = (update_interval != 0);
+  this->auto_update_ = (update_interval != 0);
 }

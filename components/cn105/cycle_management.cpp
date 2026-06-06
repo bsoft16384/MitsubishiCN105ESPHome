@@ -1,24 +1,24 @@
 #include "cycle_management.h"
 #include "cn105.h"
-#include "Globals.h"
+#include "globals.h"
 
 using namespace esphome;
 
-void cycleManagement::check_timeout(unsigned int update_interval) {
+void CycleManagement::check_timeout(unsigned int update_interval) {
   if (does_cycle_time_out(update_interval)) {  // does it last too long ?
     ESP_LOGW(TAG, "Cycle timeout, resetting cycle...");
     cycle_ended(true);
   }
 }
 
-bool cycleManagement::is_cycle_running() { return cycleRunning; }
+bool CycleManagement::is_cycle_running() { return cycle_running; }
 
-void cycleManagement::init() {
-  cycleRunning = false;
-  lastCompleteCycleMs = CUSTOM_MILLIS;
+void CycleManagement::init() {
+  cycle_running = false;
+  last_complete_cycle_ms = CUSTOM_MILLIS;
 }
 
-void cycleManagement::defer_cycle() {
+void CycleManagement::defer_cycle() {
 #if ESPHOME_LOG_LEVEL >= ESPHOME_LOG_LEVEL_DEBUG
   uint32_t delay = DEFER_SCHEDULE_UPDATE_LOOP_DELAY * 2;
 #else
@@ -28,34 +28,34 @@ void cycleManagement::defer_cycle() {
   // ESP_LOGI(LOG_CYCLE_TAG, "Defering cycle trigger of %lu ms", delay);
   log_info_uint32(LOG_CYCLE_TAG, "Defering cycle trigger of  ", delay, " ms");
   // forces the lastCompleteCycle offset of delay ms to allow a longer rest time
-  lastCompleteCycleMs = CUSTOM_MILLIS + delay;
+  last_complete_cycle_ms = CUSTOM_MILLIS + delay;
 }
-void cycleManagement::cycle_started() {
+void CycleManagement::cycle_started() {
   ESP_LOGI(LOG_CYCLE_TAG, "1: Cycle start");
-  lastCycleStartMs = CUSTOM_MILLIS;
-  cycleRunning = true;
+  last_cycle_start_ms = CUSTOM_MILLIS;
+  cycle_running = true;
 }
 
-void cycleManagement::cycle_ended(bool timed_out) {
-  cycleRunning = false;
+void CycleManagement::cycle_ended(bool timed_out) {
+  cycle_running = false;
 
-  if (lastCompleteCycleMs < CUSTOM_MILLIS) {  // we check this because of defering mecanism
+  if (last_complete_cycle_ms < CUSTOM_MILLIS) {  // we check this because of defering mecanism
     // a complete cycle is done
-    lastCompleteCycleMs = CUSTOM_MILLIS;  // to prevent next inteval from ticking too soon
+    last_complete_cycle_ms = CUSTOM_MILLIS;  // to prevent next inteval from ticking too soon
   }
 
   ESP_LOGI(LOG_CYCLE_TAG, "6: Cycle ended in %.1f seconds (with timeout?: %s)",
-           (lastCompleteCycleMs - lastCycleStartMs) / 1000.0, timed_out ? "YES" : " NO");
+           (last_complete_cycle_ms - last_cycle_start_ms) / 1000.0, timed_out ? "YES" : " NO");
 }
 
-bool cycleManagement::has_update_interval_passed(unsigned int update_interval) {
-  if (CUSTOM_MILLIS < lastCompleteCycleMs)
+bool CycleManagement::has_update_interval_passed(unsigned int update_interval) {
+  if (CUSTOM_MILLIS < last_complete_cycle_ms)
     return false;  // must be checked because operands are they are unsigned
-  return (CUSTOM_MILLIS - lastCompleteCycleMs) > update_interval;
+  return (CUSTOM_MILLIS - last_complete_cycle_ms) > update_interval;
 }
 
-bool cycleManagement::does_cycle_time_out(unsigned int update_interval) {
-  if (CUSTOM_MILLIS < lastCycleStartMs)
+bool CycleManagement::does_cycle_time_out(unsigned int update_interval) {
+  if (CUSTOM_MILLIS < last_cycle_start_ms)
     return false;  // must be checked because operands are they are unsigned
-  return (CUSTOM_MILLIS - lastCycleStartMs) > (2 * update_interval) + 1000;
+  return (CUSTOM_MILLIS - last_cycle_start_ms) > (2 * update_interval) + 1000;
 }

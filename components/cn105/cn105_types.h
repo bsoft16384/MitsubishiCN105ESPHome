@@ -179,9 +179,9 @@ template<typename E, std::size_t N> inline int enum_index(const EnumTable<E, N> 
 /// Decode a wire protocol byte to an enum value.
 /// Returns std::nullopt if the byte is not found in the table.
 template<typename E, std::size_t N>
-inline std::optional<E> wire_to_enum(const EnumTable<E, N> &table, uint8_t byteValue) {
+inline std::optional<E> wire_to_enum(const EnumTable<E, N> &table, uint8_t byte_value) {
   for (const auto &entry : table) {
-    if (entry.protocol_byte == byteValue)
+    if (entry.protocol_byte == byte_value)
       return entry.value;
   }
   return std::nullopt;
@@ -352,34 +352,34 @@ inline std::optional<uint8_t> hp_airflow_control_to_wire(HPAirflowControl val) {
   return enum_to_wire(AIRFLOW_CONTROL_TABLE, val);
 }
 
-struct heatpumpSettings {
+struct HeatpumpSettings {
   HPPower power = HPPower::UNKNOWN;
   HPMode mode = HPMode::UNKNOWN;
   std::optional<float> temperature = std::nullopt;
   HPFanMode fan = HPFanMode::UNKNOWN;
   HPVaneMode vane = HPVaneMode::UNKNOWN;
-  HPWideVaneMode wideVane = HPWideVaneMode::UNKNOWN;
-  bool iSee = false;
+  HPWideVaneMode wide_vane = HPWideVaneMode::UNKNOWN;
+  bool i_see = false;
   bool connected = false;
   HPStage stage = HPStage::UNKNOWN;
   HPSubMode sub_mode = HPSubMode::UNKNOWN;
   HPAutoSubMode auto_sub_mode = HPAutoSubMode::UNKNOWN;
 
-  void resetSettings() {
+  void reset_settings() {
     power = HPPower::UNKNOWN;
     mode = HPMode::UNKNOWN;
     temperature = std::nullopt;
     fan = HPFanMode::UNKNOWN;
     vane = HPVaneMode::UNKNOWN;
-    wideVane = HPWideVaneMode::UNKNOWN;
+    wide_vane = HPWideVaneMode::UNKNOWN;
     stage = HPStage::UNKNOWN;
     sub_mode = HPSubMode::UNKNOWN;
     auto_sub_mode = HPAutoSubMode::UNKNOWN;
   }
 
-  heatpumpSettings &operator=(const heatpumpSettings &other) = default;
+  HeatpumpSettings &operator=(const HeatpumpSettings &other) = default;
 
-  bool operator==(const heatpumpSettings &other) const {
+  bool operator==(const HeatpumpSettings &other) const {
     bool temp_equal = false;
     if (!temperature.has_value() && !other.temperature.has_value()) {
       temp_equal = true;
@@ -387,115 +387,115 @@ struct heatpumpSettings {
       temp_equal = std::abs(*temperature - *other.temperature) < 0.01f;
     }
     return power == other.power && mode == other.mode && temp_equal && fan == other.fan && vane == other.vane &&
-           wideVane == other.wideVane && iSee == other.iSee;
+           wide_vane == other.wide_vane && i_see == other.i_see;
   }
 
-  bool operator!=(const heatpumpSettings &other) const { return !(this->operator==(other)); }
+  bool operator!=(const HeatpumpSettings &other) const { return !(this->operator==(other)); }
 };
 
-struct wantedHeatpumpSettings : heatpumpSettings {
-  bool hasChanged = false;
-  bool hasBeenSent = false;
+struct WantedHeatpumpSettings : HeatpumpSettings {
+  bool has_changed = false;
+  bool has_been_sent = false;
   uint8_t nb_deferred_requests = 0;
-  uint32_t lastChange = 0;
+  uint32_t last_change = 0;
 
-  void resetSettings() {
-    heatpumpSettings::resetSettings();
-    hasChanged = false;
-    hasBeenSent = false;
+  void reset_settings() {
+    HeatpumpSettings::reset_settings();
+    has_changed = false;
+    has_been_sent = false;
   }
 
-  wantedHeatpumpSettings &operator=(const wantedHeatpumpSettings &other) = default;
+  WantedHeatpumpSettings &operator=(const WantedHeatpumpSettings &other) = default;
 
-  wantedHeatpumpSettings &operator=(const heatpumpSettings &other) {
+  WantedHeatpumpSettings &operator=(const HeatpumpSettings &other) {
     if (this != &other) {
-      heatpumpSettings::operator=(other);
+      HeatpumpSettings::operator=(other);
     }
     return *this;
   }
 };
 
-struct heatpumpTimers {
+struct HeatpumpTimers {
   HPTimerMode mode = HPTimerMode::UNKNOWN;
-  int onMinutesSet = 0;
-  int onMinutesRemaining = 0;
-  int offMinutesSet = 0;
-  int offMinutesRemaining = 0;
+  int on_minutes_set = 0;
+  int on_minutes_remaining = 0;
+  int off_minutes_set = 0;
+  int off_minutes_remaining = 0;
 
-  heatpumpTimers &operator=(const heatpumpTimers &other) = default;
+  HeatpumpTimers &operator=(const HeatpumpTimers &other) = default;
 
-  bool operator==(const heatpumpTimers &other) const {
-    return mode == other.mode && onMinutesSet == other.onMinutesSet && onMinutesRemaining == other.onMinutesRemaining &&
-           offMinutesSet == other.offMinutesSet && offMinutesRemaining == other.offMinutesRemaining;
+  bool operator==(const HeatpumpTimers &other) const {
+    return mode == other.mode && on_minutes_set == other.on_minutes_set && on_minutes_remaining == other.on_minutes_remaining &&
+           off_minutes_set == other.off_minutes_set && off_minutes_remaining == other.off_minutes_remaining;
   }
-  bool operator!=(const heatpumpTimers &other) const { return !(this->operator==(other)); }
+  bool operator!=(const HeatpumpTimers &other) const { return !(this->operator==(other)); }
 };
 
-struct heatpumpStatus {
-  float roomTemperature = NAN;
-  float outsideAirTemperature = NAN;
+struct HeatpumpStatus {
+  float room_temperature = NAN;
+  float outside_air_temperature = NAN;
   bool operating = false;
-  heatpumpTimers timers{};
-  float compressorFrequency = NAN;
-  float inputPower = NAN;
-  float kWh = NAN;
-  float runtimeHours = NAN;
+  HeatpumpTimers timers{};
+  float compressor_frequency = NAN;
+  float input_power = NAN;
+  float kwh = NAN;
+  float runtime_hours = NAN;
 
-  bool operator==(const heatpumpStatus &other) const {
-    return (std::isnan(roomTemperature) ? std::isnan(other.roomTemperature)
-                                        : roomTemperature == other.roomTemperature) &&
-           (std::isnan(outsideAirTemperature) ? std::isnan(other.outsideAirTemperature)
-                                              : outsideAirTemperature == other.outsideAirTemperature) &&
+  bool operator==(const HeatpumpStatus &other) const {
+    return (std::isnan(room_temperature) ? std::isnan(other.room_temperature)
+                                        : room_temperature == other.room_temperature) &&
+           (std::isnan(outside_air_temperature) ? std::isnan(other.outside_air_temperature)
+                                              : outside_air_temperature == other.outside_air_temperature) &&
            operating == other.operating &&
-           (std::isnan(compressorFrequency) ? std::isnan(other.compressorFrequency)
-                                            : compressorFrequency == other.compressorFrequency) &&
-           (std::isnan(inputPower) ? std::isnan(other.inputPower) : inputPower == other.inputPower) &&
-           (std::isnan(kWh) ? std::isnan(other.kWh) : kWh == other.kWh) &&
-           (std::isnan(runtimeHours) ? std::isnan(other.runtimeHours) : runtimeHours == other.runtimeHours);
+           (std::isnan(compressor_frequency) ? std::isnan(other.compressor_frequency)
+                                            : compressor_frequency == other.compressor_frequency) &&
+           (std::isnan(input_power) ? std::isnan(other.input_power) : input_power == other.input_power) &&
+           (std::isnan(kwh) ? std::isnan(other.kwh) : kwh == other.kwh) &&
+           (std::isnan(runtime_hours) ? std::isnan(other.runtime_hours) : runtime_hours == other.runtime_hours);
   }
 
-  bool operator!=(const heatpumpStatus &other) const { return !(*this == other); }
+  bool operator!=(const HeatpumpStatus &other) const { return !(*this == other); }
 };
 
-struct heatpumpRunStates {
+struct HeatpumpRunStates {
   int8_t air_purifier = -1;
   int8_t night_mode = -1;
   int8_t circulator = -1;
   HPAirflowControl airflow_control = HPAirflowControl::UNKNOWN;
 
-  void resetSettings() {
+  void reset_settings() {
     air_purifier = -1;
     night_mode = -1;
     circulator = -1;
     airflow_control = HPAirflowControl::UNKNOWN;
   }
 
-  heatpumpRunStates &operator=(const heatpumpRunStates &other) = default;
+  HeatpumpRunStates &operator=(const HeatpumpRunStates &other) = default;
 
-  bool operator==(const heatpumpRunStates &other) const {
+  bool operator==(const HeatpumpRunStates &other) const {
     return air_purifier == other.air_purifier && night_mode == other.night_mode && circulator == other.circulator &&
            airflow_control == other.airflow_control;
   }
 
-  bool operator!=(const heatpumpRunStates &other) const { return !(this->operator==(other)); }
+  bool operator!=(const HeatpumpRunStates &other) const { return !(this->operator==(other)); }
 };
 
-struct wantedHeatpumpRunStates : heatpumpRunStates {
-  bool hasChanged = false;
-  bool hasBeenSent = false;
-  uint32_t lastChange = 0;
+struct WantedHeatpumpRunStates : HeatpumpRunStates {
+  bool has_changed = false;
+  bool has_been_sent = false;
+  uint32_t last_change = 0;
 
-  void resetSettings() {
-    heatpumpRunStates::resetSettings();
-    hasChanged = false;
-    hasBeenSent = false;
+  void reset_settings() {
+    HeatpumpRunStates::reset_settings();
+    has_changed = false;
+    has_been_sent = false;
   }
 
-  wantedHeatpumpRunStates &operator=(const wantedHeatpumpRunStates &other) = default;
+  WantedHeatpumpRunStates &operator=(const WantedHeatpumpRunStates &other) = default;
 
-  wantedHeatpumpRunStates &operator=(const heatpumpRunStates &other) {
+  WantedHeatpumpRunStates &operator=(const HeatpumpRunStates &other) {
     if (this != &other) {
-      heatpumpRunStates::operator=(other);
+      HeatpumpRunStates::operator=(other);
     }
     return *this;
   }

@@ -38,7 +38,7 @@ class RequestScheduler {
   using TerminateCallback = std::function<void()>;
 
   /**
-   * @brief Type of callback to obtain the CN105Climate context (for canSend and onResponse)
+   * @brief Type of callback to obtain the CN105Climate context (for can_send and on_response)
    * @return Pointer to CN105Climate (can be nullptr)
    */
   using ContextCallback = std::function<CN105Climate *()>;
@@ -48,7 +48,7 @@ class RequestScheduler {
    * @param send_callback Callback to send a packet
    * @param timeout_callback Callback to manage timeouts (can be nullptr if not used)
    * @param terminate_callback Callback to end a cycle
-   * @param context_callback Callback to get the CN105Climate context (for canSend and onResponse)
+   * @param context_callback Callback to get the CN105Climate context (for can_send and on_response)
    */
   RequestScheduler(SendCallback send_callback, TimeoutCallback timeout_callback = nullptr,
                    TerminateCallback terminate_callback = nullptr, ContextCallback context_callback = nullptr);
@@ -91,21 +91,21 @@ class RequestScheduler {
   /**
    * @brief Send the next request after the one with the specified code
    * @param previous_code The code of the previous request (0x00 to start)
-   * @param context CN105Climate context to check canSend (can be nullptr, uses context_callback_ if provided)
+   * @param context CN105Climate context to check can_send (can be nullptr, uses context_callback_ if provided)
    */
   void send_next_after(uint8_t previous_code, CN105Climate *context = nullptr);
 
   /**
-   * @brief Marks a response as received for a given code and calls the onResponse callback if present
+   * @brief Marks a response as received for a given code and calls the on_response callback if present
    * @param code The code of the request whose response was received
-   * @param context CN105Climate context to call onResponse (can be nullptr)
+   * @param context CN105Climate context to call on_response (can be nullptr)
    */
   void mark_response_seen(uint8_t code, CN105Climate *context = nullptr);
 
   /**
    * @brief Processes a response received
    * @param code The code of the response received
-   * @param context CN105Climate context to call onResponse (can be nullptr, uses context_callback_ if provided)
+   * @param context CN105Climate context to call on_response (can be nullptr, uses context_callback_ if provided)
    * @return true if the response has been processed, false otherwise
    */
   bool process_response(uint8_t code, CN105Climate *context = nullptr);
@@ -128,7 +128,7 @@ class RequestScheduler {
   /**
    * @brief Sends a specific request by its code
    * @param code The code of the request to send
-   * @param context CN105Climate context to check canSend (can be nullptr)
+   * @param context CN105Climate context to check can_send (can be nullptr)
    */
   void send_request(uint8_t code, CN105Climate *context = nullptr);
 };

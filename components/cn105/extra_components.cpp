@@ -6,7 +6,7 @@ using namespace esphome;
 
 void CN105Climate::generate_extra_components() {
   /*this->iSee_sensor = new binary_sensor::BinarySensor();
-  this->iSee_sensor->set_name("iSee sensor");
+  this->iSee_sensor->set_name("i_see sensor");
   this->iSee_sensor->publish_initial_state(false);
   App.register_binary_sensor(this->iSee_sensor);*/
 }
@@ -19,13 +19,13 @@ void CN105Climate::set_vertical_vane_select(VaneOrientationSelect *vertical_vane
                                                    VANE_TABLE[3].label, VANE_TABLE[4].label, VANE_TABLE[5].label,
                                                    VANE_TABLE[6].label});
 
-  this->vertical_vane_select_->setCallbackFunction([this](const char *setting) {
+  this->vertical_vane_select_->set_callback_function([this](const char *setting) {
     ESP_LOGD("EVT", "vane.control() -> Requesting change in vane setting: %s", setting);
 
     this->set_vane_setting(setting);
-    this->wantedSettings.hasChanged = true;
-    this->wantedSettings.hasBeenSent = false;
-    this->wantedSettings.lastChange = CUSTOM_MILLIS;
+    this->wanted_settings_.has_changed = true;
+    this->wanted_settings_.has_been_sent = false;
+    this->wanted_settings_.last_change = CUSTOM_MILLIS;
   });
 }
 
@@ -57,20 +57,20 @@ void CN105Climate::set_horizontal_vane_select(VaneOrientationSelect *horizontal_
   }
 
   // Build FixedVector of const char* for set_options
-  FixedVector<const char *> fixedOptions;
-  fixedOptions.init(this->horizontal_vane_options_strings_.size());
+  FixedVector<const char *> fixed_options;
+  fixed_options.init(this->horizontal_vane_options_strings_.size());
   for (const auto &str : this->horizontal_vane_options_strings_) {
-    fixedOptions.push_back(str.c_str());
+    fixed_options.push_back(str.c_str());
   }
-  this->horizontal_vane_select_->traits.set_options(fixedOptions);
+  this->horizontal_vane_select_->traits.set_options(fixed_options);
 
-  this->horizontal_vane_select_->setCallbackFunction([this](const char *setting) {
-    ESP_LOGD("EVT", "wideVane.control() -> Requesting change in wideVane setting: %s", setting);
+  this->horizontal_vane_select_->set_callback_function([this](const char *setting) {
+    ESP_LOGD("EVT", "wide_vane.control() -> Requesting change in wide_vane setting: %s", setting);
 
     this->set_wide_vane_setting(setting);
-    this->wantedSettings.hasChanged = true;
-    this->wantedSettings.hasBeenSent = false;
-    this->wantedSettings.lastChange = CUSTOM_MILLIS;
+    this->wanted_settings_.has_changed = true;
+    this->wanted_settings_.has_been_sent = false;
+    this->wanted_settings_.last_change = CUSTOM_MILLIS;
   });
 }
 
@@ -80,16 +80,16 @@ void CN105Climate::set_airflow_control_select(VaneOrientationSelect *airflow_con
   this->airflow_control_select_->traits.set_options(
       {AIRFLOW_CONTROL_TABLE[0].label, AIRFLOW_CONTROL_TABLE[1].label, AIRFLOW_CONTROL_TABLE[2].label});
 
-  this->airflow_control_select_->setCallbackFunction([this](const char *setting) {
-    if (this->currentSettings.wideVane == HPWideVaneMode::AIRFLOW_CONTROL) {
+  this->airflow_control_select_->set_callback_function([this](const char *setting) {
+    if (this->current_settings_.wide_vane == HPWideVaneMode::AIRFLOW_CONTROL) {
       ESP_LOGD("EVT", "airFlow -> Request for change of airflow control setting: %s", setting);
 
       this->set_airflow_control_setting(setting);
-      this->wantedRunStates.hasChanged = true;
-      this->wantedRunStates.hasBeenSent = false;
-      this->wantedRunStates.lastChange = CUSTOM_MILLIS;
+      this->wanted_run_states_.has_changed = true;
+      this->wanted_run_states_.has_been_sent = false;
+      this->wanted_run_states_.last_change = CUSTOM_MILLIS;
     } else {
-      this->airflow_control_select_->publish_state(hp_airflow_control_to_str(this->currentRunStates.airflow_control));
+      this->airflow_control_select_->publish_state(hp_airflow_control_to_str(this->current_run_states_.airflow_control));
     }
   });
 }
@@ -134,7 +134,7 @@ void CN105Climate::set_functions_sensor(esphome::text_sensor::TextSensor *Functi
 
 void CN105Climate::set_functions_get_button(FunctionsButton *Button) {
   this->functions_get_button_ = Button;
-  this->functions_get_button_->setCallbackFunction([this]() {
+  this->functions_get_button_->set_callback_function([this]() {
     ESP_LOGI(LOG_CYCLE_TAG, "Retrieving functions");
 
     if (this->functions_sensor_ != nullptr) {
@@ -142,15 +142,15 @@ void CN105Climate::set_functions_get_button(FunctionsButton *Button) {
     }
 
     // Request function settings from the heat pump.
-    this->isGetFunctions_ = true;
+    this->is_get_functions_ = true;
 
-    // The response is handled in heatpumpFunctions.cpp
+    // The response is handled in heatpump_functions.cpp
   });
 }
 
 void CN105Climate::set_functions_set_button(FunctionsButton *Button) {
   this->functions_set_button_ = Button;
-  this->functions_set_button_->setCallbackFunction([this]() {
+  this->functions_set_button_->set_callback_function([this]() {
     if (!this->functions.is_valid()) {
       if (this->functions_sensor_ != nullptr) {
         this->functions_sensor_->publish_state("Please get the functions first.");
@@ -166,20 +166,20 @@ void CN105Climate::set_functions_set_button(FunctionsButton *Button) {
     }
 
     // Now send the codes.
-    this->isSetFunctions_ = true;
+    this->is_set_functions_ = true;
   });
 }
 
 void CN105Climate::set_functions_set_code(FunctionsNumber *Number) {
   this->functions_set_code_ = Number;
-  this->functions_set_code_->setCallbackFunction([this](float x) {
+  this->functions_set_code_->set_callback_function([this](float x) {
     // store the code
     this->functions_code_ = (int) x;
   });
 }
 void CN105Climate::set_functions_set_value(FunctionsNumber *Number) {
   this->functions_set_value_ = Number;
-  this->functions_set_value_->setCallbackFunction([this](float x) {
+  this->functions_set_value_->set_callback_function([this](float x) {
     // store the value
     this->functions_value_ = (int) x;
   });
@@ -187,23 +187,23 @@ void CN105Climate::set_functions_set_value(FunctionsNumber *Number) {
 
 void CN105Climate::set_air_purifier_switch(HVACOptionSwitch *Switch) {
   this->air_purifier_switch_ = Switch;
-  this->air_purifier_switch_->setCallbackFunction([this](bool state) {
-    this->wantedRunStates.air_purifier = state;
+  this->air_purifier_switch_->set_callback_function([this](bool state) {
+    this->wanted_run_states_.air_purifier = state;
 
-    this->wantedRunStates.hasChanged = true;
-    this->wantedRunStates.hasBeenSent = false;
-    this->wantedRunStates.lastChange = CUSTOM_MILLIS;
+    this->wanted_run_states_.has_changed = true;
+    this->wanted_run_states_.has_been_sent = false;
+    this->wanted_run_states_.last_change = CUSTOM_MILLIS;
   });
 }
 
 void CN105Climate::set_night_mode_switch(HVACOptionSwitch *Switch) {
   this->night_mode_switch_ = Switch;
-  this->night_mode_switch_->setCallbackFunction([this](bool state) {
-    this->wantedRunStates.night_mode = state;
+  this->night_mode_switch_->set_callback_function([this](bool state) {
+    this->wanted_run_states_.night_mode = state;
 
-    this->wantedRunStates.hasChanged = true;
-    this->wantedRunStates.hasBeenSent = false;
-    this->wantedRunStates.lastChange = CUSTOM_MILLIS;
+    this->wanted_run_states_.has_changed = true;
+    this->wanted_run_states_.has_been_sent = false;
+    this->wanted_run_states_.last_change = CUSTOM_MILLIS;
   });
 }
 
@@ -211,12 +211,12 @@ void CN105Climate::set_circulator_switch(
     HVACOptionSwitch
         *Switch) {  // only in HEAT mode? Manual says so, but it is possible to set the bit. The remote will not do it.
   this->circulator_switch_ = Switch;
-  this->circulator_switch_->setCallbackFunction([this](bool state) {
-    this->wantedRunStates.circulator = state;
+  this->circulator_switch_->set_callback_function([this](bool state) {
+    this->wanted_run_states_.circulator = state;
 
-    this->wantedRunStates.hasChanged = true;
-    this->wantedRunStates.hasBeenSent = false;
-    this->wantedRunStates.lastChange = CUSTOM_MILLIS;
+    this->wanted_run_states_.has_changed = true;
+    this->wanted_run_states_.has_been_sent = false;
+    this->wanted_run_states_.last_change = CUSTOM_MILLIS;
   });
 }
 
@@ -252,7 +252,7 @@ void CN105Climate::set_hp_uptime_connection_sensor(cn105::HpUpTimeConnectionSens
 
 void CN105Climate::add_hardware_setting(HardwareSettingSelect *setting) {
   this->hardware_settings_.push_back(setting);
-  setting->setCallbackFunction([this, setting](const std::string &value, int int_value) {
+  setting->set_callback_function([this, setting](const std::string &value, int int_value) {
     ESP_LOGI(LOG_FUNCTIONS_TAG, "Hardware setting change: Code %d -> %d (%s)", setting->get_code(), int_value,
              value.c_str());
 
@@ -262,6 +262,6 @@ void CN105Climate::add_hardware_setting(HardwareSettingSelect *setting) {
     this->functions.set_value(setting->get_code(), int_value);
 
     // Trigger write to device
-    this->isSetFunctions_ = true;
+    this->is_set_functions_ = true;
   });
 }

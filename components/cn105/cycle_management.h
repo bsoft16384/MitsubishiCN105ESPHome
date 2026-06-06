@@ -1,9 +1,9 @@
 #pragma once
 
-struct cycleManagement {
-  bool cycleRunning = false;
-  unsigned long lastCycleStartMs = 0;
-  unsigned long lastCompleteCycleMs = 0;
+struct CycleManagement {
+  bool cycle_running = false;
+  unsigned long last_cycle_start_ms = 0;
+  unsigned long last_complete_cycle_ms = 0;
 
   void init();
   void cycle_started();

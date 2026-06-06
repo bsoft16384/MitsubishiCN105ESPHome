@@ -1,5 +1,5 @@
 #include "hardware_setting_select.h"
-#include "Globals.h"
+#include "globals.h"
 #include "esphome/core/log.h"
 
 namespace esphome {
@@ -11,7 +11,7 @@ HardwareSettingSelect::HardwareSettingSelect(int code, const std::map<int, std::
   }
 }
 
-void HardwareSettingSelect::setCallbackFunction(CallbackFunction &&callback) { this->callback_ = std::move(callback); }
+void HardwareSettingSelect::set_callback_function(CallbackFunction &&callback) { this->callback_ = std::move(callback); }
 
 int HardwareSettingSelect::get_code() const { return code_; }
 

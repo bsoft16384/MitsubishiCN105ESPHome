@@ -1,6 +1,6 @@
 #include "cn105.h"
-#include "heatpumpFunctions.h"
-#include "Globals.h"
+#include "heatpump_functions.h"
+#include "globals.h"
 
 using namespace esphome;
 // #region heatpump_functions fonctions clim
@@ -13,7 +13,7 @@ void CN105Climate::functions_arrived() {
   size_t remaining = sizeof(states);
   char *pos = states;
 
-  heatpumpFunctionCodes codes = functions.get_all_codes();
+  HeatpumpFunctionCodes codes = functions.get_all_codes();
   for (int i = 0; i < MAX_FUNCTION_CODE_COUNT; ++i) {
     if (codes.valid[i]) {
       int code = codes.code[i];
@@ -144,8 +144,8 @@ bool HeatpumpFunctions::set_value(int code, int value) {
   return false;
 }
 
-heatpumpFunctionCodes HeatpumpFunctions::get_all_codes() {
-  heatpumpFunctionCodes result;
+HeatpumpFunctionCodes HeatpumpFunctions::get_all_codes() {
+  HeatpumpFunctionCodes result;
   for (int i = 0; i < MAX_FUNCTION_CODE_COUNT; ++i) {
     int code = get_code(raw[i]);
     result.code[i] = code;

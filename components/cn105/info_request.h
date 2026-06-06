@@ -94,7 +94,7 @@ struct InfoRequest {
   const char *id;
   const char *description;
   uint8_t code;                // e.g. 0x02, 0x03, 0x06, 0x09, 0x42
-  uint8_t maxFailures;         // disable after this many soft failures
+  uint8_t max_failures;         // disable after this many soft failures
   uint8_t failures;            // current failure count
   bool disabled;               // permanently disabled when not supported
   bool awaiting;               // awaiting a matching response
@@ -110,12 +110,12 @@ struct InfoRequest {
   // Optional response handler invoked when the matching response (code) is received
   std::function<void(CN105Climate &)> on_response;
 
-  InfoRequest(const char *id, const char *description, uint8_t code, uint8_t maxFailures = 3,
+  InfoRequest(const char *id, const char *description, uint8_t code, uint8_t max_failures = 3,
               uint32_t soft_timeout_ms = 0, uint32_t interval_ms = 0, const char *log_tag = nullptr)
       : id(id),
         description(description),
         code(code),
-        maxFailures(maxFailures),
+        max_failures(max_failures),
         failures(0),
         disabled(false),
         awaiting(false),

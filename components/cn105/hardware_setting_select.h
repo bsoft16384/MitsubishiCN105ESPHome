@@ -15,7 +15,7 @@ class HardwareSettingSelect : public select::Select, public Component {
 
   HardwareSettingSelect(int code, const std::map<int, std::string> &options);
 
-  void setCallbackFunction(CallbackFunction &&callback);
+  void set_callback_function(CallbackFunction &&callback);
 
   int get_code() const;
 

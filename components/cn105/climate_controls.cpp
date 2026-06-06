@@ -1,5 +1,5 @@
 #include "cn105.h"
-#include "Globals.h"
+#include "globals.h"
 
 #include <algorithm>
 #include <cmath>
@@ -11,17 +11,17 @@ using namespace esphome;
 
 void CN105Climate::check_pending_wanted_settings() {
   // Already in-flight — don't log or re-send
-  if (this->wantedSettings.hasBeenSent) {
+  if (this->wanted_settings_.has_been_sent) {
     return;
   }
 
   uint32_t now = CUSTOM_MILLIS;
-  if (!(this->wantedSettings.hasChanged) || (now - this->wantedSettings.lastChange < this->debounce_delay_)) {
+  if (!(this->wanted_settings_.has_changed) || (now - this->wanted_settings_.last_change < this->debounce_delay_)) {
     return;
   }
 
   // Don't log if send_wanted_settings() will defer due to write throttle (300ms)
-  if (now - this->lastSend <= 300) {
+  if (now - this->last_send_ <= 300) {
     return;
   }
 
@@ -32,17 +32,17 @@ void CN105Climate::check_pending_wanted_settings() {
 
 void CN105Climate::check_pending_wanted_run_states() {
   // Already in-flight — don't log or re-send
-  if (this->wantedRunStates.hasBeenSent) {
+  if (this->wanted_run_states_.has_been_sent) {
     return;
   }
 
   uint32_t now = CUSTOM_MILLIS;
-  if (!(this->wantedRunStates.hasChanged) || (now - this->wantedRunStates.lastChange < this->debounce_delay_)) {
+  if (!(this->wanted_run_states_.has_changed) || (now - this->wanted_run_states_.last_change < this->debounce_delay_)) {
     return;
   }
 
   // Don't log if send_wanted_run_states() will defer due to write throttle (300ms)
-  if (now - this->lastSend <= 300) {
+  if (now - this->last_send_ <= 300) {
     return;
   }
 
@@ -103,10 +103,10 @@ void CN105Climate::finalize_control_if_updated(bool updated) {
     return;
   }
   ESP_LOGD(LOG_ACTION_EVT_TAG, "clim.control() -> User changed something...");
-  this->wantedSettings.hasChanged = true;
-  this->wantedSettings.hasBeenSent = false;
-  this->wantedSettings.lastChange = CUSTOM_MILLIS;
-  this->debug_settings("control (wantedSettings)", this->wantedSettings);
+  this->wanted_settings_.has_changed = true;
+  this->wanted_settings_.has_been_sent = false;
+  this->wanted_settings_.last_change = CUSTOM_MILLIS;
+  this->debug_settings("control (wanted_settings_)", this->wanted_settings_);
   this->publish_state();
 }
 
@@ -116,14 +116,14 @@ void CN105Climate::control(const esphome::climate::ClimateCall &call) { this->co
  * @brief Controls the swing modes based on user selection.
  *
  * This function handles the logic for CLIMATE_SWING_OFF, VERTICAL, HORIZONTAL, and BOTH.
- * It is designed to be safe for units that do not support horizontal swing (wideVane)
+ * It is designed to be safe for units that do not support horizontal swing (wide_vane)
  * and provides an intuitive user experience by preserving static vane settings when possible.
  */
 void CN105Climate::control_swing() {
-  // Check if horizontal vane (wideVane) is supported by this unit at the beginning.
-  bool wideVaneSupported = this->traits_.supports_swing_mode(climate::CLIMATE_SWING_HORIZONTAL);
-  bool vane_is_swing = this->currentSettings.vane == HPVaneMode::SWING;
-  bool wide_is_swing = this->currentSettings.wideVane == HPWideVaneMode::SWING;
+  // Check if horizontal vane (wide_vane) is supported by this unit at the beginning.
+  bool wide_vane_supported = this->traits_.supports_swing_mode(climate::CLIMATE_SWING_HORIZONTAL);
+  bool vane_is_swing = this->current_settings_.vane == HPVaneMode::SWING;
+  bool wide_is_swing = this->current_settings_.wide_vane == HPWideVaneMode::SWING;
 
   switch (this->swing_mode) {
     case climate::CLIMATE_SWING_OFF:
@@ -132,7 +132,7 @@ void CN105Climate::control_swing() {
       if (vane_is_swing) {
         this->set_vane_setting("AUTO");
       }
-      if (wideVaneSupported && wide_is_swing) {
+      if (wide_vane_supported && wide_is_swing) {
         this->set_wide_vane_setting("|");
       }
       break;
@@ -143,7 +143,7 @@ void CN105Climate::control_swing() {
       // If horizontal swing was also on AND is supported, turn it off to a default static position.
       // This correctly handles switching from BOTH to VERTICAL, while preserving any user's
       // static horizontal setting if it wasn't swinging.
-      if (wideVaneSupported && wide_is_swing) {
+      if (wide_vane_supported && wide_is_swing) {
         this->set_wide_vane_setting("|");
       }
       break;
@@ -156,7 +156,7 @@ void CN105Climate::control_swing() {
         this->set_vane_setting("AUTO");
       }
       // Turn on horizontal swing, but only if the unit supports it.
-      if (wideVaneSupported) {
+      if (wide_vane_supported) {
         this->set_wide_vane_setting("SWING");
       }
       break;
@@ -165,7 +165,7 @@ void CN105Climate::control_swing() {
       // Turn on vertical swing.
       this->set_vane_setting("SWING");
       // Turn on horizontal swing, but only if the unit supports it.
-      if (wideVaneSupported) {
+      if (wide_vane_supported) {
         this->set_wide_vane_setting("SWING");
       }
       break;
@@ -209,7 +209,7 @@ void CN105Climate::control_fan() {
 void CN105Climate::control_temperature() {
   float setting = this->get_target_temperature();
   setting = this->calculate_temperature_setting(setting);
-  this->wantedSettings.temperature = setting;
+  this->wanted_settings_.temperature = setting;
   ESP_LOGI("control", "setting wanted temperature to %.1f", setting);
 }
 
@@ -254,17 +254,17 @@ void CN105Climate::control_mode() {
 
 void CN105Climate::set_action_if_operating_to(climate::ClimateAction action_if_operating) {
   // Determine if stage indicates activity (for fallback logic)
-  bool stage_is_active = this->use_stage_for_operating_status_ && this->currentSettings.stage != HPStage::IDLE &&
-                         this->currentSettings.stage != HPStage::UNKNOWN;
+  bool stage_is_active = this->use_stage_for_operating_status_ && this->current_settings_.stage != HPStage::IDLE &&
+                         this->current_settings_.stage != HPStage::UNKNOWN;
 
   ESP_LOGD(LOG_OPERATING_STATUS_TAG,
            "Setting action (operating: %s, stage_fallback_enabled: %s, stage: %s, stage_is_active: %s)",
-           this->currentStatus.operating ? "true" : "false", this->use_stage_for_operating_status_ ? "yes" : "no",
-           hp_stage_to_str(this->currentSettings.stage), stage_is_active ? "yes" : "no");
+           this->current_status_.operating ? "true" : "false", this->use_stage_for_operating_status_ ? "yes" : "no",
+           hp_stage_to_str(this->current_settings_.stage), stage_is_active ? "yes" : "no");
 
   // True fallback logic: operating OR (fallback enabled AND stage is active)
   // This handles cases like 2-stage heating where compressor may be off but gas heating is active
-  if (this->currentStatus.operating) {
+  if (this->current_status_.operating) {
     // Primary: compressor is running
     this->action = action_if_operating;
     ESP_LOGD(LOG_OPERATING_STATUS_TAG, "Action set by operating status (compressor running)");
@@ -272,7 +272,7 @@ void CN105Climate::set_action_if_operating_to(climate::ClimateAction action_if_o
     // Fallback: compressor not running but stage indicates activity (e.g., gas heating)
     this->action = action_if_operating;
     ESP_LOGD(LOG_OPERATING_STATUS_TAG, "Action set by stage fallback (stage: %s)",
-             hp_stage_to_str(this->currentSettings.stage));
+             hp_stage_to_str(this->current_settings_.stage));
   } else {
     // Neither operating nor stage indicates activity
     this->action = climate::CLIMATE_ACTION_IDLE;
@@ -297,9 +297,9 @@ void CN105Climate::update_action() {
       this->action = climate::CLIMATE_ACTION_FAN;
       break;
     case climate::CLIMATE_MODE_HEAT_COOL:
-      if (this->currentSettings.auto_sub_mode == HPAutoSubMode::AUTO_COOL) {
+      if (this->current_settings_.auto_sub_mode == HPAutoSubMode::AUTO_COOL) {
         this->set_action_if_operating_to(climate::CLIMATE_ACTION_COOLING);
-      } else if (this->currentSettings.auto_sub_mode == HPAutoSubMode::AUTO_HEAT) {
+      } else if (this->current_settings_.auto_sub_mode == HPAutoSubMode::AUTO_HEAT) {
         this->set_action_if_operating_to(climate::CLIMATE_ACTION_HEATING);
       } else {
         // Fallback: compare room temperature and target temperature
@@ -337,20 +337,20 @@ climate::ClimateTraits CN105Climate::traits() {
  */
 climate::ClimateTraits &CN105Climate::config_traits() { return traits_; }
 
-void CN105Climate::set_mode_setting(const char *setting) { wantedSettings.mode = hp_mode_from_str(setting); }
+void CN105Climate::set_mode_setting(const char *setting) { wanted_settings_.mode = hp_mode_from_str(setting); }
 
-void CN105Climate::set_power_setting(const char *setting) { wantedSettings.power = hp_power_from_str(setting); }
+void CN105Climate::set_power_setting(const char *setting) { wanted_settings_.power = hp_power_from_str(setting); }
 
-void CN105Climate::set_fan_speed(const char *setting) { wantedSettings.fan = hp_fan_from_str(setting); }
+void CN105Climate::set_fan_speed(const char *setting) { wanted_settings_.fan = hp_fan_from_str(setting); }
 
-void CN105Climate::set_vane_setting(const char *setting) { wantedSettings.vane = hp_vane_from_str(setting); }
+void CN105Climate::set_vane_setting(const char *setting) { wanted_settings_.vane = hp_vane_from_str(setting); }
 
 void CN105Climate::set_wide_vane_setting(const char *setting) {
-  wantedSettings.wideVane = hp_wide_vane_from_str(setting);
+  wanted_settings_.wide_vane = hp_wide_vane_from_str(setting);
 }
 
 void CN105Climate::set_airflow_control_setting(const char *setting) {
-  wantedRunStates.airflow_control = hp_airflow_control_from_str(setting);
+  wanted_run_states_.airflow_control = hp_airflow_control_from_str(setting);
 }
 
 void CN105Climate::set_remote_temperature(float setting) {
@@ -360,7 +360,7 @@ void CN105Climate::set_remote_temperature(float setting) {
   }
 
   // Always update the internal target value
-  this->remoteTemperature_ = setting;
+  this->remote_temperature_ = setting;
 
   // Reset the watchdog timeout (HA sent us a fresh value)
   this->ping_external_temperature();
@@ -377,7 +377,7 @@ void CN105Climate::set_remote_temperature(float setting) {
   if (setting == 0.0f) {
     // Reverting to internal sensor: send immediately
     this->cancel_timeout("deferred_remote_temp_send");
-    this->shouldSendExternalTemperature_ = true;
+    this->should_send_external_temperature_ = true;
     return;
   }
 
@@ -401,7 +401,7 @@ void CN105Climate::set_remote_temperature(float setting) {
   if (this->last_remote_temp_send_ms_ == 0 || elapsed >= REMOTE_TEMP_MIN_SEND_INTERVAL_MS) {
     // Send immediately
     this->cancel_timeout("deferred_remote_temp_send");
-    this->shouldSendExternalTemperature_ = true;
+    this->should_send_external_temperature_ = true;
     ESP_LOGD(LOG_REMOTE_TEMP, "Queueing immediate remote temp write (value: %.1f)", setting);
   } else {
     // Defer the write
@@ -418,8 +418,8 @@ void CN105Climate::send_remote_temperature_deferred() {
   // mid-cycle from a timer callback. This preserves bus serialization and means
   // the update is not lost if the heatpump is momentarily disconnected when the
   // timer fires (it will be sent on the next completed cycle).
-  ESP_LOGD(LOG_REMOTE_TEMP, "Deferred remote temp timer fired, queueing send of %.1f", this->remoteTemperature_);
-  this->shouldSendExternalTemperature_ = true;
+  ESP_LOGD(LOG_REMOTE_TEMP, "Deferred remote temp timer fired, queueing send of %.1f", this->remote_temperature_);
+  this->should_send_external_temperature_ = true;
 }
 
 void CN105Climate::evaluate_fan_stop_and_ltp() {
@@ -461,7 +461,7 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
         target_physical_mode = climate::CLIMATE_MODE_HEAT;
       } else {
         // Inside hysteresis deadband, maintain current physical state
-        if (this->currentSettings.power == HPPower::OFF) {
+        if (this->current_settings_.power == HPPower::OFF) {
           target_physical_mode = climate::CLIMATE_MODE_OFF;
         } else {
           target_physical_mode = climate::CLIMATE_MODE_HEAT;
@@ -474,7 +474,7 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
         target_physical_mode = climate::CLIMATE_MODE_COOL;
       } else {
         // Inside hysteresis deadband, maintain current physical state
-        if (this->currentSettings.power == HPPower::OFF) {
+        if (this->current_settings_.power == HPPower::OFF) {
           target_physical_mode = climate::CLIMATE_MODE_OFF;
         } else {
           target_physical_mode = climate::CLIMATE_MODE_COOL;
@@ -489,11 +489,11 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
 
   // Check power/mode mismatch
   if (target_physical_mode == climate::CLIMATE_MODE_OFF) {
-    if (this->currentSettings.power != HPPower::OFF) {
+    if (this->current_settings_.power != HPPower::OFF) {
       mode_mismatch = true;
     }
   } else {
-    if (this->currentSettings.power != HPPower::ON) {
+    if (this->current_settings_.power != HPPower::ON) {
       mode_mismatch = true;
     }
     HPMode target_mode_enum = HPMode::AUTO;
@@ -506,7 +506,7 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
     else if (target_physical_mode == climate::CLIMATE_MODE_FAN_ONLY)
       target_mode_enum = HPMode::FAN;
 
-    if (this->currentSettings.mode != target_mode_enum) {
+    if (this->current_settings_.mode != target_mode_enum) {
       mode_mismatch = true;
     }
   }
@@ -514,8 +514,8 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
   // Check temperature mismatch
   if (target_physical_mode != climate::CLIMATE_MODE_OFF) {
     float normalized_target_temp = this->calculate_temperature_setting(target_physical_temp);
-    if (!this->currentSettings.temperature.has_value() ||
-        fabsf(*this->currentSettings.temperature - normalized_target_temp) >= 0.25f) {
+    if (!this->current_settings_.temperature.has_value() ||
+        fabsf(*this->current_settings_.temperature - normalized_target_temp) >= 0.25f) {
       temp_mismatch = true;
     }
   }
@@ -545,12 +545,12 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
       this->set_mode_setting(target_mode_str);
 
       float setting = this->calculate_temperature_setting(target_physical_temp);
-      this->wantedSettings.temperature = setting;
+      this->wanted_settings_.temperature = setting;
     }
 
-    this->wantedSettings.hasChanged = true;
-    this->wantedSettings.hasBeenSent = false;
-    this->wantedSettings.lastChange = CUSTOM_MILLIS;
+    this->wanted_settings_.has_changed = true;
+    this->wanted_settings_.has_been_sent = false;
+    this->wanted_settings_.last_change = CUSTOM_MILLIS;
   }
 
   // 3. Update diagnostic status text sensor
@@ -559,7 +559,7 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
     if (this->ltp_active_) {
       status = "Low Temp Protection";
     } else if (this->fan_stop_switch_ != nullptr && this->fan_stop_switch_->state &&
-               this->currentSettings.power == HPPower::OFF && this->desired_mode_ != climate::CLIMATE_MODE_OFF) {
+               this->current_settings_.power == HPPower::OFF && this->desired_mode_ != climate::CLIMATE_MODE_OFF) {
       status = "Fan Stop Active";
     }
 

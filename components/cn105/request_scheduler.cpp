@@ -1,5 +1,5 @@
 #include "request_scheduler.h"
-#include "Globals.h"
+#include "globals.h"
 #include "cn105.h"
 #include <esphome.h>
 
@@ -99,7 +99,7 @@ void RequestScheduler::send_request(uint8_t code, CN105Climate *context) {
             r.awaiting = false;
             r.failures++;
             ESP_LOGW(LOG_CYCLE_TAG, "Soft timeout for %s (0x%02X), failures: %d", r.description, r.code, r.failures);
-            if (r.failures >= r.maxFailures) {
+            if (r.failures >= r.max_failures) {
               r.disabled = true;
               ESP_LOGW(LOG_CYCLE_TAG, "%s (0x%02X) disabled (not supported)", r.description, r.code);
             }

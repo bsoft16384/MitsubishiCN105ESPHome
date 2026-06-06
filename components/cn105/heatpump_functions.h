@@ -1,9 +1,9 @@
 #pragma once
-#include "Globals.h"
+#include "globals.h"
 
 #define MAX_FUNCTION_CODE_COUNT 30
 
-struct heatpumpFunctionCodes {
+struct HeatpumpFunctionCodes {
   bool valid[MAX_FUNCTION_CODE_COUNT] = {};
   int code[MAX_FUNCTION_CODE_COUNT] = {};
 };
@@ -33,7 +33,7 @@ class HeatpumpFunctions {
   int get_value(int code);
   bool set_value(int code, int value);
 
-  heatpumpFunctionCodes get_all_codes();
+  HeatpumpFunctionCodes get_all_codes();
 
   bool operator==(const HeatpumpFunctions &rhs);
   bool operator!=(const HeatpumpFunctions &rhs);

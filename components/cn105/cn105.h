@@ -1,9 +1,9 @@
 #pragma once
-#include "Globals.h"
+#include "globals.h"
 #include "cn105_protocol.h"
 #include "frame_parser.h"
 #include "esphome/components/uart/uart.h"
-#include "heatpumpFunctions.h"
+#include "heatpump_functions.h"
 #include "van_orientation_select.h"
 #include "uptime_connection_sensor.h"
 #include "functions_number.h"
@@ -159,7 +159,7 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   void send_remote_temperature_packet();  // Send packet only, without resetting watchdog
   void send_remote_temperature_deferred();
   void send_wanted_run_states();
-  float get_deadband_adjusted_temperature(float remoteTemperature);
+  float get_deadband_adjusted_temperature(float remote_temperature);
 
   void set_remote_temp_timeout(uint32_t timeout);
 
@@ -227,23 +227,23 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   // Legacy booleans replaced by DriverState FSM (see state_)
   // bool isUARTConnected_  → isUARTReady_()
   // bool isHeatpumpConnected_ → isHeatpumpConnected()
-  bool shouldSendExternalTemperature_ = false;
-  float remoteTemperature_ = 0;
+  bool should_send_external_temperature_ = false;
+  float remote_temperature_ = 0;
 
-  unsigned long nbCompleteCycles_ = 0;
-  unsigned long nbCycles_ = 0;
-  unsigned int nbHeatpumpConnections_ = 0;
+  unsigned long nb_complete_cycles_ = 0;
+  unsigned long nb_cycles_ = 0;
+  unsigned int nb_heatpump_connections_ = 0;
 
   void send_first_connection_packet();
   void terminate_cycle();
 
   void functions_arrived();
   bool set_functions(HeatpumpFunctions const &functions);
-  bool isGetFunctions_ = false;
-  bool isSetFunctions_ = false;
+  bool is_get_functions_ = false;
+  bool is_set_functions_ = false;
 
   // helpers
-  const char *get_if_not_null(const char *what, const char *defaultValue);
+  const char *get_if_not_null(const char *what, const char *default_value);
 
  protected:
   // HeatPump object using the underlying Arduino library.
@@ -329,53 +329,53 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
 
  private:
   int uart_port_ = -1;
-  const char *lookup_byte_map_value(const char *valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue,
-                                    const char *debugInfo = "", const char *defaultValue = nullptr);
-  int lookup_byte_map_value(const int valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue,
-                            const char *debugInfo = "");
-  int lookup_byte_map_index(const char *valuesMap[], int len, const char *lookupValue, const char *debugInfo = "");
-  int lookup_byte_map_index(const int valuesMap[], int len, int lookupValue, const char *debugInfo = "");
+  const char *lookup_byte_map_value(const char *values_map[], const uint8_t byte_map[], int len, uint8_t byte_value,
+                                    const char *debug_info = "", const char *default_value = nullptr);
+  int lookup_byte_map_value(const int values_map[], const uint8_t byte_map[], int len, uint8_t byte_value,
+                            const char *debug_info = "");
+  int lookup_byte_map_index(const char *values_map[], int len, const char *lookup_value, const char *debug_info = "");
+  int lookup_byte_map_index(const int values_map[], int len, int lookup_value, const char *debug_info = "");
   template<typename T>
-  int lookup_byte_map_index(const T valuesMap[], int len, T lookupValue, const char *debugInfo = "") {
-    int idx = cn105_protocol::lookup_index(valuesMap, len, lookupValue);
+  int lookup_byte_map_index(const T values_map[], int len, T lookup_value, const char *debug_info = "") {
+    int idx = cn105_protocol::lookup_index(values_map, len, lookup_value);
     if (idx < 0) {
-      ESP_LOGW("lookup", "%s caution: value not found, returning -1", debugInfo);
+      ESP_LOGW("lookup", "%s caution: value not found, returning -1", debug_info);
     }
     return idx;
   }
 
-  void write_packet(uint8_t *packet, int length, bool checkIsActive = true);
+  void write_packet(uint8_t *packet, int length, bool check_is_active = true);
   void prepare_info_packet(uint8_t *packet, int length);
   void prepare_set_packet(uint8_t *packet, int length);
 
-  void publish_state_to_ha(heatpumpSettings &settings);
+  void publish_state_to_ha(HeatpumpSettings &settings);
   void publish_wanted_settings_state_to_ha();
   void publish_wanted_run_states_state_to_ha();
 
-  void heatpump_update(heatpumpSettings &settings);
+  void heatpump_update(HeatpumpSettings &settings);
 
-  void status_changed(heatpumpStatus status);
+  void status_changed(HeatpumpStatus status);
 
   void check_pending_wanted_settings();
   void check_pending_wanted_run_states();
-  void check_power_and_mode_settings(heatpumpSettings &settings, bool updateCurrentSettings = true);
-  void check_fan_settings(heatpumpSettings &settings, bool updateCurrentSettings = true);
-  void check_vane_settings(heatpumpSettings &settings, bool updateCurrentSettings = true);
-  void check_wide_vane_settings(heatpumpSettings &settings, bool updateCurrentSettings = true);
-  void update_extra_select_components(heatpumpSettings &settings);
+  void check_power_and_mode_settings(HeatpumpSettings &settings, bool update_current_settings = true);
+  void check_fan_settings(HeatpumpSettings &settings, bool update_current_settings = true);
+  void check_vane_settings(HeatpumpSettings &settings, bool update_current_settings = true);
+  void check_wide_vane_settings(HeatpumpSettings &settings, bool update_current_settings = true);
+  void update_extra_select_components(HeatpumpSettings &settings);
   void update_target_temperatures_from_settings(float temperature);
 
   void update_action();
   void set_action_if_operating_to(climate::ClimateAction action);
-  void hp_packet_debug(const uint8_t *packet, unsigned int length, const char *packetDirection,
+  void hp_packet_debug(const uint8_t *packet, unsigned int length, const char *packet_direction,
                        const char *log_prefix = "");
   void hp_functions_debug(uint8_t *packet, unsigned int length);
 
-  void debug_settings(const char *settingName, heatpumpSettings &settings);
-  void debug_settings(const char *settingName, wantedHeatpumpSettings &settings);
-  void debug_status(const char *statusName, heatpumpStatus status);
-  void debug_settings_and_status(const char *settingName, heatpumpSettings settings, heatpumpStatus status);
-  void debug_climate(const char *settingName);
+  void debug_settings(const char *setting_name, HeatpumpSettings &settings);
+  void debug_settings(const char *setting_name, WantedHeatpumpSettings &settings);
+  void debug_status(const char *status_name, HeatpumpStatus status);
+  void debug_settings_and_status(const char *setting_name, HeatpumpSettings settings, HeatpumpStatus status);
+  void debug_climate(const char *setting_name);
 
   void control_delegate(const esphome::climate::ClimateCall &call);
   // Refactor helpers for control_delegate
@@ -385,17 +385,17 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
 
   void create_packet(uint8_t *packet);
   void create_info_packet(uint8_t *packet, uint8_t code);
-  heatpumpSettings currentSettings{};
-  wantedHeatpumpSettings wantedSettings{};
-  heatpumpRunStates currentRunStates{};
-  wantedHeatpumpRunStates wantedRunStates{};
-  cycleManagement loopCycle{};
+  HeatpumpSettings current_settings_{};
+  WantedHeatpumpSettings wanted_settings_{};
+  HeatpumpRunStates current_run_states_{};
+  WantedHeatpumpRunStates wanted_run_states_{};
+  CycleManagement loop_cycle_{};
 
   // Orchestrator for INFO requests
   RequestScheduler scheduler_;
   void register_info_requests();
   void register_hardware_settings_requests();
-  uint32_t lastResponseMs{0};
+  uint32_t last_response_ms_{0};
 
   uint32_t remote_temp_timeout_;
   uint32_t remote_temp_keepalive_interval_ms_ = DEFAULT_REMOTE_TEMP_KEEPALIVE_INTERVAL_MS;
@@ -406,32 +406,32 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
 
   int baud_ = 0;
 
-  uint32_t lastSend{0};
-  uint32_t lastConnectRqTimeMs{0};
-  uint32_t lastReconnectTimeMs{0};
+  uint32_t last_send_{0};
+  uint32_t last_connect_rq_time_ms_{0};
+  uint32_t last_reconnect_time_ms_{0};
 
   cn105_protocol::FrameParser parser_;  // UART frame assembler (Phase 3A)
-  uint8_t *data;
+  uint8_t *data_;
   uint8_t get_payload_byte(int index, uint8_t default_val = 0) const;
 
-  // All fields are default-initialized via heatpumpStatus struct defaults (NAN, false, etc.)
-  heatpumpStatus currentStatus{};
+  // All fields are default-initialized via HeatpumpStatus struct defaults (NAN, false, etc.)
+  HeatpumpStatus current_status_{};
   HeatpumpFunctions functions;
 
-  bool wideVaneAdj{false};
-  bool autoUpdate{false};
-  bool firstRun{true};
-  int infoMode{0};
-  bool externalUpdate{false};
+  bool wide_vane_adj_{false};
+  bool auto_update_{false};
+  bool first_run_{true};
+  int info_mode_{0};
+  bool external_update_{false};
 
   // counter for status request for checking heatpump is still connected
   // is the counter > MAX_NON_RESPONSE_REQ then we conclude uart is not connected anymore
-  int nonResponseCounter = 0;
+  int non_response_counter_ = 0;
 
-  int powerRequestWithoutResponses = 0;
+  int power_request_without_responses_ = 0;
 
-  bool isReading = false;
-  bool isWriting = false;
+  bool is_reading_ = false;
+  bool is_writing_ = false;
 
   // Safe handling of a deferred packet to write to avoid capturing a stack buffer
   void try_write_pending_packet();

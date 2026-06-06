@@ -1,5 +1,5 @@
 #include "cn105.h"
-#include "Globals.h"
+#include "globals.h"
 #include <math.h>
 #include <memory>
 
@@ -20,21 +20,21 @@ void esphome::log_debug_uint32(const char *tag, const char *msg, uint32_t value,
 #endif
 }
 
-bool CN105Climate::has_changed(const char *before, const char *now, const char *field, bool checkNotNull) {
+bool CN105Climate::has_changed(const char *before, const char *now, const char *field, bool check_not_null) {
   if (now == NULL) {
-    if (checkNotNull) {
-      ESP_LOGE(TAG, "CAUTION: expected value in hasChanged() function for %s, got NULL", field);
+    if (check_not_null) {
+      ESP_LOGE(TAG, "CAUTION: expected value in has_changed() function for %s, got NULL", field);
     } else {
-      ESP_LOGD(TAG, "No value in hasChanged() function for %s", field);
+      ESP_LOGD(TAG, "No value in has_changed() function for %s", field);
     }
     return false;
   }
   return ((before == NULL) || (strcmp(before, now) != 0));
 }
 
-const char *CN105Climate::get_if_not_null(const char *what, const char *defaultValue) {
+const char *CN105Climate::get_if_not_null(const char *what, const char *default_value) {
   if (what == NULL) {
-    return defaultValue;
+    return default_value;
   }
   return what;
 }
@@ -68,20 +68,20 @@ float CN105Climate::convert_input_power_to_w(float raw_input_power) {
 }
 
 /**
- * Convert the raw energy usage value to kWh.
+ * Convert the raw energy usage value to kwh.
  *
  * By default (power_unit_is_btu_ = false) the protocol encodes energy as
- * kWh * 10, so we simply divide by 10.
+ * kwh * 10, so we simply divide by 10.
  *
  * Set `power_unit_is_btu: true` for units that encode in kBTU instead:
- *   => raw [kBTU] * (1055.056 / 3 600 000) * 1000 = kWh
+ *   => raw [kBTU] * (1055.056 / 3 600 000) * 1000 = kwh
  */
 float CN105Climate::convert_energy_usage_to_kwh(float raw_energy_usage) {
   if (power_unit_is_btu_) {
     static constexpr float conv_factor = 1055.05585262f / 3600000.0f;
     return 1000.0f * raw_energy_usage * conv_factor;
   }
-  return raw_energy_usage / 10.0f;  // already in kWh/10
+  return raw_energy_usage / 10.0f;  // already in kwh/10
 }
 
 /**
@@ -95,14 +95,14 @@ void CN105Climate::update_target_temperatures_from_settings(float temperature) {
   this->set_target_temperature(temperature);
 }
 
-void CN105Climate::debug_settings(const char *settingName, wantedHeatpumpSettings &settings) {
+void CN105Climate::debug_settings(const char *setting_name, WantedHeatpumpSettings &settings) {
   ESP_LOGD(LOG_ACTION_EVT_TAG,
-           "[%s]-> [power: %s, target °C: %.1f, mode: %s, fan: %s, vane: %s, wvane: %s, hasChanged ? -> %s, "
-           "hasBeenSent ? -> %s]",
-           get_if_not_null(settingName, "unnamed"), hp_power_to_str(settings.power), settings.temperature.value_or(NAN),
+           "[%s]-> [power: %s, target °C: %.1f, mode: %s, fan: %s, vane: %s, wvane: %s, has_changed ? -> %s, "
+           "has_been_sent ? -> %s]",
+           get_if_not_null(setting_name, "unnamed"), hp_power_to_str(settings.power), settings.temperature.value_or(NAN),
            hp_mode_to_str(settings.mode), hp_fan_to_str(settings.fan), hp_vane_to_str(settings.vane),
-           hp_wide_vane_to_str(settings.wideVane), settings.hasChanged ? "YES" : " NO",
-           settings.hasBeenSent ? "YES" : " NO");
+           hp_wide_vane_to_str(settings.wide_vane), settings.has_changed ? "YES" : " NO",
+           settings.has_been_sent ? "YES" : " NO");
 }
 
 float CN105Climate::get_target_temperature_in_current_mode() { return this->get_target_temperature(); }
@@ -115,43 +115,43 @@ void CN105Climate::set_target_temperature(float temperature) { this->target_temp
 
 void CN105Climate::set_current_temperature(float temperature) { this->current_temperature = temperature; }
 
-void CN105Climate::debug_climate(const char *settingName) {
-  ESP_LOGD(LOG_SETTINGS_TAG, "[%s]-> [mode: %s, target °C: %.1f, fan: %s, swing: %s]", settingName,
+void CN105Climate::debug_climate(const char *setting_name) {
+  ESP_LOGD(LOG_SETTINGS_TAG, "[%s]-> [mode: %s, target °C: %.1f, fan: %s, swing: %s]", setting_name,
            LOG_STR_ARG(climate_mode_to_string(this->mode)),  // Utilisation de LOG_STR_ARG
            this->get_target_temperature_in_current_mode(),
            this->fan_mode.has_value() ? LOG_STR_ARG(climate_fan_mode_to_string(this->fan_mode.value())) : "-",
            LOG_STR_ARG(climate_swing_mode_to_string(this->swing_mode)));
 }
 
-void CN105Climate::debug_settings(const char *settingName, heatpumpSettings &settings) {
+void CN105Climate::debug_settings(const char *setting_name, HeatpumpSettings &settings) {
   ESP_LOGD(LOG_SETTINGS_TAG, "[%s]-> [power: %s, target °C: %.1f, mode: %s, fan: %s, vane: %s, wvane: %s]",
-           get_if_not_null(settingName, "unnamed"), hp_power_to_str(settings.power), settings.temperature.value_or(NAN),
+           get_if_not_null(setting_name, "unnamed"), hp_power_to_str(settings.power), settings.temperature.value_or(NAN),
            hp_mode_to_str(settings.mode), hp_fan_to_str(settings.fan), hp_vane_to_str(settings.vane),
-           hp_wide_vane_to_str(settings.wideVane));
+           hp_wide_vane_to_str(settings.wide_vane));
 }
 
-void CN105Climate::debug_status(const char *statusName, heatpumpStatus status) {
+void CN105Climate::debug_status(const char *status_name, HeatpumpStatus status) {
   // Declare a buffer (char array) for the float to string conversion
   char outside_temp_buffer[16];
 
   ESP_LOGI(LOG_STATUS_TAG, "[%s]-> [room C°: %.1f, outside C°: %s, operating: %s, compressor freq: %.1f Hz]",
-           statusName, status.roomTemperature,
+           status_name, status.room_temperature,
            // Utilisation de snprintf dans l'expression ternaire
-           isnan(status.outsideAirTemperature)
+           isnan(status.outside_air_temperature)
                ? "N/A"
-               : (snprintf(outside_temp_buffer, sizeof(outside_temp_buffer), "%.1f", status.outsideAirTemperature) > 0
+               : (snprintf(outside_temp_buffer, sizeof(outside_temp_buffer), "%.1f", status.outside_air_temperature) > 0
                       ? outside_temp_buffer
                       : "ERR"),
-           status.operating ? "YES" : "NO ", status.compressorFrequency);
+           status.operating ? "YES" : "NO ", status.compressor_frequency);
 }
 
-void CN105Climate::debug_settings_and_status(const char *settingName, heatpumpSettings settings,
-                                             heatpumpStatus status) {
-  this->debug_settings(settingName, settings);
-  this->debug_status(settingName, status);
+void CN105Climate::debug_settings_and_status(const char *setting_name, HeatpumpSettings settings,
+                                             HeatpumpStatus status) {
+  this->debug_settings(setting_name, settings);
+  this->debug_status(setting_name, status);
 }
 
-void CN105Climate::hp_packet_debug(const uint8_t *packet, unsigned int length, const char *packetDirection,
+void CN105Climate::hp_packet_debug(const uint8_t *packet, unsigned int length, const char *packet_direction,
                                    const char *log_prefix) {
   if (length < 5) {
     // Fallback for too short packets
@@ -165,7 +165,7 @@ void CN105Climate::hp_packet_debug(const uint8_t *packet, unsigned int length, c
         rem -= written;
       }
     }
-    ESP_LOGD(packetDirection, "SHORT: %s", output);
+    ESP_LOGD(packet_direction, "SHORT: %s", output);
     return;
   }
 
@@ -196,26 +196,26 @@ void CN105Climate::hp_packet_debug(const uint8_t *packet, unsigned int length, c
 
   // Determine specific command/data type (Semantic decoding)
   // Byte 5 (index 5) is usually the subcommand
-  const char *subLabel = "";
+  const char *sub_label = "";
   if (length > 5) {
     switch (packet[5]) {
       case 0x01:
-        subLabel = ":Start";
+        sub_label = ":Start";
         break;  // Or "Connect" ?
       case 0x02:
-        subLabel = ":Settings";
+        sub_label = ":Settings";
         break;
       case 0x03:
-        subLabel = ":RoomTemp";
+        sub_label = ":RoomTemp";
         break;
       case 0x04:
-        subLabel = ":Status";
+        sub_label = ":Status";
         break;  // Or "Unknown"? 0x04 is RQST_PKT_STATUS in cn105_types.h
       case 0x05:
-        subLabel = ":Standby";
+        sub_label = ":Standby";
         break;  // RQST_PKT_STANDBY
       case 0x06:
-        subLabel = ":Status";
+        sub_label = ":Status";
         break;  // RQST_PKT_HVAC_OPTIONS? Wait, need to check types map.
                 // In cn105_types: 0x06 is RQST_PKT_HVAC_OPTIONS?
                 // Actually 0x06 in RCVD_PKT is TIMER?
@@ -226,16 +226,16 @@ void CN105Climate::hp_packet_debug(const uint8_t *packet, unsigned int length, c
                 // FC 62 ... 09 ... -> Power/Standby?
                 // FC 62 ... 06 ... -> Status?
       case 0x09:
-        subLabel = ":Power";
+        sub_label = ":Power";
         break;
       case 0x10:
-        subLabel = ":Hello";
+        sub_label = ":Hello";
         break;  // Connect response
       case 0x20:
-        subLabel = ":Func1";
+        sub_label = ":Func1";
         break;  // Functions part 1
       case 0x22:
-        subLabel = ":Func2";
+        sub_label = ":Func2";
         break;  // Functions part 2
     }
   }
@@ -244,19 +244,19 @@ void CN105Climate::hp_packet_debug(const uint8_t *packet, unsigned int length, c
   // In types.h: RCVD_PKT_STATUS = 5, RCVD_PKT_TIMER = 6.
   // Let's use generic names if unsure, but user wants semantic.
   if (packet[5] == 0x06)
-    subLabel = ":Status";
+    sub_label = ":Status";
 
-  char fullLabel[20];
-  snprintf(fullLabel, sizeof(fullLabel), "%s%s", label, subLabel);
+  char full_label[20];
+  snprintf(full_label, sizeof(full_label), "%s%s", label, sub_label);
 
   // Format strings
-  char headerStr[18] = "";
-  char dataStr[380] = "";
-  char csStr[4] = "";
+  char header_str[18] = "";
+  char data_str[380] = "";
+  char cs_str[4] = "";
 
   // HEADER: First 5 bytes
-  char *p = headerStr;
-  size_t header_rem = sizeof(headerStr);
+  char *p = header_str;
+  size_t header_rem = sizeof(header_str);
   for (unsigned int i = 0; i < 5 && i < length; i++) {
     int written = snprintf(p, header_rem, "%02X ", packet[i]);
     if (written > 0 && (size_t) written < header_rem) {
@@ -266,8 +266,8 @@ void CN105Climate::hp_packet_debug(const uint8_t *packet, unsigned int length, c
   }
 
   // DATA: Bytes 5 to Length-2 (payload)
-  p = dataStr;
-  size_t data_rem = sizeof(dataStr);
+  p = data_str;
+  size_t data_rem = sizeof(data_str);
   if (length > 6) {
     for (unsigned int i = 5; i < length - 1; i++) {
       int written = snprintf(p, data_rem, "%02X ", packet[i]);
@@ -279,10 +279,10 @@ void CN105Climate::hp_packet_debug(const uint8_t *packet, unsigned int length, c
   }
 
   // CHECKSUM: Last byte
-  snprintf(csStr, sizeof(csStr), "%02X", packet[length - 1]);
+  snprintf(cs_str, sizeof(cs_str), "%02X", packet[length - 1]);
 
   // Output format: [LABEL:SubLabel ] HEADER -> [ PAYLOAD ] CS
-  ESP_LOGD(packetDirection, "%s|%s|->[%s](%s) <%s>", log_prefix, headerStr, dataStr, csStr, fullLabel);
+  ESP_LOGD(packet_direction, "%s|%s|->[%s](%s) <%s>", log_prefix, header_str, data_str, cs_str, full_label);
 }
 
 void CN105Climate::hp_functions_debug(uint8_t *packet, unsigned int length) {
@@ -321,48 +321,48 @@ void CN105Climate::hp_functions_debug(uint8_t *packet, unsigned int length) {
   ESP_LOGD(LOG_FUNCTIONS_TAG, "Decoded %02X:%s", packet[0], output);
 }
 
-int CN105Climate::lookup_byte_map_index(const int valuesMap[], int len, int lookupValue, const char *debugInfo) {
-  int idx = cn105_protocol::lookup_index(valuesMap, len, lookupValue);
+int CN105Climate::lookup_byte_map_index(const int values_map[], int len, int lookup_value, const char *debug_info) {
+  int idx = cn105_protocol::lookup_index(values_map, len, lookup_value);
   if (idx < 0) {
-    ESP_LOGW("lookup", "%s caution value %d not found, returning -1", debugInfo, lookupValue);
+    ESP_LOGW("lookup", "%s caution value %d not found, returning -1", debug_info, lookup_value);
   }
   return idx;
 }
-int CN105Climate::lookup_byte_map_index(const char *valuesMap[], int len, const char *lookupValue,
-                                        const char *debugInfo) {
-  int idx = cn105_protocol::lookup_index(valuesMap, len, lookupValue);
+int CN105Climate::lookup_byte_map_index(const char *values_map[], int len, const char *lookup_value,
+                                        const char *debug_info) {
+  int idx = cn105_protocol::lookup_index(values_map, len, lookup_value);
   if (idx < 0) {
-    ESP_LOGW("lookup", "%s caution value %s not found, returning -1", debugInfo, lookupValue);
+    ESP_LOGW("lookup", "%s caution value %s not found, returning -1", debug_info, lookup_value);
   }
   return idx;
 }
-const char *CN105Climate::lookup_byte_map_value(const char *valuesMap[], const uint8_t byteMap[], int len,
-                                                uint8_t byteValue, const char *debugInfo, const char *defaultValue) {
+const char *CN105Climate::lookup_byte_map_value(const char *values_map[], const uint8_t byte_map[], int len,
+                                                uint8_t byte_value, const char *debug_info, const char *default_value) {
   // Check if value exists in the map first
   for (int i = 0; i < len; i++) {
-    if (byteMap[i] == byteValue) {
-      return valuesMap[i];
+    if (byte_map[i] == byte_value) {
+      return values_map[i];
     }
   }
-  if (defaultValue != nullptr) {
-    return defaultValue;
+  if (default_value != nullptr) {
+    return default_value;
   }
-  ESP_LOGW("lookup", "%s caution: value %d not found, returning value at index 0", debugInfo, byteValue);
-  return valuesMap[0];
+  ESP_LOGW("lookup", "%s caution: value %d not found, returning value at index 0", debug_info, byte_value);
+  return values_map[0];
 }
-int CN105Climate::lookup_byte_map_value(const int valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue,
-                                        const char *debugInfo) {
-  int result = cn105_protocol::lookup_value(valuesMap, byteMap, len, byteValue);
+int CN105Climate::lookup_byte_map_value(const int values_map[], const uint8_t byte_map[], int len, uint8_t byte_value,
+                                        const char *debug_info) {
+  int result = cn105_protocol::lookup_value(values_map, byte_map, len, byte_value);
   // Check if the lookup actually found a match vs returned fallback
   bool found = false;
   for (int i = 0; i < len; i++) {
-    if (byteMap[i] == byteValue) {
+    if (byte_map[i] == byte_value) {
       found = true;
       break;
     }
   }
   if (!found) {
-    ESP_LOGW("lookup", "%s caution: value %d not found, returning value at index 0", debugInfo, byteValue);
+    ESP_LOGW("lookup", "%s caution: value %d not found, returning value at index 0", debug_info, byte_value);
   }
   return result;
 }
