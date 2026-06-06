@@ -632,7 +632,7 @@ void CN105Climate::publish_state_to_ha(HeatpumpSettings &settings) {
   }
 
   // HA Temp
-  // Ignorer temporairement une consigne entrante si une consigne utilisateur est en cours
+  // Temporarily ignore an incoming setpoint if a user setpoint change is in progress
   bool has_pending_user_temp = (this->wanted_settings_.temperature.has_value()) && (this->wanted_settings_.has_changed) &&
                             (!this->wanted_settings_.has_been_sent);
   uint32_t grace_window_ms = this->get_update_interval() + DEFER_SCHEDULE_UPDATE_LOOP_DELAY;

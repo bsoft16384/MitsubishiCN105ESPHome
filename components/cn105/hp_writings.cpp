@@ -12,7 +12,7 @@ void CN105Climate::send_first_connection_packet() {
     uint8_t packet[CONNECT_LEN];
     memcpy(packet, CONNECT, CONNECT_LEN);
 
-    // Choix du mode de handshake: standard (0x5A) ou installateur (0x5B)
+    // Handshake mode selection: standard (0x5A) or installer (0x5B)
     packet[1] = this->installer_mode_effective_ ? 0x5B : 0x5A;
     // CONNECT has a pre-calculated checksum in the constant; if we modify the command byte, we must recalculate it.
     packet[CONNECT_LEN - 1] = check_sum(packet, CONNECT_LEN - 1);

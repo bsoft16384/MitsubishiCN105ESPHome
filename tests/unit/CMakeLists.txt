@@ -1,6 +1,6 @@
-## CMakeLists.txt — Tests unitaires CN105 (standalone, sans dépendance ESPHome)
-## Role: Build system pour les tests de non-régression sur les fonctions pures du protocole CN105.
-## Deps: CMake >= 3.14 (GoogleTest est téléchargé automatiquement via FetchContent)
+## CMakeLists.txt — CN105 unit tests (standalone, no ESPHome dependency)
+## Role: Build system for the regression tests covering the pure CN105 protocol functions.
+## Deps: CMake >= 3.14 (GoogleTest is fetched automatically via FetchContent)
 
 cmake_minimum_required(VERSION 3.14)
 project(cn105_unit_tests LANGUAGES CXX)
@@ -8,7 +8,7 @@ project(cn105_unit_tests LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# ── GoogleTest via FetchContent (portable: fonctionne en CI sans apt install) ──
+# ── GoogleTest via FetchContent (portable: works in CI without apt install) ──
 include(FetchContent)
 FetchContent_Declare(
     googletest
@@ -19,12 +19,12 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# Source du composant (chemin relatif vers components/cn105)
+# Component source (relative path to components/cn105)
 set(CN105_SRC_DIR "${CMAKE_SOURCE_DIR}/../../components/cn105")
 
-# Stubs ESPHome
+# ESPHome stubs
 include_directories(${CMAKE_SOURCE_DIR}/mocks)
-# Headers du composant
+# Component headers
 include_directories(${CN105_SRC_DIR})
 
 # --- Test executable ---
@@ -43,7 +43,7 @@ target_link_libraries(cn105_tests
     GTest::gtest_main
 )
 
-# Discovery des tests pour ctest
+# Test discovery for ctest
 enable_testing()
 include(GoogleTest)
 gtest_discover_tests(cn105_tests)

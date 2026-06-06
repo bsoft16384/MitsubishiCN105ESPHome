@@ -117,7 +117,7 @@ void CN105Climate::set_current_temperature(float temperature) { this->current_te
 
 void CN105Climate::debug_climate(const char *setting_name) {
   ESP_LOGD(LOG_SETTINGS_TAG, "[%s]-> [mode: %s, target °C: %.1f, fan: %s, swing: %s]", setting_name,
-           LOG_STR_ARG(climate_mode_to_string(this->mode)),  // Utilisation de LOG_STR_ARG
+           LOG_STR_ARG(climate_mode_to_string(this->mode)),  // use LOG_STR_ARG
            this->get_target_temperature_in_current_mode(),
            this->fan_mode.has_value() ? LOG_STR_ARG(climate_fan_mode_to_string(this->fan_mode.value())) : "-",
            LOG_STR_ARG(climate_swing_mode_to_string(this->swing_mode)));
@@ -136,7 +136,7 @@ void CN105Climate::debug_status(const char *status_name, HeatpumpStatus status) 
 
   ESP_LOGI(LOG_STATUS_TAG, "[%s]-> [room C°: %.1f, outside C°: %s, operating: %s, compressor freq: %.1f Hz]",
            status_name, status.room_temperature,
-           // Utilisation de snprintf dans l'expression ternaire
+           // use snprintf inside the ternary expression
            isnan(status.outside_air_temperature)
                ? "N/A"
                : (snprintf(outside_temp_buffer, sizeof(outside_temp_buffer), "%.1f", status.outside_air_temperature) > 0

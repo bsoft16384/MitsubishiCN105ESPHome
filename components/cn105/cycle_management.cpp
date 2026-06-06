@@ -25,8 +25,7 @@ void CycleManagement::defer_cycle() {
   uint32_t delay = DEFER_SCHEDULE_UPDATE_LOOP_DELAY;
 #endif
 
-  // ESP_LOGI(LOG_CYCLE_TAG, "Defering cycle trigger of %lu ms", delay);
-  log_info_uint32(LOG_CYCLE_TAG, "Defering cycle trigger of  ", delay, " ms");
+  log_info_uint32(LOG_CYCLE_TAG, "Deferring cycle trigger by ", delay, " ms");
   // forces the lastCompleteCycle offset of delay ms to allow a longer rest time
   last_complete_cycle_ms = CUSTOM_MILLIS + delay;
 }
@@ -39,7 +38,7 @@ void CycleManagement::cycle_started() {
 void CycleManagement::cycle_ended(bool timed_out) {
   cycle_running = false;
 
-  if (last_complete_cycle_ms < CUSTOM_MILLIS) {  // we check this because of defering mecanism
+  if (last_complete_cycle_ms < CUSTOM_MILLIS) {  // we check this because of the deferring mechanism
     // a complete cycle is done
     last_complete_cycle_ms = CUSTOM_MILLIS;  // to prevent next inteval from ticking too soon
   }
