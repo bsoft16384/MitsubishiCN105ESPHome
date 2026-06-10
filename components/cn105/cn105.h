@@ -230,8 +230,12 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
 
   void functions_arrived();
   bool set_functions(HeatpumpFunctions const &functions);
+  void send_pending_functions_packet2();
   bool is_get_functions_ = false;
   bool is_set_functions_ = false;
+  // Second function-set packet (0x21), held back until the unit ACKs the first (0x1F)
+  uint8_t pending_functions_packet2_[PACKET_LEN] = {};
+  bool functions_part2_pending_ = false;
 
   // helpers
   const char *get_if_not_null(const char *what, const char *default_value);

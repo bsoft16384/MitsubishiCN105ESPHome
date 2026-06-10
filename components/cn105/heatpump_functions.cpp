@@ -81,10 +81,24 @@ bool CN105Climate::set_functions(HeatpumpFunctions const &functions) {
   ESP_LOGD(TAG, "sending a set_functions packet part 1");
   write_packet(packet1, PACKET_LEN);
 
-  ESP_LOGD(TAG, "sending a set_functions packet part 2");
-  write_packet(packet2, PACKET_LEN);
+  // The bus is half-duplex and the unit ACKs every SET packet; sending part 2
+  // back-to-back would collide with the reply to part 1 at 2400 baud. Hold part 2
+  // until the ACK arrives (process_command 0x61), with a timeout as fallback.
+  memcpy(this->pending_functions_packet2_, packet2, PACKET_LEN);
+  this->functions_part2_pending_ = true;
+  this->set_timeout("fn_set_part2", 500, [this]() { this->send_pending_functions_packet2(); });
 
   return true;
+}
+
+void CN105Climate::send_pending_functions_packet2() {
+  if (!this->functions_part2_pending_) {
+    return;
+  }
+  this->functions_part2_pending_ = false;
+  this->cancel_timeout("fn_set_part2");
+  ESP_LOGD(TAG, "sending a set_functions packet part 2");
+  this->write_packet(this->pending_functions_packet2_, PACKET_LEN);
 }
 
 HeatpumpFunctions::HeatpumpFunctions() { clear(); }

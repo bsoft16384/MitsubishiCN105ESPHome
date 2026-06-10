@@ -474,6 +474,8 @@ void CN105Climate::process_command() {
     case 0x61: /* last update was successful */
       this->hp_packet_debug(this->parser_.raw(), this->parser_.frame_size(), LOG_ACK);
       this->update_success();
+      // If a function-set part 2 is waiting on the ACK of part 1, send it now
+      this->send_pending_functions_packet2();
       break;
 
     case 0x62: /* packet contains data (room °C, settings, timer, status, or functions...)*/
