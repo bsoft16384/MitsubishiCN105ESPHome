@@ -186,7 +186,7 @@ void CN105Climate::register_hardware_settings_requests() {
   InfoRequest r_funcs1("functions1", "Functions Part 1", 0x20, interval, LOG_FUNCTIONS_TAG);
   r_funcs1.on_response = [this, check_and_disable](CN105Climate &self) {
     // Log the raw packet and decoded pairs even if the unit returns all zeros
-    self.hp_packet_debug(self.data_, self.parser_.data_length(), "RX 0x20");
+    self.hp_packet_debug(self.parser_.raw(), self.parser_.frame_size(), "RX 0x20");
     self.hp_functions_debug(self.data_, self.parser_.data_length());
     if (check_and_disable(self, 0x20)) {
       if (self.parser_.data_length() >= 16) {
@@ -206,7 +206,7 @@ void CN105Climate::register_hardware_settings_requests() {
   InfoRequest r_funcs2("functions2", "Functions Part 2", 0x22, interval, LOG_FUNCTIONS_TAG);
   r_funcs2.on_response = [this, check_and_disable](CN105Climate &self) {
     // Log the raw packet and decoded pairs even if the unit returns all zeros
-    self.hp_packet_debug(self.data_, self.parser_.data_length(), "RX 0x22");
+    self.hp_packet_debug(self.parser_.raw(), self.parser_.frame_size(), "RX 0x22");
     self.hp_functions_debug(self.data_, self.parser_.data_length());
     if (check_and_disable(self, 0x22)) {
       if (self.parser_.data_length() >= 16) {
