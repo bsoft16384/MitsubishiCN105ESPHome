@@ -158,8 +158,11 @@ void CN105Climate::register_hardware_settings_requests() {
       ESP_LOGW(LOG_FUNCTIONS_TAG, "Response 0x%02X contains only zeros. Feature not supported by unit. Disabling.",
                code);
 
-      // 1. Do activate the request via the scheduler.
-      self.scheduler_.disable_request(code);
+      // 1. Deactivate both function requests via the scheduler: if the unit doesn't
+      // support one of 0x20/0x22 it doesn't support the other, and the selects below
+      // are already marked failed for both.
+      self.scheduler_.disable_request(FUNCTIONS_GET_PART1);
+      self.scheduler_.disable_request(FUNCTIONS_GET_PART2);
 
       // 2. Mark graphics components as failed (unavailable).
       ESP_LOGD(LOG_FUNCTIONS_TAG, "Marking Hardware Setting Selects as failed.");
