@@ -10,28 +10,22 @@ from esphome.components import (
     switch,
     binary_sensor,
     text_sensor,
-    uptime,
     number,
 )
 from esphome.components.uart import UARTParityOptions
 
 from esphome.const import (
     CONF_ID,
-    CONF_NAME,
-    CONF_ICON,
     CONF_UPDATE_INTERVAL,
     CONF_MODE,
     CONF_FAN_MODE,
     CONF_SWING_MODE,
     CONF_UART_ID,
-    CONF_ENTITY_CATEGORY,
     ENTITY_CATEGORY_DIAGNOSTIC,
     STATE_CLASS_TOTAL_INCREASING,
     UNIT_SECOND,
     ICON_TIMER,
     DEVICE_CLASS_DURATION,
-    CONF_TX_PIN,
-    CONF_RX_PIN,
     DEVICE_CLASS_FREQUENCY,
     DEVICE_CLASS_POWER,
     DEVICE_CLASS_ENERGY,
@@ -44,6 +38,7 @@ from esphome.const import (
     STATE_CLASS_MEASUREMENT,
 )
 from esphome.core import CORE
+from esphome.helpers import cpp_string_escape
 
 # --- AUTO_LOAD, DEPENDENCIES, and CONF_XXX_SENSOR constants ---
 AUTO_LOAD = [
@@ -485,7 +480,7 @@ async def to_code(config):
         if horizontal_vane_options:
             options_vector = cg.RawExpression(
                 "std::vector<std::string>{"
-                + ", ".join([f'"{opt}"' for opt in horizontal_vane_options])
+                + ", ".join(cpp_string_escape(opt) for opt in horizontal_vane_options)
                 + "}"
             )
         else:
@@ -627,7 +622,8 @@ async def to_code(config):
 
             # Build inline initializer list for std::map: {{key1, "val1"}, {key2, "val2"}, ...}
             map_entries = ", ".join(
-                [f'{{{val}, "{label}"}}' for val, label in options_map.items()]
+                f"{{{val}, {cpp_string_escape(label)}}}"
+                for val, label in options_map.items()
             )
             map_expr = cg.RawExpression(f"std::map<int, std::string>{{{map_entries}}}")
 
