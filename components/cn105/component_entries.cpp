@@ -148,6 +148,9 @@ void CN105Climate::maybe_start_connection_() {
         return;  // still waiting
       }
 #endif
+      // Count the grace delay from WiFi connect, not from boot — otherwise a slow
+      // WiFi association consumes the whole OTA-log grace window before it starts.
+      this->boot_ms_ = CUSTOM_MILLIS;
       this->transition_to_(DriverState::WAIT_GRACE);
       ESP_LOGI(LOG_CONN_TAG, "Bootstrap connection: WiFi connected, grace delay %ums", this->conn_bootstrap_delay_ms_);
       return;
