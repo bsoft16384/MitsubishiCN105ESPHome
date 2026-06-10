@@ -178,6 +178,10 @@ void CN105Climate::control_swing() {
 void CN105Climate::control_fan() {
   switch (this->fan_mode.value()) {
     case climate::CLIMATE_FAN_OFF:
+      // Also update the desired state, otherwise evaluate_fan_stop_and_ltp() sees a
+      // mode mismatch on its next pass and turns the unit right back on.
+      this->desired_mode_ = climate::CLIMATE_MODE_OFF;
+      this->mode = climate::CLIMATE_MODE_OFF;
       this->set_power_setting("OFF");
       break;
     case climate::CLIMATE_FAN_QUIET:
