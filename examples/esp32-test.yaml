@@ -45,7 +45,7 @@ sensor:
     name: "dg_hp_connected"
     entity_category: DIAGNOSTIC
     lambda: |-
-      return (bool) id(esp32_clim).is_uart_ready();
+      return (bool) id(esp32_clim).is_heatpump_connected();
     update_interval: 30s
 
   - platform: template
