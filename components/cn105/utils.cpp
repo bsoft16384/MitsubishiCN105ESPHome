@@ -158,9 +158,9 @@ const char *packet_command_label(uint8_t command) {
     case 0x41:
       return "SET";  // command sent to HP
     case 0x42:
-      return "ACK/INFO";  // response/info from HP
+      return "GET";  // info request sent to HP
     case 0x61:
-      return "GET";  // request data from HP
+      return "ACK";  // HP acknowledges a SET
     case 0x62:
       return "RESPONSE";  // data response from HP
     default:
@@ -178,9 +178,9 @@ const char *packet_subcommand_label(uint8_t sub) {
     case 0x03:
       return ":RoomTemp";
     case 0x04:
-      return ":Status";
+      return ":ErrorInfo";
     case 0x05:
-      return ":Standby";
+      return ":Timers";
     case 0x06:
       return ":Status";
     case 0x09:
