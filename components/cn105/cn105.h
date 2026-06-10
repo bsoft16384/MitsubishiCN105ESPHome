@@ -400,7 +400,7 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   uint32_t last_reconnect_time_ms_{0};
 
   cn105_protocol::FrameParser parser_;  // UART frame assembler (Phase 3A)
-  uint8_t *data_;
+  uint8_t *data_ = nullptr;
   uint8_t get_payload_byte(int index, uint8_t default_val = 0) const;
 
   // All fields are default-initialized via HeatpumpStatus struct defaults (NAN, false, etc.)
