@@ -189,7 +189,8 @@ void CN105Climate::get_settings_from_response_packet() {
 
   // --- START OF MODIFIED SECTION - Reverted widevane section back to more or less original state
   if ((get_payload_byte(10) != 0) &&
-      (this->traits_.supports_swing_mode(climate::CLIMATE_SWING_HORIZONTAL))) {  // wide_vane is not always supported
+      (this->traits_.supports_swing_mode(climate::CLIMATE_SWING_HORIZONTAL) ||
+       this->horizontal_vane_select_ != nullptr)) {  // wide_vane is not always supported
     uint8_t wide_vane_byte = get_payload_byte(10) & 0x0F;
     auto wide_vane_opt = hp_wide_vane_from_wire(wide_vane_byte);
     if (wide_vane_opt) {
@@ -661,14 +662,16 @@ void CN105Climate::check_wide_vane_settings(HeatpumpSettings &settings, bool upd
   }
 }
 void CN105Climate::update_extra_select_components(HeatpumpSettings &settings) {
-  if (this->vertical_vane_select_ != nullptr) {
+  // An UNKNOWN vane value (undecoded or unrecognized byte) would publish the literal
+  // string "UNKNOWN", which is not in the select's option list — skip it.
+  if (this->vertical_vane_select_ != nullptr && settings.vane != HPVaneMode::UNKNOWN) {
     if (this->has_changed(this->vertical_vane_select_->current_option(), hp_vane_to_str(settings.vane),
                           "select vane")) {
       ESP_LOGI(TAG, "vane setting (extra select component) changed");
       this->vertical_vane_select_->publish_state(hp_vane_to_str(settings.vane));
     }
   }
-  if (this->horizontal_vane_select_ != nullptr) {
+  if (this->horizontal_vane_select_ != nullptr && settings.wide_vane != HPWideVaneMode::UNKNOWN) {
     if (this->has_changed(this->horizontal_vane_select_->current_option(), hp_wide_vane_to_str(settings.wide_vane),
                           "select wide_vane")) {
       ESP_LOGI(TAG, "widevane setting (extra select component) changed");
