@@ -75,7 +75,7 @@ static const uint8_t FUNCTIONS_SET_PART2 = 0x21;
 static const uint8_t FUNCTIONS_GET_PART2 = 0x22;
 
 const uint8_t ESPMHP_MIN_TEMPERATURE = 16;
-const uint8_t ESPMHP_MAX_TEMPERATURE = 26;
+const uint8_t ESPMHP_MAX_TEMPERATURE = 31;
 const float ESPMHP_TEMPERATURE_STEP = 0.5;
 
 enum class HPPower : uint8_t { OFF = 0, ON = 1, UNKNOWN = 2 };
