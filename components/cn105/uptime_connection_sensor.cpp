@@ -1,5 +1,4 @@
 #include "esphome/core/log.h"
-#include "esphome/core/helpers.h"
 #include "esphome/core/hal.h"
 #include "uptime_connection_sensor.h"
 
@@ -43,7 +42,6 @@ void HpUpTimeConnectionSensor::stop() {
   this->update();
 }
 
-std::string HpUpTimeConnectionSensor::unique_id() { return get_mac_address() + "-uptime-hp_connection"; }
 void HpUpTimeConnectionSensor::dump_config() { LOG_SENSOR("", "Uptime Connection Sensor", this); }
 
 }  // namespace cn105
