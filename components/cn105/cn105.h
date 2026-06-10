@@ -389,6 +389,9 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   uint32_t debounce_delay_;
 
   uint32_t last_send_{0};
+  // Timestamp of the last wanted-settings packet send; survives wanted_settings_.reset_settings()
+  // so the post-send grace window in publish_state_to_ha() can ignore stale echoed setpoints.
+  uint32_t last_wanted_settings_send_ms_{0};
   uint32_t last_connect_rq_time_ms_{0};
   uint32_t last_reconnect_time_ms_{0};
 

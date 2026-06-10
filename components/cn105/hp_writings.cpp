@@ -305,6 +305,7 @@ void CN105Climate::publish_wanted_run_states_state_to_ha() {
 void CN105Climate::send_wanted_settings_delegate() {
   this->wanted_settings_.has_been_sent = true;
   this->last_send_ = CUSTOM_MILLIS;
+  this->last_wanted_settings_send_ms_ = CUSTOM_MILLIS;
   ESP_LOGI(TAG, "sending wanted_settings_..");
   this->debug_settings("wanted_settings_", wanted_settings_);
   // and then we send the update packet

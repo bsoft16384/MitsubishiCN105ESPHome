@@ -561,8 +561,8 @@ void CN105Climate::publish_state_to_ha(HeatpumpSettings &settings) {
   bool has_pending_user_temp = (this->wanted_settings_.temperature.has_value()) && (this->wanted_settings_.has_changed) &&
                             (!this->wanted_settings_.has_been_sent);
   uint32_t grace_window_ms = this->get_update_interval() + DEFER_SCHEDULE_UPDATE_LOOP_DELAY;
-  bool grace_after_send =
-      (this->wanted_settings_.has_been_sent) && ((CUSTOM_MILLIS - this->wanted_settings_.last_change) < grace_window_ms);
+  bool grace_after_send = (this->last_wanted_settings_send_ms_ != 0) &&
+                          ((CUSTOM_MILLIS - this->last_wanted_settings_send_ms_) < grace_window_ms);
   if (!has_pending_user_temp && !grace_after_send) {
     if (!this->wanted_settings_.temperature.has_value()) {  // to prevent overwriting a user demand
       if (settings.temperature.has_value()) {
