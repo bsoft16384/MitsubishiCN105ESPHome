@@ -48,11 +48,7 @@ CN105Climate::CN105Climate(uart::UARTComponent *uart)
   // state_ is initialized to BOOT in the header
   this->wide_vane_adj_ = false;
   this->functions = HeatpumpFunctions();
-  this->auto_update_ = false;
-  this->first_run_ = true;
-  this->external_update_ = false;
   this->last_send_ = 0;
-  this->info_mode_ = 0;
   this->last_connect_rq_time_ms_ = 0;
   // current_status_ fields are now default-initialized via HeatpumpStatus struct defaults
 
@@ -64,8 +60,6 @@ CN105Climate::CN105Climate(uart::UARTComponent *uart)
   this->input_power_sensor_ = nullptr;
   this->kwh_sensor_ = nullptr;
   this->runtime_hours_sensor_ = nullptr;
-
-  this->power_request_without_responses_ = 0;  // power request is not supported by all heatpump #112
 
   this->remote_temp_timeout_ = UINT32_MAX;  // "never"
   this->loop_cycle_.init();
@@ -320,9 +314,6 @@ void CN105Climate::setup_uart() {
   this->set_heatpump_connected(false);
   // isUARTConnected_ replaced by state_ (set to CONNECTING after successful config below)
 
-  // just for debugging purpose, a way to use a button i, yaml to trigger a reconnect
-  this->uart_setup_switch = true;
-
   if (this->parent_->get_data_bits() == 8 && this->parent_->get_parity() == uart::UART_CONFIG_PARITY_EVEN &&
       this->parent_->get_stop_bits() == 1) {
     ESP_LOGI(LOG_CONN_TAG, "UART configured as SERIAL_8E1");
@@ -351,10 +342,8 @@ void CN105Climate::set_heatpump_connected(bool state) {
 }
 void CN105Climate::disconnect_uart() {
   ESP_LOGD(TAG, "disconnect_uart()");
-  this->uart_setup_switch = false;
   this->set_heatpump_connected(false);
   // Legacy booleans removed — state managed by FSM (set_heatpump_connected / transition_to_)
-  this->first_run_ = true;
   this->first_real_state_received_ = false;
   this->publish_state();
 }

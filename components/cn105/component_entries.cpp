@@ -190,5 +190,4 @@ void CN105Climate::set_update_interval(uint32_t update_interval) {
   log_debug_uint32(TAG, "Setting update interval to ", update_interval);
 
   this->update_interval_ = update_interval;
-  this->auto_update_ = (update_interval != 0);
 }

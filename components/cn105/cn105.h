@@ -177,17 +177,11 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   climate::ClimateTraits &config_traits();
 
   void control(const esphome::climate::ClimateCall &call) override;
-  void control_mode();
-  void control_temperature();
   float calculate_temperature_setting(float setting);
   float get_target_temperature_in_current_mode();
   float get_target_temperature();
-  float get_target_temperature_low();
-  float get_target_temperature_high();
   float get_current_temperature();
   void set_target_temperature(float temperature);
-  void set_target_temperature_low(float temperature);
-  void set_target_temperature_high(float temperature);
   void set_current_temperature(float temperature);
 
   void control_fan();
@@ -211,9 +205,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   void set_power_unit_is_btu(bool v) { this->power_unit_is_btu_ = v; }
 
   // Configure the climate object with traits that we support.
-
-  /// The UART setup button
-  bool uart_setup_switch;
 
   // Legacy booleans replaced by DriverState FSM (see state_)
   // bool isUARTConnected_  → isUARTReady_()
@@ -259,7 +250,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   void get_room_temperature_from_response_packet();
   void get_operating_and_compressor_freq_from_response_packet();
 
-  void update_success();
   void process_command();
 
   uint8_t check_sum(uint8_t bytes[], int len);
@@ -317,20 +307,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
 
  private:
   int uart_port_ = -1;
-  const char *lookup_byte_map_value(const char *values_map[], const uint8_t byte_map[], int len, uint8_t byte_value,
-                                    const char *debug_info = "", const char *default_value = nullptr);
-  int lookup_byte_map_value(const int values_map[], const uint8_t byte_map[], int len, uint8_t byte_value,
-                            const char *debug_info = "");
-  int lookup_byte_map_index(const char *values_map[], int len, const char *lookup_value, const char *debug_info = "");
-  int lookup_byte_map_index(const int values_map[], int len, int lookup_value, const char *debug_info = "");
-  template<typename T>
-  int lookup_byte_map_index(const T values_map[], int len, T lookup_value, const char *debug_info = "") {
-    int idx = cn105_protocol::lookup_index(values_map, len, lookup_value);
-    if (idx < 0) {
-      ESP_LOGW("lookup", "%s caution: value not found, returning -1", debug_info);
-    }
-    return idx;
-  }
 
   void write_packet(uint8_t *packet, int length, bool check_is_active = true);
   void prepare_info_packet(uint8_t *packet, int length);
@@ -362,7 +338,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   void debug_settings(const char *setting_name, HeatpumpSettings &settings);
   void debug_settings(const char *setting_name, WantedHeatpumpSettings &settings);
   void debug_status(const char *status_name, HeatpumpStatus status);
-  void debug_settings_and_status(const char *setting_name, HeatpumpSettings settings, HeatpumpStatus status);
   void debug_climate(const char *setting_name);
 
   void control_delegate(const esphome::climate::ClimateCall &call);
@@ -408,19 +383,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   HeatpumpFunctions functions;
 
   bool wide_vane_adj_{false};
-  bool auto_update_{false};
-  bool first_run_{true};
-  int info_mode_{0};
-  bool external_update_{false};
-
-  // counter for status request for checking heatpump is still connected
-  // is the counter > MAX_NON_RESPONSE_REQ then we conclude uart is not connected anymore
-  int non_response_counter_ = 0;
-
-  int power_request_without_responses_ = 0;
-
-  bool is_reading_ = false;
-  bool is_writing_ = false;
 
   // Safe handling of a deferred packet to write to avoid capturing a stack buffer
   void try_write_pending_packet();

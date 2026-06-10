@@ -103,7 +103,6 @@ class RequestScheduler {
 
  private:
   std::vector<InfoRequest> requests_;     // Requests queue
-  int current_request_index_;             // Index of the current request
   SendCallback send_callback_;            // Callback to send a packet
   TerminateCallback terminate_callback_;  // Callback to end a cycle
   ContextCallback context_callback_;      // Callback to get the CN105Climate context

@@ -7,17 +7,13 @@ using namespace esphome;
 
 RequestScheduler::RequestScheduler(SendCallback send_callback, TerminateCallback terminate_callback,
                                    ContextCallback context_callback)
-    : current_request_index_(-1),
-      send_callback_(send_callback),
+    : send_callback_(send_callback),
       terminate_callback_(terminate_callback),
       context_callback_(context_callback) {}
 
 void RequestScheduler::register_request(InfoRequest &req) { requests_.push_back(req); }
 
-void RequestScheduler::clear_requests() {
-  requests_.clear();
-  current_request_index_ = -1;
-}
+void RequestScheduler::clear_requests() { requests_.clear(); }
 
 void RequestScheduler::disable_request(uint8_t code) {
   for (auto &req : requests_) {
@@ -80,7 +76,6 @@ void RequestScheduler::send_request(uint8_t code, CN105Climate *context) {
       send_callback_(req.code);
     }
 
-    current_request_index_ = static_cast<int>(i);
     return;
   }
 }

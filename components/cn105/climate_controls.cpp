@@ -210,52 +210,6 @@ void CN105Climate::control_fan() {
   }
 }
 
-void CN105Climate::control_temperature() {
-  float setting = this->get_target_temperature();
-  setting = this->calculate_temperature_setting(setting);
-  this->wanted_settings_.temperature = setting;
-  ESP_LOGI("control", "setting wanted temperature to %.1f", setting);
-}
-
-void CN105Climate::control_mode() {
-  switch (this->mode) {
-    case climate::CLIMATE_MODE_COOL:
-      ESP_LOGI("control", "changing mode to COOL");
-      this->set_mode_setting("COOL");
-      this->set_power_setting("ON");
-      break;
-    case climate::CLIMATE_MODE_HEAT:
-      ESP_LOGI("control", "changing mode to HEAT");
-      this->set_mode_setting("HEAT");
-      this->set_power_setting("ON");
-
-      break;
-    case climate::CLIMATE_MODE_DRY:
-      ESP_LOGI("control", "changing mode to DRY");
-      this->set_mode_setting("DRY");
-      this->set_power_setting("ON");
-
-      break;
-
-    case climate::CLIMATE_MODE_FAN_ONLY:
-      ESP_LOGI("control", "changing mode to FAN_ONLY");
-      this->set_mode_setting("FAN");
-      this->set_power_setting("ON");
-      break;
-    case climate::CLIMATE_MODE_HEAT_COOL:
-      ESP_LOGI("control", "changing mode to HEAT_COOL (AUTO)");
-      this->set_mode_setting("AUTO");
-      this->set_power_setting("ON");
-      break;
-    case climate::CLIMATE_MODE_OFF:
-      ESP_LOGI("control", "changing mode to OFF");
-      this->set_power_setting("OFF");
-      break;
-    default:
-      ESP_LOGW("control", "unsupported mode");
-  }
-}
-
 void CN105Climate::set_action_if_operating_to(climate::ClimateAction action_if_operating) {
   // Determine if stage indicates activity (for fallback logic)
   bool stage_is_active = this->use_stage_for_operating_status_ && this->current_settings_.stage != HPStage::IDLE &&

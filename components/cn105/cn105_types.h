@@ -37,11 +37,8 @@ static const uint32_t DEFAULT_REMOTE_TEMP_KEEPALIVE_INTERVAL_MS = 20000;
 static const uint32_t REMOTE_TEMP_MIN_SEND_INTERVAL_MS = 10000;
 
 static const int DEFER_SCHEDULE_UPDATE_LOOP_DELAY = 750;
-static const uint32_t RECEIVED_SETPOINT_GRACE_WINDOW_MS = 3000;
-static const uint32_t UI_SETPOINT_ANTIREBOUND_MS = 600;
 
 static const int PACKET_LEN = 22;
-static const int PACKET_TYPE_DEFAULT = 99;
 
 static const int CONNECT_LEN = 8;
 static const uint8_t CONNECT[CONNECT_LEN] = {0xfc, 0x5a, 0x01, 0x30, 0x02, 0xca, 0x01, 0xa8};
@@ -66,8 +63,6 @@ static const int MAX_NON_RESPONSE_REQ = 5;
 static const uint8_t CONTROL_PACKET_1[5] = {0x01, 0x02, 0x04, 0x08, 0x10};
 static const uint8_t CONTROL_PACKET_2[1] = {0x01};
 static const uint8_t RUN_STATE_PACKET_1[5] = {0x01, 0x04, 0x08, 0x10, 0x20};
-
-static const int TIMER_INCREMENT_MINUTES = 10;
 
 static const uint8_t FUNCTIONS_SET_PART1 = 0x1F;
 static const uint8_t FUNCTIONS_GET_PART1 = 0x20;
@@ -122,7 +117,6 @@ enum class HPAutoSubMode : uint8_t {
   UNKNOWN = 7
 };
 
-enum class HPTimerMode : uint8_t { NONE = 0, OFF = 1, ON = 2, BOTH = 3, UNKNOWN = 4 };
 
 enum class HPAirflowControl : uint8_t { EVEN = 0, INDIRECT = 1, DIRECT = 2, UNKNOWN = 3 };
 
@@ -264,13 +258,6 @@ inline constexpr EnumTable<HPAutoSubMode, 7> AUTO_SUB_MODE_TABLE = {{
     {HPAutoSubMode::AUTO_ACTIVE, 0x43, "AUTO_ACTIVE"},
 }};
 
-inline constexpr EnumTable<HPTimerMode, 4> TIMER_MODE_TABLE = {{
-    {HPTimerMode::NONE, 0x00, "NONE"},
-    {HPTimerMode::OFF, 0x01, "OFF"},
-    {HPTimerMode::ON, 0x02, "ON"},
-    {HPTimerMode::BOTH, 0x03, "BOTH"},
-}};
-
 inline constexpr EnumTable<HPAirflowControl, 3> AIRFLOW_CONTROL_TABLE = {{
     {HPAirflowControl::EVEN, 0x00, "EVEN"},
     {HPAirflowControl::INDIRECT, 0x01, "INDIRECT"},
@@ -289,7 +276,6 @@ inline const char *hp_wide_vane_to_str(HPWideVaneMode val) { return enum_to_str(
 inline const char *hp_stage_to_str(HPStage val) { return enum_to_str(STAGE_TABLE, val); }
 inline const char *hp_sub_mode_to_str(HPSubMode val) { return enum_to_str(SUB_MODE_TABLE, val); }
 inline const char *hp_auto_sub_mode_to_str(HPAutoSubMode val) { return enum_to_str(AUTO_SUB_MODE_TABLE, val); }
-inline const char *hp_timer_mode_to_str(HPTimerMode val) { return enum_to_str(TIMER_MODE_TABLE, val); }
 inline const char *hp_airflow_control_to_str(HPAirflowControl val) { return enum_to_str(AIRFLOW_CONTROL_TABLE, val); }
 
 inline HPPower hp_power_from_str(const char *str) { return enum_from_str(POWER_TABLE, str, HPPower::UNKNOWN); }
@@ -306,9 +292,6 @@ inline HPSubMode hp_sub_mode_from_str(const char *str) {
 inline HPAutoSubMode hp_auto_sub_mode_from_str(const char *str) {
   return enum_from_str(AUTO_SUB_MODE_TABLE, str, HPAutoSubMode::UNKNOWN);
 }
-inline HPTimerMode hp_timer_mode_from_str(const char *str) {
-  return enum_from_str(TIMER_MODE_TABLE, str, HPTimerMode::UNKNOWN);
-}
 inline HPAirflowControl hp_airflow_control_from_str(const char *str) {
   return enum_from_str(AIRFLOW_CONTROL_TABLE, str, HPAirflowControl::UNKNOWN);
 }
@@ -323,7 +306,6 @@ inline std::optional<HPSubMode> hp_sub_mode_from_wire(uint8_t byte) { return wir
 inline std::optional<HPAutoSubMode> hp_auto_sub_mode_from_wire(uint8_t byte) {
   return wire_to_enum(AUTO_SUB_MODE_TABLE, byte);
 }
-inline std::optional<HPTimerMode> hp_timer_mode_from_wire(uint8_t byte) { return wire_to_enum(TIMER_MODE_TABLE, byte); }
 inline std::optional<HPAirflowControl> hp_airflow_control_from_wire(uint8_t byte) {
   return wire_to_enum(AIRFLOW_CONTROL_TABLE, byte);
 }
@@ -338,7 +320,6 @@ inline std::optional<uint8_t> hp_sub_mode_to_wire(HPSubMode val) { return enum_t
 inline std::optional<uint8_t> hp_auto_sub_mode_to_wire(HPAutoSubMode val) {
   return enum_to_wire(AUTO_SUB_MODE_TABLE, val);
 }
-inline std::optional<uint8_t> hp_timer_mode_to_wire(HPTimerMode val) { return enum_to_wire(TIMER_MODE_TABLE, val); }
 inline std::optional<uint8_t> hp_airflow_control_to_wire(HPAirflowControl val) {
   return enum_to_wire(AIRFLOW_CONTROL_TABLE, val);
 }
@@ -406,27 +387,10 @@ struct WantedHeatpumpSettings : HeatpumpSettings {
   }
 };
 
-struct HeatpumpTimers {
-  HPTimerMode mode = HPTimerMode::UNKNOWN;
-  int on_minutes_set = 0;
-  int on_minutes_remaining = 0;
-  int off_minutes_set = 0;
-  int off_minutes_remaining = 0;
-
-  HeatpumpTimers &operator=(const HeatpumpTimers &other) = default;
-
-  bool operator==(const HeatpumpTimers &other) const {
-    return mode == other.mode && on_minutes_set == other.on_minutes_set && on_minutes_remaining == other.on_minutes_remaining &&
-           off_minutes_set == other.off_minutes_set && off_minutes_remaining == other.off_minutes_remaining;
-  }
-  bool operator!=(const HeatpumpTimers &other) const { return !(this->operator==(other)); }
-};
-
 struct HeatpumpStatus {
   float room_temperature = NAN;
   float outside_air_temperature = NAN;
   bool operating = false;
-  HeatpumpTimers timers{};
   float compressor_frequency = NAN;
   float input_power = NAN;
   float kwh = NAN;

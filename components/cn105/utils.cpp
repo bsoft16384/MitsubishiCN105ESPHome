@@ -141,12 +141,6 @@ void CN105Climate::debug_status(const char *status_name, HeatpumpStatus status) 
            status.operating ? "YES" : "NO ", status.compressor_frequency);
 }
 
-void CN105Climate::debug_settings_and_status(const char *setting_name, HeatpumpSettings settings,
-                                             HeatpumpStatus status) {
-  this->debug_settings(setting_name, settings);
-  this->debug_status(setting_name, status);
-}
-
 namespace {
 // Human-readable label for the command byte (offset 1 of a 0xFC-framed packet).
 const char *packet_command_label(uint8_t command) {
@@ -282,50 +276,4 @@ void CN105Climate::hp_functions_debug(uint8_t *packet, unsigned int length) {
   // Display with LOG_FUNCTIONS_TAG (defined in cn105_types.h)
   // E.g.: [FUNCTIONS] Decoded 20: 101:1 102:3 103:2 ...
   ESP_LOGD(LOG_FUNCTIONS_TAG, "Decoded %02X:%s", packet[0], output);
-}
-
-int CN105Climate::lookup_byte_map_index(const int values_map[], int len, int lookup_value, const char *debug_info) {
-  int idx = cn105_protocol::lookup_index(values_map, len, lookup_value);
-  if (idx < 0) {
-    ESP_LOGW("lookup", "%s caution value %d not found, returning -1", debug_info, lookup_value);
-  }
-  return idx;
-}
-int CN105Climate::lookup_byte_map_index(const char *values_map[], int len, const char *lookup_value,
-                                        const char *debug_info) {
-  int idx = cn105_protocol::lookup_index(values_map, len, lookup_value);
-  if (idx < 0) {
-    ESP_LOGW("lookup", "%s caution value %s not found, returning -1", debug_info, lookup_value);
-  }
-  return idx;
-}
-const char *CN105Climate::lookup_byte_map_value(const char *values_map[], const uint8_t byte_map[], int len,
-                                                uint8_t byte_value, const char *debug_info, const char *default_value) {
-  // Check if value exists in the map first
-  for (int i = 0; i < len; i++) {
-    if (byte_map[i] == byte_value) {
-      return values_map[i];
-    }
-  }
-  if (default_value != nullptr) {
-    return default_value;
-  }
-  ESP_LOGW("lookup", "%s caution: value %d not found, returning value at index 0", debug_info, byte_value);
-  return values_map[0];
-}
-int CN105Climate::lookup_byte_map_value(const int values_map[], const uint8_t byte_map[], int len, uint8_t byte_value,
-                                        const char *debug_info) {
-  int result = cn105_protocol::lookup_value(values_map, byte_map, len, byte_value);
-  // Check if the lookup actually found a match vs returned fallback
-  bool found = false;
-  for (int i = 0; i < len; i++) {
-    if (byte_map[i] == byte_value) {
-      found = true;
-      break;
-    }
-  }
-  if (!found) {
-    ESP_LOGW("lookup", "%s caution: value %d not found, returning value at index 0", debug_info, byte_value);
-  }
-  return result;
 }

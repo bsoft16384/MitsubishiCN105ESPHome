@@ -366,8 +366,6 @@ void CN105Climate::get_operating_and_compressor_freq_from_response_packet() {
   ESP_LOGD("Decoder", "[0x06 is status]");
   // this->last_received_packet_sensor->publish_state("0x62-> 0x06: Data -> Heatpump Status");
 
-  // reset counter (because a reply indicates it is connected)
-  this->non_response_counter_ = 0;
   received_status.operating = get_payload_byte(4);
   // Some models (e.g. PAA/PUZ combo) seem to have some noise on the compressor frequency sensor, even when not in
   // operation. To avoid reporting random values, set the compressor frequency to 0 when the heatpump is not operating.
@@ -463,17 +461,12 @@ void CN105Climate::get_data_from_response_packet() {
   }
 }
 
-void CN105Climate::update_success() {
-  ESP_LOGD(LOG_ACK, "Last heatpump data update successful!");
-  // nothing can be done here because we have no mean to know wether it is an external temp ack
-  // or a wanted_settings_ update ack
-}
-
 void CN105Climate::process_command() {
   switch (this->parser_.command()) {
     case 0x61: /* last update was successful */
+      // We have no way to tell whether this acknowledges an external temp packet
+      // or a wanted_settings_ update, so there is nothing more to derive from it.
       this->hp_packet_debug(this->parser_.raw(), this->parser_.frame_size(), LOG_ACK);
-      this->update_success();
       // If a function-set part 2 is waiting on the ACK of part 1, send it now
       this->send_pending_functions_packet2();
       break;
