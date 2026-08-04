@@ -26,13 +26,13 @@ void HardwareSettingSelect::update_state_from_value(int value) {
 
   const std::string &new_state = it->second;
 
-  auto cur = this->current_option();
-  const char *cur_opt = cur.c_str();
-  bool changed = cur_opt == nullptr || std::strcmp(cur_opt, new_state.c_str()) != 0;
+  // current_option() yields an empty StringRef (not a null pointer) before the first publish.
+  const StringRef cur = this->current_option();
+  const bool changed = cur.empty() || std::strcmp(cur.c_str(), new_state.c_str()) != 0;
 
   if (changed) {
     ESP_LOGI(LOG_HARDWARE_SELECT_TAG, "Code %d state changed: %s -> %s (val: %d)", this->code_,
-             (cur_opt ? cur_opt : "<none>"), new_state.c_str(), value);
+             cur.empty() ? "<none>" : cur.c_str(), new_state.c_str(), value);
     this->publish_state(new_state);
   } else {
     ESP_LOGD(LOG_HARDWARE_SELECT_TAG, "Code %d state unchanged: %s (val: %d)", this->code_, new_state.c_str(), value);
@@ -58,8 +58,6 @@ void HardwareSettingSelect::control(const std::string &value) {
     ESP_LOGW(LOG_HARDWARE_SELECT_TAG, "Code %d control value not found in mapping: %s", this->code_, value.c_str());
   }
 }
-
-bool HardwareSettingSelect::is_available() { return this->enabled_; }
 
 void HardwareSettingSelect::set_enabled(bool enabled) { this->enabled_ = enabled; }
 }  // namespace esphome

@@ -56,9 +56,12 @@ static const uint8_t FUNCTIONS_GET_PART1 = 0x20;
 static const uint8_t FUNCTIONS_SET_PART2 = 0x21;
 static const uint8_t FUNCTIONS_GET_PART2 = 0x22;
 
-const uint8_t ESPMHP_MIN_TEMPERATURE = 16;
-const uint8_t ESPMHP_MAX_TEMPERATURE = 31;
-const float ESPMHP_TEMPERATURE_STEP = 0.5;
+// Visual range advertised to Home Assistant. Kept identical to the range the unit
+// accepts (cn105_protocol::normalize_setpoint clamps to the same bounds) so a
+// commanded setpoint always matches what the unit reports back.
+const float ESPMHP_MIN_TEMPERATURE = cn105_protocol::SETPOINT_MIN_C;
+const float ESPMHP_MAX_TEMPERATURE = cn105_protocol::SETPOINT_MAX_C;
+const float ESPMHP_TEMPERATURE_STEP = cn105_protocol::SETPOINT_STEP_C;
 
 enum class HPPower : uint8_t { OFF = 0, ON = 1, UNKNOWN = 2 };
 
@@ -356,6 +359,15 @@ struct WantedHeatpumpSettings : HeatpumpSettings {
   bool has_changed = false;
   bool has_been_sent = false;
   uint32_t last_change = 0;
+
+  /// True when at least one field is actually set, i.e. building a SET packet from
+  /// this would carry a payload. Without this, a control() call whose command was
+  /// suppressed still writes a frame with no control flags set — a no-op on the
+  /// wire that nonetheless defers the next info cycle.
+  bool has_payload() const {
+    return power != HPPower::UNKNOWN || mode != HPMode::UNKNOWN || temperature.has_value() ||
+           fan != HPFanMode::UNKNOWN || vane != HPVaneMode::UNKNOWN || wide_vane != HPWideVaneMode::UNKNOWN;
+  }
 
   void reset_settings() {
     HeatpumpSettings::reset_settings();

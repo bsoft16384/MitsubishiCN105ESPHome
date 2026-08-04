@@ -9,6 +9,26 @@
 
 using namespace esphome;
 
+namespace {
+/// Map a Home Assistant climate mode onto the heatpump mode that realises it.
+/// Returns nullopt for CLIMATE_MODE_OFF (handled via the power flag) and for any
+/// mode this component does not expose.
+std::optional<HPMode> climate_mode_to_hp_mode(climate::ClimateMode mode) {
+  switch (mode) {
+    case climate::CLIMATE_MODE_HEAT:
+      return HPMode::HEAT;
+    case climate::CLIMATE_MODE_COOL:
+      return HPMode::COOL;
+    case climate::CLIMATE_MODE_DRY:
+      return HPMode::DRY;
+    case climate::CLIMATE_MODE_FAN_ONLY:
+      return HPMode::FAN;
+    default:
+      return std::nullopt;
+  }
+}
+}  // namespace
+
 void CN105Climate::check_pending_wanted_settings() {
   // Already in-flight — don't log or re-send
   if (this->wanted_settings_.has_been_sent) {
@@ -22,6 +42,16 @@ void CN105Climate::check_pending_wanted_settings() {
 
   // Don't log if send_wanted_settings() will defer due to write throttle (300ms)
   if (now - this->last_send_ <= 300) {
+    return;
+  }
+
+  // A control() call can be flagged as changed while every field ends up unset — for
+  // instance when evaluate_fan_stop_and_ltp() suppressed a repeat command. Sending
+  // then writes a SET frame with no control flags: a no-op on the wire that still
+  // defers the next info cycle. Drop it instead.
+  if (!this->wanted_settings_.has_payload()) {
+    ESP_LOGD(LOG_ACTION_EVT_TAG, "wanted settings carry no change, nothing to send");
+    this->wanted_settings_.reset_settings();
     return;
   }
 
@@ -254,26 +284,6 @@ void CN105Climate::update_action() {
     case climate::CLIMATE_MODE_FAN_ONLY:
       this->action = climate::CLIMATE_ACTION_FAN;
       break;
-    case climate::CLIMATE_MODE_HEAT_COOL:
-      if (this->current_settings_.auto_sub_mode == HPAutoSubMode::AUTO_COOL) {
-        this->set_action_if_operating_to(climate::CLIMATE_ACTION_COOLING);
-      } else if (this->current_settings_.auto_sub_mode == HPAutoSubMode::AUTO_HEAT) {
-        this->set_action_if_operating_to(climate::CLIMATE_ACTION_HEATING);
-      } else {
-        // Fallback: compare room temperature and target temperature
-        float target = this->get_target_temperature();
-        float current = this->get_current_temperature();
-        if (!std::isnan(current) && !std::isnan(target)) {
-          if (current < target) {
-            this->set_action_if_operating_to(climate::CLIMATE_ACTION_HEATING);
-          } else {
-            this->set_action_if_operating_to(climate::CLIMATE_ACTION_COOLING);
-          }
-        } else {
-          this->set_action_if_operating_to(climate::CLIMATE_ACTION_IDLE);
-        }
-      }
-      break;
     default:
       this->action = climate::CLIMATE_ACTION_OFF;
   }
@@ -366,7 +376,10 @@ void CN105Climate::set_remote_temperature(float setting) {
 void CN105Climate::clear_remote_temperature() {
   // Revert to the unit's internal sensor: no remote temperature is held anymore.
   this->remote_temperature_.reset();
-  this->ping_external_temperature();
+  // Disarm rather than re-arm the watchdog. Re-arming here would make the timeout
+  // callback (which calls this function) reschedule itself forever, re-sending the
+  // revert packet once per timeout period for the lifetime of the device.
+  this->cancel_timeout(SCHEDULER_REMOTE_TEMP_TIMEOUT);
   this->stop_remote_temp_keep_alive();
   // Send the revert packet immediately (drop any pending deferred write first).
   this->cancel_timeout("deferred_remote_temp_send");
@@ -467,17 +480,8 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
     if (this->current_settings_.power != HPPower::ON) {
       mode_mismatch = true;
     }
-    HPMode target_mode_enum = HPMode::AUTO;
-    if (target_physical_mode == climate::CLIMATE_MODE_HEAT)
-      target_mode_enum = HPMode::HEAT;
-    else if (target_physical_mode == climate::CLIMATE_MODE_COOL)
-      target_mode_enum = HPMode::COOL;
-    else if (target_physical_mode == climate::CLIMATE_MODE_DRY)
-      target_mode_enum = HPMode::DRY;
-    else if (target_physical_mode == climate::CLIMATE_MODE_FAN_ONLY)
-      target_mode_enum = HPMode::FAN;
-
-    if (this->current_settings_.mode != target_mode_enum) {
+    auto target_mode_enum = climate_mode_to_hp_mode(target_physical_mode);
+    if (target_mode_enum && this->current_settings_.mode != *target_mode_enum) {
       mode_mismatch = true;
     }
   }
@@ -506,11 +510,11 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
   if ((mode_mismatch || temp_mismatch) && suppress_repeat) {
     ESP_LOGD("cn105",
              "evaluate_fan_stop_and_ltp: mismatch on an already-commanded target (%s / %.1f), waiting for readback",
-             climate::climate_mode_to_string(target_physical_mode), target_physical_temp);
+             LOG_STR_ARG(climate::climate_mode_to_string(target_physical_mode)), target_physical_temp);
   } else if (mode_mismatch || temp_mismatch) {
     ESP_LOGI("cn105",
              "evaluate_fan_stop_and_ltp: mismatch detected. target_physical_mode: %s, target_physical_temp: %.1f",
-             climate::climate_mode_to_string(target_physical_mode), target_physical_temp);
+             LOG_STR_ARG(climate::climate_mode_to_string(target_physical_mode)), target_physical_temp);
 
     this->has_issued_command_ = true;
     this->last_issued_command_mode_ = target_physical_mode;
@@ -525,19 +529,15 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
       this->set_power_setting("OFF");
     } else {
       this->set_power_setting("ON");
-      const char *target_mode_str = "AUTO";
-      if (target_physical_mode == climate::CLIMATE_MODE_HEAT)
-        target_mode_str = "HEAT";
-      else if (target_physical_mode == climate::CLIMATE_MODE_COOL)
-        target_mode_str = "COOL";
-      else if (target_physical_mode == climate::CLIMATE_MODE_DRY)
-        target_mode_str = "DRY";
-      else if (target_physical_mode == climate::CLIMATE_MODE_FAN_ONLY)
-        target_mode_str = "FAN";
-      this->set_mode_setting(target_mode_str);
+      auto target_mode_enum = climate_mode_to_hp_mode(target_physical_mode);
+      if (target_mode_enum) {
+        this->wanted_settings_.mode = *target_mode_enum;
+      } else {
+        ESP_LOGW("cn105", "No heatpump mode maps to %s; leaving the unit's mode unchanged",
+                 LOG_STR_ARG(climate::climate_mode_to_string(target_physical_mode)));
+      }
 
-      float setting = this->calculate_temperature_setting(target_physical_temp);
-      this->wanted_settings_.temperature = setting;
+      this->wanted_settings_.temperature = this->calculate_temperature_setting(target_physical_temp);
     }
 
     this->wanted_settings_.has_changed = true;

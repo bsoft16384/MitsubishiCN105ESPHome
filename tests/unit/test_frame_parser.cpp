@@ -199,3 +199,83 @@ TEST(FrameParser, SequentialFrames) {
     EXPECT_EQ(parser.data()[0], 0x03);  // room temp
     EXPECT_EQ(parser.data()[3], 0x0D);  // 23°C encoding A
 }
+
+// ════════════════════════════════════════════════════════════════
+// Post-completion feeds and truncated-frame detection
+// ════════════════════════════════════════════════════════════════
+
+// A caller that forgets to reset() must not be able to corrupt the assembled frame.
+// Before this was guarded, every extra byte landed on the checksum slot and the
+// completed frame silently started failing checksum_valid().
+TEST(FrameParser, IgnoresBytesFedAfterCompletion) {
+    FrameParser parser;
+    const uint8_t frame[] = {
+        0xFC, 0x62, 0x01, 0x30, 0x10,
+        0x03, 0x00, 0x00, 0x0D, 0x00, 0x00, 0xAE, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x9F
+    };
+    for (auto b : frame) parser.feed(b);
+    ASSERT_TRUE(parser.frame_complete());
+    ASSERT_TRUE(parser.checksum_valid());
+
+    const int size_before = parser.frame_size();
+    for (uint8_t junk : {0xFC, 0x00, 0xAA, 0xFF}) parser.feed(junk);
+
+    EXPECT_TRUE(parser.frame_complete());
+    EXPECT_TRUE(parser.checksum_valid());
+    EXPECT_EQ(parser.frame_size(), size_before);
+    EXPECT_EQ(parser.data()[0], 0x03);
+}
+
+TEST(FrameParser, InProgressTracksPartialFrames) {
+    FrameParser parser;
+    EXPECT_FALSE(parser.in_progress());
+
+    parser.feed(0x11);  // garbage before the start byte is not "in progress"
+    EXPECT_FALSE(parser.in_progress());
+
+    parser.feed(0xFC);
+    EXPECT_TRUE(parser.in_progress());
+    parser.feed(0x62);
+    parser.feed(0x01);
+    EXPECT_TRUE(parser.in_progress());
+}
+
+TEST(FrameParser, InProgressClearsOnCompletionAndReset) {
+    FrameParser parser;
+    const uint8_t frame[] = {
+        0xFC, 0x62, 0x01, 0x30, 0x10,
+        0x03, 0x00, 0x00, 0x0D, 0x00, 0x00, 0xAE, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x9F
+    };
+    for (auto b : frame) parser.feed(b);
+    EXPECT_FALSE(parser.in_progress());  // complete, not partial
+
+    parser.reset();
+    EXPECT_FALSE(parser.in_progress());
+}
+
+// The resync path in process_input(): a frame cut short leaves the parser mid-frame,
+// and without a reset the next frame's bytes get appended to the stale one.
+TEST(FrameParser, ResetRecoversFromTruncatedFrame) {
+    FrameParser parser;
+    const uint8_t truncated[] = {0xFC, 0x62, 0x01, 0x30, 0x10, 0x03, 0x00};
+    for (auto b : truncated) parser.feed(b);
+    ASSERT_TRUE(parser.in_progress());
+    ASSERT_FALSE(parser.frame_complete());
+
+    parser.reset();
+
+    const uint8_t good[] = {
+        0xFC, 0x62, 0x01, 0x30, 0x10,
+        0x02, 0x00, 0x00, 0x01, 0x01, 0x1A, 0x03, 0x07,
+        0x00, 0x00, 0x03, 0xAB, 0x00, 0x00, 0x00, 0x00,
+        0x87
+    };
+    for (auto b : good) parser.feed(b);
+    EXPECT_TRUE(parser.frame_complete());
+    EXPECT_TRUE(parser.checksum_valid());
+    EXPECT_EQ(parser.data()[0], 0x02);
+}

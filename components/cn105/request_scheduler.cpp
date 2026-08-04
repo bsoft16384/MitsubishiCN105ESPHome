@@ -1,6 +1,7 @@
 #include "request_scheduler.h"
 #include "globals.h"
 #include "cn105.h"
+#include <cinttypes>
 #include <esphome.h>
 
 using namespace esphome;
@@ -44,24 +45,23 @@ void RequestScheduler::timer_bypass(uint8_t code) {
 
 bool RequestScheduler::is_empty() const { return requests_.empty(); }
 
-void RequestScheduler::send_request(uint8_t code, CN105Climate *context) {
+bool RequestScheduler::send_request(uint8_t code, CN105Climate *context) {
   // Get context if not provided but callback is available
   if (!context && context_callback_) {
     context = context_callback_();
   }
 
-  for (size_t i = 0; i < requests_.size(); ++i) {
-    auto &req = requests_[i];
+  for (auto &req : requests_) {
     if (req.code != code)
       continue;
     if (req.disabled) {
-      return;
+      return false;
     }
 
     // Check can_send if present and if context is available
     if (req.can_send && context) {
       if (!req.can_send(*context)) {
-        return;
+        return false;
       }
     }
 
@@ -76,8 +76,9 @@ void RequestScheduler::send_request(uint8_t code, CN105Climate *context) {
       send_callback_(req.code);
     }
 
-    return;
+    return true;
   }
+  return false;
 }
 
 void RequestScheduler::mark_response_seen(uint8_t code, CN105Climate *context) {
@@ -137,15 +138,18 @@ void RequestScheduler::send_next_after(uint8_t previous_code, CN105Climate *cont
 
     if (req.interval_ms > 0 && (CUSTOM_MILLIS - req.last_request_time < req.interval_ms) && req.last_request_time > 0) {
       if (req.log_tag) {
-        ESP_LOGD(req.log_tag, "Skipping %s (0x%02X) - interval not elapsed (elapsed: %lu, interval: %u)",
+        ESP_LOGD(req.log_tag, "Skipping %s (0x%02X) - interval not elapsed (elapsed: %lu, interval: %" PRIu32 ")",
                  req.description, req.code, (unsigned long) (CUSTOM_MILLIS - req.last_request_time), req.interval_ms);
       }
       continue;
     }
 
-    // Send found request
-    send_request(req.code, context);
-    return;
+    // Send found request. If it refuses after all (the checks above and the ones in
+    // send_request must agree, but don't rely on it), keep scanning rather than
+    // leaving the cycle waiting for a response that was never requested.
+    if (send_request(req.code, context)) {
+      return;
+    }
   }
 
   // No more requests → end the cycle

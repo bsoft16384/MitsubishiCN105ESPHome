@@ -62,12 +62,8 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   void add_hardware_setting(HardwareSettingSelect *setting);
   void set_hardware_settings_interval(uint32_t interval_ms) { this->hardware_settings_interval_ms_ = interval_ms; }
 
-  // Deprecated: kept for backward compatibility, will map to VaneType::SPLIT_HORIZONTAL
-  void set_horizontal_vanes(int horizontal_vanes) {
-    if (horizontal_vanes > 1) {
-      this->vane_type_ = VaneType::SPLIT_HORIZONTAL;
-    }
-  }
+  // The deprecated `horizontal_vanes` YAML option is resolved into a VaneType in
+  // climate.py, so this is the only entry point.
   void set_vane_type(VaneType type) { this->vane_type_ = type; }
 
   void set_functions_sensor(esphome::text_sensor::TextSensor *Functions_sensor);
@@ -123,8 +119,8 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
 
   void setup() override;
   void loop() override;
+  void dump_config() override;
 
-  void set_uart_port(int uart_port) { this->uart_port_ = uart_port; }
   void setup_uart();
   void disconnect_uart();
   void reconnect_uart();
@@ -179,7 +175,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
 
   void control(const esphome::climate::ClimateCall &call) override;
   float calculate_temperature_setting(float setting);
-  float get_target_temperature_in_current_mode();
   float get_target_temperature();
   float get_current_temperature();
   void set_target_temperature(float temperature);
@@ -233,9 +228,10 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   const char *get_if_not_null(const char *what, const char *default_value);
 
  protected:
-  // HeatPump object using the underlying Arduino library.
-  // same as PolingComponent
-  uint32_t update_interval_;
+  // Poll interval, in ms. Overwritten from YAML by ESPHome's register_component()
+  // before setup() runs; the default only matters if that ever stops happening,
+  // and every window in scheduling_policy.h is derived from it.
+  uint32_t update_interval_{2000};
 
   climate::ClimateTraits traits_;
 
@@ -286,7 +282,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   text_sensor::TextSensor *error_code_sensor_{nullptr};
   text_sensor::TextSensor *current_temp_source_sensor_{nullptr};
   sensor::Sensor *remote_temp_source_{nullptr};
-  text_sensor::TextSensor *remote_temp_source_info_sensor_{nullptr};
   std::vector<HardwareSettingSelect *> hardware_settings_;
   uint32_t hardware_settings_interval_ms_{86400000};  // Default 24h
 
@@ -307,10 +302,15 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   cn105::HpUpTimeConnectionSensor *hp_uptime_connection_sensor_ = nullptr;
 
  private:
-  int uart_port_ = -1;
-
-  void write_packet(uint8_t *packet, int length, bool check_is_active = true);
+  /// Writes the packet to the UART. Returns false when the link was not usable and
+  /// the packet was queued for a later retry instead (see try_write_pending_packet).
+  bool write_packet(uint8_t *packet, int length, bool check_is_active = true);
   void prepare_set_packet(uint8_t *packet, int length);
+
+  /// publish_state() on a select rejects (and logs an error for) any option outside
+  /// its configured list, which the unit can report when the list was restricted in
+  /// YAML. Publishes only when the option is actually offered.
+  void publish_select_option_(select::Select *select, const char *option, const char *what);
 
   void publish_state_to_ha(HeatpumpSettings &settings);
   void publish_wanted_settings_state_to_ha();
@@ -337,7 +337,7 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
 
   void debug_settings(const char *setting_name, HeatpumpSettings &settings);
   void debug_settings(const char *setting_name, WantedHeatpumpSettings &settings);
-  void debug_status(const char *status_name, HeatpumpStatus status);
+  void debug_status(const char *status_name, const HeatpumpStatus &status);
   void debug_climate(const char *setting_name);
 
   void control_delegate(const esphome::climate::ClimateCall &call);
@@ -365,7 +365,7 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   bool remote_temp_keepalive_active_ = false;
   uint32_t last_remote_temp_send_ms_ = 0;  // Timestamp of last remote temp packet sent
   std::optional<float> last_remote_temp_sent_{};  // Last remote temp actually sent (for change detection)
-  uint32_t debounce_delay_;
+  uint32_t debounce_delay_{100};
 
   uint32_t last_send_{0};
   // Timestamp of the last wanted-settings packet send; survives wanted_settings_.reset_settings()
@@ -377,6 +377,15 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   cn105_protocol::FrameParser parser_;  // UART frame assembler (Phase 3A)
   uint8_t *data_ = nullptr;
   uint8_t get_payload_byte(int index, uint8_t default_val = 0) const;
+
+  // Arrival time of the last byte read from the UART, used to resync the parser
+  // after a truncated frame (see process_input).
+  uint32_t last_rx_byte_ms_{0};
+
+  // One-shot log latches: these conditions hold for every response the unit sends,
+  // so logging them per cycle would flood the log for the lifetime of the device.
+  bool legacy_temp_encoding_logged_{false};
+  bool auto_mode_mapping_logged_{false};
 
   // All fields are default-initialized via HeatpumpStatus struct defaults (NAN, false, etc.)
   HeatpumpStatus current_status_{};
@@ -395,6 +404,9 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   DriverState state_ = DriverState::BOOT;
   uint32_t boot_ms_ = 0;
   uint32_t conn_bootstrap_delay_ms_{10000};  // default 10s
+  // Set while backing off from a failed UART configuration, so the WAIT_GRACE
+  // retry does not spin once per loop iteration.
+  bool uart_retry_pending_{false};
 
   bool installer_mode_{false};
   bool installer_mode_effective_{false};

@@ -36,12 +36,25 @@ const char *CN105Climate::get_if_not_null(const char *what, const char *default_
 }
 
 /**
- * This function calculates the temperature setting based on the mode and the temperature points.
- * It returns the temperature setting.
+ * Rounds a requested setpoint to the half-degree grid and clamps it into the range
+ * the unit accepts. Clamping to the unit's real minimum matters: a lower value (e.g.
+ * the 12 C that low-temperature protection asks for by default) is silently raised by
+ * the unit, so the readback never matches what we commanded and the reconciler in
+ * evaluate_fan_stop_and_ltp() would re-issue the command forever.
  */
 float CN105Climate::calculate_temperature_setting(float setting) {
-  setting = std::round(2.0f * setting) / 2.0f;  // Round to the nearest half-degree.
-  return setting < 10 ? 10 : (setting > 31 ? 31 : setting);
+  return cn105_protocol::normalize_setpoint(setting);
+}
+
+void CN105Climate::publish_select_option_(select::Select *select, const char *option, const char *what) {
+  if (select == nullptr) {
+    return;
+  }
+  if (!select->has_option(option)) {
+    ESP_LOGD(TAG, "Not publishing %s option '%s': not in this select's configured options", what, option);
+    return;
+  }
+  select->publish_state(option);
 }
 
 /**
@@ -101,8 +114,6 @@ void CN105Climate::debug_settings(const char *setting_name, WantedHeatpumpSettin
            settings.has_been_sent ? "YES" : " NO");
 }
 
-float CN105Climate::get_target_temperature_in_current_mode() { return this->get_target_temperature(); }
-
 float CN105Climate::get_target_temperature() { return this->target_temperature; }
 
 float CN105Climate::get_current_temperature() { return this->current_temperature; }
@@ -114,7 +125,7 @@ void CN105Climate::set_current_temperature(float temperature) { this->current_te
 void CN105Climate::debug_climate(const char *setting_name) {
   ESP_LOGD(LOG_SETTINGS_TAG, "[%s]-> [mode: %s, target °C: %.1f, fan: %s, swing: %s]", setting_name,
            LOG_STR_ARG(climate_mode_to_string(this->mode)),  // use LOG_STR_ARG
-           this->get_target_temperature_in_current_mode(),
+           this->get_target_temperature(),
            this->fan_mode.has_value() ? LOG_STR_ARG(climate_fan_mode_to_string(this->fan_mode.value())) : "-",
            LOG_STR_ARG(climate_swing_mode_to_string(this->swing_mode)));
 }
@@ -126,7 +137,7 @@ void CN105Climate::debug_settings(const char *setting_name, HeatpumpSettings &se
            hp_wide_vane_to_str(settings.wide_vane));
 }
 
-void CN105Climate::debug_status(const char *status_name, HeatpumpStatus status) {
+void CN105Climate::debug_status(const char *status_name, const HeatpumpStatus &status) {
   // Declare a buffer (char array) for the float to string conversion
   char outside_temp_buffer[16];
 

@@ -23,6 +23,12 @@ template<typename E> E decode_or_keep(std::optional<E> decoded, uint8_t raw, E c
  * When a complete frame is detected, delegates to process_data_packet().
  */
 
+// A frame truncated mid-transmission leaves the parser waiting for bytes that never
+// come, and the next frame would then be appended to the stale one. At 2400 baud 8E1
+// a byte takes ~4.6 ms and the longest frame ~100 ms, so a gap this long between bytes
+// of the same frame means the unit stopped talking and the parser must resync.
+static const uint32_t FRAME_RESYNC_GAP_MS = 500;
+
 bool CN105Climate::process_input(void) {
   bool processed = false;
   while (this->get_hw_serial_()->available()) {
@@ -30,6 +36,13 @@ bool CN105Climate::process_input(void) {
     uint8_t input_data;
     if (this->get_hw_serial_()->read_byte(&input_data)) {
       ESP_LOGV("Decoder", "--> %02X", input_data);
+      const uint32_t now = CUSTOM_MILLIS;
+      if (this->parser_.in_progress() && (now - this->last_rx_byte_ms_) > FRAME_RESYNC_GAP_MS) {
+        ESP_LOGW("Decoder", "Discarding a truncated frame after a %lu ms gap",
+                 (unsigned long) (now - this->last_rx_byte_ms_));
+        this->parser_.reset();
+      }
+      this->last_rx_byte_ms_ = now;
       this->parser_.feed(input_data);
       if (this->parser_.frame_complete()) {
         this->process_data_packet();
@@ -106,27 +119,32 @@ void CN105Climate::get_power_from_response_packet() {
   ESP_LOGD("Decoder", "[Sub Mode  : %s]", hp_sub_mode_to_str(received_settings.sub_mode));
   ESP_LOGD("Decoder", "[Auto Mode Sub Mode  : %s]", hp_auto_sub_mode_to_str(received_settings.auto_sub_mode));
 
-  // this->heatpumpUpdate(received_settings);
-  if (this->stage_sensor_ != nullptr) {
-    if (received_settings.stage != this->current_settings_.stage) {
-      this->current_settings_.stage = received_settings.stage;
+  // Always record the decoded state, whether or not the matching diagnostic sensor is
+  // configured: current_settings_ drives update_action() and is what decode_or_keep()
+  // reads back as "previous value". Only the publish is conditional on the sensor.
+  if (received_settings.stage != this->current_settings_.stage) {
+    this->current_settings_.stage = received_settings.stage;
+    if (this->stage_sensor_ != nullptr) {
       this->stage_sensor_->publish_state(hp_stage_to_str(received_settings.stage));
-
-      // If using stage as operating fallback, update action immediately when stage changes
-      // and publish to Home Assistant
-      if (this->use_stage_for_operating_status_) {
-        this->update_action();
-        this->publish_state();
-      }
+    }
+    // If using stage as operating fallback, update action immediately when stage changes
+    // and publish to Home Assistant
+    if (this->use_stage_for_operating_status_) {
+      this->update_action();
+      this->publish_state();
     }
   }
-  if (this->sub_mode_sensor_ != nullptr && received_settings.sub_mode != this->current_settings_.sub_mode) {
+  if (received_settings.sub_mode != this->current_settings_.sub_mode) {
     this->current_settings_.sub_mode = received_settings.sub_mode;
-    this->sub_mode_sensor_->publish_state(hp_sub_mode_to_str(received_settings.sub_mode));
+    if (this->sub_mode_sensor_ != nullptr) {
+      this->sub_mode_sensor_->publish_state(hp_sub_mode_to_str(received_settings.sub_mode));
+    }
   }
-  if (this->auto_sub_mode_sensor_ != nullptr && received_settings.auto_sub_mode != this->current_settings_.auto_sub_mode) {
+  if (received_settings.auto_sub_mode != this->current_settings_.auto_sub_mode) {
     this->current_settings_.auto_sub_mode = received_settings.auto_sub_mode;
-    this->auto_sub_mode_sensor_->publish_state(hp_auto_sub_mode_to_str(received_settings.auto_sub_mode));
+    if (this->auto_sub_mode_sensor_ != nullptr) {
+      this->auto_sub_mode_sensor_->publish_state(hp_auto_sub_mode_to_str(received_settings.auto_sub_mode));
+    }
   }
 }
 
@@ -148,13 +166,14 @@ void CN105Climate::get_settings_from_response_packet() {
   if (mode_opt) {
     received_settings.mode = *mode_opt;
     if (received_settings.mode == HPMode::AUTO) {
-      if (this->traits_.supports_mode(climate::CLIMATE_MODE_HEAT_COOL)) {
-        // Keep HPMode::AUTO
-      } else {
-        ESP_LOGI("Decoder",
-                 "IR Remote set mode to AUTO — mapping to FAN mode as HEAT_COOL mode is not supported/configured");
-        received_settings.mode = HPMode::FAN;
+      // The unit's own AUTO mode has no Home Assistant equivalent this component
+      // exposes, so report it as FAN_ONLY. Logged once: the condition persists for
+      // as long as the unit stays in AUTO, i.e. every settings response.
+      if (!this->auto_mode_mapping_logged_) {
+        this->auto_mode_mapping_logged_ = true;
+        ESP_LOGI("Decoder", "Unit is in its own AUTO mode — reporting it as FAN to Home Assistant");
       }
+      received_settings.mode = HPMode::FAN;
     }
   } else {
     ESP_LOGW("Decoder", "Unknown mode byte 0x%02X — keeping previous value", mode_byte);
@@ -172,8 +191,12 @@ void CN105Climate::get_settings_from_response_packet() {
     temp -= 128;
     received_settings.temperature = (float) temp / 2;
   } else {
-    ESP_LOGW("Decoder", "Legacy temperature encoding detected! This unit does not support high-precision target "
-                        "temperature (data[11] is 0x00).");
+    // Logged once: an affected unit reports data[11] == 0x00 in every settings response.
+    if (!this->legacy_temp_encoding_logged_) {
+      this->legacy_temp_encoding_logged_ = true;
+      ESP_LOGW("Decoder", "Legacy temperature encoding detected! This unit does not support high-precision target "
+                          "temperature (data[11] is 0x00).");
+    }
     received_settings.temperature = this->current_settings_.temperature;
   }
 
@@ -668,14 +691,14 @@ void CN105Climate::update_extra_select_components(HeatpumpSettings &settings) {
     if (this->has_changed(this->vertical_vane_select_->current_option(), hp_vane_to_str(settings.vane),
                           "select vane")) {
       ESP_LOGI(TAG, "vane setting (extra select component) changed");
-      this->vertical_vane_select_->publish_state(hp_vane_to_str(settings.vane));
+      this->publish_select_option_(this->vertical_vane_select_, hp_vane_to_str(settings.vane), "vane");
     }
   }
   if (this->horizontal_vane_select_ != nullptr && settings.wide_vane != HPWideVaneMode::UNKNOWN) {
     if (this->has_changed(this->horizontal_vane_select_->current_option(), hp_wide_vane_to_str(settings.wide_vane),
                           "select wide_vane")) {
       ESP_LOGI(TAG, "widevane setting (extra select component) changed");
-      this->horizontal_vane_select_->publish_state(hp_wide_vane_to_str(settings.wide_vane));
+      this->publish_select_option_(this->horizontal_vane_select_, hp_wide_vane_to_str(settings.wide_vane), "wide_vane");
     }
   }
 }
@@ -725,9 +748,8 @@ void CN105Climate::check_power_and_mode_settings(HeatpumpSettings &settings, boo
       physical_mode = climate::CLIMATE_MODE_COOL;
     } else if (settings.mode == HPMode::FAN) {
       physical_mode = climate::CLIMATE_MODE_FAN_ONLY;
-    } else if (settings.mode == HPMode::AUTO) {
-      physical_mode = climate::CLIMATE_MODE_HEAT_COOL;
     }
+    // HPMode::AUTO never reaches here: the decoder maps it to HPMode::FAN.
   }
 
   if (update_current_settings) {
@@ -747,7 +769,7 @@ void CN105Climate::check_power_and_mode_settings(HeatpumpSettings &settings, boo
         (physical_mode == climate::CLIMATE_MODE_OFF);
     if (preserve_restored_mode) {
       ESP_LOGI(TAG, "Preserving restored desired mode (%s) because physical unit is OFF under Fan Stop.",
-               climate::climate_mode_to_string(this->desired_mode_));
+               LOG_STR_ARG(climate::climate_mode_to_string(this->desired_mode_)));
       this->mode = this->desired_mode_;
       this->target_temperature = this->desired_temp_;
       this->last_commanded_real_mode_ = climate::CLIMATE_MODE_OFF;
@@ -779,8 +801,8 @@ void CN105Climate::check_power_and_mode_settings(HeatpumpSettings &settings, boo
   // Outside lockout window - check for external overrides (e.g. IR Remote)
   if (physical_mode != this->last_commanded_real_mode_) {
     ESP_LOGI(TAG, "External HVAC mode change detected: from %s to %s. Disabling Fan Stop.",
-             climate::climate_mode_to_string(this->last_commanded_real_mode_),
-             climate::climate_mode_to_string(physical_mode));
+             LOG_STR_ARG(climate::climate_mode_to_string(this->last_commanded_real_mode_)),
+             LOG_STR_ARG(climate::climate_mode_to_string(physical_mode)));
 
     if (this->fan_stop_switch_ != nullptr && this->fan_stop_switch_->state) {
       this->fan_stop_switch_->turn_off();

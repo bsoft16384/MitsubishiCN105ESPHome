@@ -23,8 +23,6 @@ class HardwareSettingSelect : public select::Select, public Component {
 
   void set_enabled(bool enabled);
 
-  bool is_available();
-
  protected:
   void control(const std::string &value) override;
 

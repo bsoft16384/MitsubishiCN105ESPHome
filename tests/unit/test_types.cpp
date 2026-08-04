@@ -187,3 +187,60 @@ TEST(WantedRunStatesTest, ResetClearsFlags) {
     EXPECT_FALSE(wrs.has_been_sent);
     EXPECT_EQ(wrs.airflow_control, HPAirflowControl::UNKNOWN);
 }
+
+// ════════════════════════════════════════════════════════════════
+// WantedHeatpumpSettings::has_payload()
+// ════════════════════════════════════════════════════════════════
+
+// Regression: a control() call flagged as changed but with every field left unset
+// (e.g. because the reconciler suppressed a repeat command) used to build a SET frame
+// with no control flags — a no-op on the wire that still deferred the next info cycle.
+TEST(WantedHeatpumpSettingsTest, HasNoPayloadWhenNothingIsSet) {
+    WantedHeatpumpSettings wanted;
+    wanted.has_changed = true;
+    wanted.last_change = 12345;
+    EXPECT_FALSE(wanted.has_payload());
+}
+
+TEST(WantedHeatpumpSettingsTest, HasPayloadForEachIndividualField) {
+    {
+        WantedHeatpumpSettings w;
+        w.power = HPPower::ON;
+        EXPECT_TRUE(w.has_payload());
+    }
+    {
+        WantedHeatpumpSettings w;
+        w.mode = HPMode::HEAT;
+        EXPECT_TRUE(w.has_payload());
+    }
+    {
+        WantedHeatpumpSettings w;
+        w.temperature = 21.0f;
+        EXPECT_TRUE(w.has_payload());
+    }
+    {
+        WantedHeatpumpSettings w;
+        w.fan = HPFanMode::AUTO;  // AUTO is a real request, not "unset"
+        EXPECT_TRUE(w.has_payload());
+    }
+    {
+        WantedHeatpumpSettings w;
+        w.vane = HPVaneMode::SWING;
+        EXPECT_TRUE(w.has_payload());
+    }
+    {
+        WantedHeatpumpSettings w;
+        w.wide_vane = HPWideVaneMode::CENTER;
+        EXPECT_TRUE(w.has_payload());
+    }
+}
+
+TEST(WantedHeatpumpSettingsTest, ResetClearsPayload) {
+    WantedHeatpumpSettings wanted;
+    wanted.mode = HPMode::COOL;
+    wanted.temperature = 24.0f;
+    ASSERT_TRUE(wanted.has_payload());
+
+    wanted.reset_settings();
+    EXPECT_FALSE(wanted.has_payload());
+}

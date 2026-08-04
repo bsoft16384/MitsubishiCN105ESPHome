@@ -1,4 +1,5 @@
 #include "cn105.h"
+#include <cinttypes>
 #ifdef USE_WIFI
 #include "esphome/components/wifi/wifi_component.h"
 #endif
@@ -43,13 +44,20 @@ void CN105Climate::setup() {
   auto restore = this->restore_state_();
   if (restore.has_value()) {
     restore->apply(this);
+    // A mode saved by an older build may no longer be offered (HEAT_COOL was removed).
+    // Restoring it would leave the component chasing a target it cannot command.
+    if (this->mode != climate::CLIMATE_MODE_OFF && !this->traits_.supports_mode(this->mode)) {
+      ESP_LOGW(TAG, "Restored mode %s is no longer supported; falling back to OFF",
+               LOG_STR_ARG(climate::climate_mode_to_string(this->mode)));
+      this->mode = climate::CLIMATE_MODE_OFF;
+    }
     this->desired_mode_ = this->mode;
     if (!std::isnan(this->target_temperature)) {
       this->desired_temp_ = this->target_temperature;
     } else {
       this->desired_temp_ = 22.0f;
     }
-    ESP_LOGI(TAG, "Restored state: mode=%s, temp=%.1f", climate::climate_mode_to_string(this->desired_mode_),
+    ESP_LOGI(TAG, "Restored state: mode=%s, temp=%.1f", LOG_STR_ARG(climate::climate_mode_to_string(this->desired_mode_)),
              this->desired_temp_);
   } else {
     this->desired_mode_ = climate::CLIMATE_MODE_OFF;
@@ -164,7 +172,8 @@ void CN105Climate::maybe_start_connection_() {
 #endif
       // WiFi ready (or no WiFi) — check grace delay
       this->transition_to_(DriverState::WAIT_GRACE);
-      ESP_LOGI(LOG_CONN_TAG, "Bootstrap connection: grace delay %ums for OTA logs", this->conn_bootstrap_delay_ms_);
+      ESP_LOGI(LOG_CONN_TAG, "Bootstrap connection: grace delay %" PRIu32 " ms for OTA logs",
+               this->conn_bootstrap_delay_ms_);
       return;
     }
 
@@ -178,11 +187,15 @@ void CN105Climate::maybe_start_connection_() {
       // WiFi association consumes the whole OTA-log grace window before it starts.
       this->boot_ms_ = CUSTOM_MILLIS;
       this->transition_to_(DriverState::WAIT_GRACE);
-      ESP_LOGI(LOG_CONN_TAG, "Bootstrap connection: WiFi connected, grace delay %ums", this->conn_bootstrap_delay_ms_);
+      ESP_LOGI(LOG_CONN_TAG, "Bootstrap connection: WiFi connected, grace delay %" PRIu32 " ms",
+               this->conn_bootstrap_delay_ms_);
       return;
     }
 
     case DriverState::WAIT_GRACE: {
+      if (this->uart_retry_pending_) {
+        return;  // backing off from a failed UART configuration
+      }
       const uint32_t elapsed = CUSTOM_MILLIS - this->boot_ms_;
       if (elapsed < this->conn_bootstrap_delay_ms_) {
         return;  // grace delay not elapsed yet
@@ -191,14 +204,15 @@ void CN105Climate::maybe_start_connection_() {
       this->setup_uart();
       if (this->is_uart_ready()) {
         this->send_first_connection_packet();
-      } else {
-        ESP_LOGE(LOG_CONN_TAG, "UART configuration invalid (not SERIAL_8E1). Retrying setup in 10s...");
-        this->transition_to_(DriverState::BOOT);
-        this->set_timeout("retry_bootstrap_connection", 10000, [this]() {
-          this->transition_to_(DriverState::WAIT_GRACE);
-          this->boot_ms_ = CUSTOM_MILLIS;
-        });
+        return;
       }
+      // Stay in WAIT_GRACE and back off. Dropping back to BOOT would re-enter this
+      // state on the very next loop() with boot_ms_ unchanged, so the grace check
+      // would pass immediately and retry every iteration — and each BOOT pass would
+      // also re-arm the 120s bootstrap timeout, deferring that fallback forever.
+      ESP_LOGE(LOG_CONN_TAG, "UART configuration invalid (not SERIAL_8E1). Retrying setup in 10s...");
+      this->uart_retry_pending_ = true;
+      this->set_timeout("retry_uart_setup", 10000, [this]() { this->uart_retry_pending_ = false; });
       return;
     }
 
@@ -207,6 +221,36 @@ void CN105Climate::maybe_start_connection_() {
     case DriverState::DISCONNECTED:
       // Nothing to do — connection already started or managed elsewhere
       return;
+  }
+}
+
+void CN105Climate::dump_config() {
+  ESP_LOGCONFIG(TAG, "CN105 Climate:");
+  ESP_LOGCONFIG(TAG, "  Update interval: %" PRIu32 " ms", this->update_interval_);
+  ESP_LOGCONFIG(TAG, "  Debounce delay: %" PRIu32 " ms", this->debounce_delay_);
+  ESP_LOGCONFIG(TAG, "  Connection bootstrap delay: %" PRIu32 " ms", this->conn_bootstrap_delay_ms_);
+  ESP_LOGCONFIG(TAG, "  Installer mode: %s", YESNO(this->installer_mode_));
+  ESP_LOGCONFIG(TAG, "  Power unit: %s", this->power_unit_is_btu_ ? "BTU/s" : "Watts");
+  ESP_LOGCONFIG(TAG, "  Vane type: %d", static_cast<int>(this->vane_type_));
+  if (this->remote_temp_timeout_ == UINT32_MAX) {
+    ESP_LOGCONFIG(TAG, "  Remote temperature timeout: never");
+  } else {
+    ESP_LOGCONFIG(TAG, "  Remote temperature timeout: %" PRIu32 " ms", this->remote_temp_timeout_);
+  }
+  ESP_LOGCONFIG(TAG, "  Remote temperature keep-alive: %" PRIu32 " ms", this->remote_temp_keepalive_interval_ms_);
+  ESP_LOGCONFIG(TAG, "  Remote temperature margin: %.1f C", this->remote_temp_margin_);
+  ESP_LOGCONFIG(TAG, "  Remote temperature source: %s", YESNO(this->remote_temp_source_ != nullptr));
+  ESP_LOGCONFIG(TAG, "  Fan stop switch: %s", YESNO(this->fan_stop_switch_ != nullptr));
+  ESP_LOGCONFIG(TAG, "  Low temp protection switch: %s", YESNO(this->low_temp_protection_switch_ != nullptr));
+  if (this->low_temp_protection_switch_ != nullptr) {
+    ESP_LOGCONFIG(TAG, "    Trigger below: %.1f C (hysteresis %.1f C)", this->low_temp_temp_,
+                  this->low_temp_hysteresis_);
+  }
+  ESP_LOGCONFIG(TAG, "  Fan stop hysteresis: %.1f C", this->hysteresis_);
+  ESP_LOGCONFIG(TAG, "  Stage drives operating status: %s", YESNO(this->use_stage_for_operating_status_));
+  if (!this->hardware_settings_.empty()) {
+    ESP_LOGCONFIG(TAG, "  Hardware settings: %u entries, refreshed every %" PRIu32 " ms",
+                  (unsigned) this->hardware_settings_.size(), this->hardware_settings_interval_ms_);
   }
 }
 

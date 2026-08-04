@@ -48,8 +48,10 @@ void CycleManagement::cycle_ended(bool timed_out) {
     last_complete_cycle_ms = CUSTOM_MILLIS;  // to prevent next inteval from ticking too soon
   }
 
+  // Report against last_cycle_end_ms: last_complete_cycle_ms may have been pushed into
+  // the future by defer_cycle(), which would inflate the reported duration.
   ESP_LOGI(LOG_CYCLE_TAG, "6: Cycle ended in %.1f seconds (with timeout?: %s)",
-           (last_complete_cycle_ms - last_cycle_start_ms) / 1000.0, timed_out ? "YES" : " NO");
+           (last_cycle_end_ms - last_cycle_start_ms) / 1000.0, timed_out ? "YES" : " NO");
 }
 
 bool CycleManagement::does_cycle_time_out(unsigned int update_interval) {

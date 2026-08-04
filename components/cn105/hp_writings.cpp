@@ -61,7 +61,7 @@ void CN105Climate::prepare_set_packet(uint8_t *packet, int length) {
   }
 }
 
-void CN105Climate::write_packet(uint8_t *packet, int length, bool check_is_active) {
+bool CN105Climate::write_packet(uint8_t *packet, int length, bool check_is_active) {
   if ((this->is_uart_ready()) && (this->is_heatpump_connection_active() || (!check_is_active))) {
     ESP_LOGD(TAG, "writing packet...");
     this->hp_packet_debug(packet, length, "WRITE");
@@ -72,21 +72,25 @@ void CN105Climate::write_packet(uint8_t *packet, int length, bool check_is_activ
 
     // Prevent sending wanted_settings_ too soon after writing for example the remote temperature update packet
     this->last_send_ = CUSTOM_MILLIS;
-
-  } else {
-    ESP_LOGW(TAG, "could not write as asked, because UART is not connected");
-    this->reconnect_uart();
-    ESP_LOGW(TAG, "delaying packet writing because we need to reconnect first...");
-    if (length > PACKET_LEN) {
-      ESP_LOGE(TAG, "Packet length %d exceeds PACKET_LEN %d, dropping.", length, PACKET_LEN);
-      return;
-    }
-    memcpy(this->pending_packet_, packet, static_cast<size_t>(length));
-    this->pending_packet_len_ = length;
-    this->pending_check_is_active_ = check_is_active;
-    this->has_pending_packet_ = true;
-    this->set_timeout("write", 4000, [this]() { this->try_write_pending_packet(); });
+    return true;
   }
+
+  ESP_LOGW(TAG, "could not write as asked, because UART is not connected");
+  this->reconnect_uart();
+  ESP_LOGW(TAG, "delaying packet writing because we need to reconnect first...");
+  if (length > PACKET_LEN) {
+    ESP_LOGE(TAG, "Packet length %d exceeds PACKET_LEN %d, dropping.", length, PACKET_LEN);
+    return false;
+  }
+  // On a retry, packet already *is* pending_packet_ — memcpy onto itself is undefined.
+  if (packet != this->pending_packet_) {
+    memcpy(this->pending_packet_, packet, static_cast<size_t>(length));
+  }
+  this->pending_packet_len_ = length;
+  this->pending_check_is_active_ = check_is_active;
+  this->has_pending_packet_ = true;
+  this->set_timeout("write", 4000, [this]() { this->try_write_pending_packet(); });
+  return false;
 }
 
 void CN105Climate::try_write_pending_packet() {
@@ -97,8 +101,12 @@ void CN105Climate::try_write_pending_packet() {
     this->set_timeout("write", 2000, [this]() { this->try_write_pending_packet(); });
     return;
   }
-  this->write_packet(this->pending_packet_, this->pending_packet_len_, this->pending_check_is_active_);
-  this->has_pending_packet_ = false;
+  // Only clear the queue on success: a failed write re-arms has_pending_packet_ and a
+  // fresh retry timeout, and clearing the flag unconditionally would make that retry a
+  // no-op and silently drop the packet.
+  if (this->write_packet(this->pending_packet_, this->pending_packet_len_, this->pending_check_is_active_)) {
+    this->has_pending_packet_ = false;
+  }
 }
 
 const char *CN105Climate::get_mode_setting() {

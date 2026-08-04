@@ -82,7 +82,12 @@ void CN105Climate::set_airflow_control_select(VaneOrientationSelect *airflow_con
       this->wanted_run_states_.has_been_sent = false;
       this->wanted_run_states_.last_change = CUSTOM_MILLIS;
     } else {
-      this->airflow_control_select_->publish_state(hp_airflow_control_to_str(this->current_run_states_.airflow_control));
+      // Reject the request by re-publishing what the unit actually reports. Before the
+      // first 0x02 response that is still UNKNOWN, which is not one of the select's
+      // options — publish_select_option_ drops it rather than logging an error.
+      this->publish_select_option_(this->airflow_control_select_,
+                                   hp_airflow_control_to_str(this->current_run_states_.airflow_control),
+                                   "airflow control");
     }
   });
 }
@@ -197,8 +202,8 @@ void CN105Climate::set_remote_temp_source(esphome::sensor::Sensor *source) {
 }
 
 void CN105Climate::set_remote_temp_source_info_sensor(esphome::text_sensor::TextSensor *info_sensor) {
-  this->remote_temp_source_info_sensor_ = info_sensor;
-  // Publish the source sensor name now (set_remote_temp_source already ran via codegen order)
+  // Write-once diagnostic: publish the source sensor's name and keep no reference.
+  // (set_remote_temp_source already ran via codegen order.)
   if (this->remote_temp_source_ != nullptr) {
     info_sensor->publish_state(this->remote_temp_source_->get_name());
   }

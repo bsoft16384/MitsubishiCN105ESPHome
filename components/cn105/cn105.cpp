@@ -1,5 +1,6 @@
 
 #include "cn105.h"
+#include <cinttypes>
 
 using namespace esphome;
 
@@ -125,7 +126,7 @@ void CN105Climate::register_hardware_settings_requests() {
   bool is_enabled = false;
 
   if (!this->hardware_settings_.empty()) {
-    ESP_LOGI(LOG_FUNCTIONS_TAG, "Registering function settings requests (0x20/0x22) with interval %u ms",
+    ESP_LOGI(LOG_FUNCTIONS_TAG, "Registering function settings requests (0x20/0x22) with interval %" PRIu32 " ms",
              this->hardware_settings_interval_ms_);
     interval = this->hardware_settings_interval_ms_;
     is_enabled = true;
@@ -222,6 +223,9 @@ void CN105Climate::register_hardware_settings_requests() {
 // have been placed in RequestScheduler to comply with the Single Responsibility Principle (SRP).
 
 void CN105Climate::ping_external_temperature() {
+  if (this->remote_temp_timeout_ == UINT32_MAX) {  // configured as "never"
+    return;
+  }
   this->set_timeout(SCHEDULER_REMOTE_TEMP_TIMEOUT, this->remote_temp_timeout_, [this]() {
     ESP_LOGW(LOG_REMOTE_TEMP, "Remote temperature timeout occured, fall back to internal temperature!");
     this->clear_remote_temperature();
@@ -310,7 +314,6 @@ bool CN105Climate::is_operating() { return current_status_.operating; }
 // SERIAL_8E1
 void CN105Climate::setup_uart() {
   log_info_uint32(TAG, "setup_uart() with baudrate ", this->parent_->get_baud_rate());
-  ESP_LOGI(LOG_CONN_TAG, "setup_uart(): baud=%d (UART port=%d)", this->parent_->get_baud_rate(), this->uart_port_);
   this->set_heatpump_connected(false);
   // isUARTConnected_ replaced by state_ (set to CONNECTING after successful config below)
 

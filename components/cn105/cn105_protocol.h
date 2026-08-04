@@ -1,12 +1,10 @@
 /// cn105_protocol.h — Pure protocol functions for the Mitsubishi CN105 UART protocol.
-/// Role: Decoupled, testable logic for checksum, temperature encoding/decoding, and byte-map lookups.
-/// Deps: <cstdint>, <cmath>, <cstring>, <optional> (no ESPHome dependency)
+/// Role: Decoupled, testable logic for checksum and temperature encoding/decoding.
+/// Deps: <cstdint>, <cmath> (no ESPHome dependency)
 #pragma once
 
 #include <cstdint>
 #include <cmath>
-#include <cstring>
-#include <optional>
 
 namespace cn105_protocol {
 
@@ -30,6 +28,24 @@ inline uint8_t checksum(const uint8_t *bytes, int len) {
 // ════════════════════════════════════════════════════════════════
 // Temperature decoding / encoding
 // ════════════════════════════════════════════════════════════════
+
+/// Target setpoint limits accepted by the unit. Commanding outside this range is
+/// pointless: the unit clamps it and reports the clamped value back, so anything
+/// comparing a commanded setpoint against the readback would never converge.
+inline constexpr float SETPOINT_MIN_C = 16.0f;
+inline constexpr float SETPOINT_MAX_C = 31.0f;
+inline constexpr float SETPOINT_STEP_C = 0.5f;
+
+/// Round a setpoint to the nearest half-degree and clamp it into the range the
+/// unit will actually accept.
+inline float normalize_setpoint(float temperature) {
+  const float rounded = std::round(temperature * 2.0f) / 2.0f;
+  if (rounded < SETPOINT_MIN_C)
+    return SETPOINT_MIN_C;
+  if (rounded > SETPOINT_MAX_C)
+    return SETPOINT_MAX_C;
+  return rounded;
+}
 
 /// Encode a target temperature into the encoding B format (half-degree precision).
 /// Formula: byte = round(temp * 2) + 128
@@ -56,114 +72,6 @@ inline void encode_remote_temperature(float temperature, uint8_t &enc_a, uint8_t
   float rounded = std::round(temperature * 2.0f);
   enc_a = static_cast<uint8_t>(rounded - 16);
   enc_b = static_cast<uint8_t>(rounded + 128);
-}
-
-// ════════════════════════════════════════════════════════════════
-// Byte-map lookups — fallback variant (legacy compatibility)
-// ════════════════════════════════════════════════════════════════
-
-/// Look up a mapped value from a parallel byte-map / value-map pair.
-/// Scans the byte_map for a matching byte_value and returns the corresponding entry in values_map.
-/// Returns values_map[0] if no match is found (safe fallback for protocol continuity).
-///
-/// @tparam T         Value type (typically const char* or int).
-/// @param values_map  Array of mapped values.
-/// @param byte_map    Array of protocol byte codes (same length as values_map).
-/// @param len        Number of entries in both arrays.
-/// @param byte_value  The raw protocol byte to look up.
-/// @return           The corresponding value, or values_map[0] if not found.
-template<typename T> inline T lookup_value(const T values_map[], const uint8_t byte_map[], int len, uint8_t byte_value) {
-  for (int i = 0; i < len; i++) {
-    if (byte_map[i] == byte_value) {
-      return values_map[i];
-    }
-  }
-  return values_map[0];
-}
-
-/// Look up the index of a value in a value-map.
-/// Returns the index (usable as an offset into the parallel byte-map), or -1 if not found.
-///
-/// @param values_map   Array of mapped values (int variant).
-/// @param len         Number of entries.
-/// @param lookup_value The value to search for.
-/// @return            Index of the match, or -1 if not found.
-template<typename T> inline int lookup_index(const T values_map[], int len, T lookup_value) {
-  for (int i = 0; i < len; i++) {
-    if (values_map[i] == lookup_value) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-/// Look up the index of a string value in a value-map (case-insensitive).
-///
-/// @param values_map   Array of mapped string values.
-/// @param len         Number of entries.
-/// @param lookup_value The string to search for.
-/// @return            Index of the match, or -1 if not found.
-inline int lookup_index(const char *values_map[], int len, const char *lookup_value) {
-  for (int i = 0; i < len; i++) {
-    if (strcasecmp(values_map[i], lookup_value) == 0) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-// ════════════════════════════════════════════════════════════════
-// Byte-map lookups — std::optional variant (graceful degradation)
-// ════════════════════════════════════════════════════════════════
-
-/// Look up a mapped value, returning std::nullopt on miss.
-/// Unlike lookup_value(), this does NOT silently fall back to index 0.
-/// Callers can decide how to handle unknown bytes (keep previous value, log, etc.).
-///
-/// @tparam T         Value type (typically const char* or int).
-/// @param values_map  Array of mapped values.
-/// @param byte_map    Array of protocol byte codes (same length as values_map).
-/// @param len        Number of entries in both arrays.
-/// @param byte_value  The raw protocol byte to look up.
-/// @return           The corresponding value, or std::nullopt if not found.
-template<typename T>
-inline std::optional<T> lookup_value_opt(const T values_map[], const uint8_t byte_map[], int len, uint8_t byte_value) {
-  for (int i = 0; i < len; i++) {
-    if (byte_map[i] == byte_value) {
-      return values_map[i];
-    }
-  }
-  return std::nullopt;
-}
-
-/// Look up the index of a value in a value-map, returning std::nullopt on miss.
-///
-/// @param values_map   Array of mapped values (int variant).
-/// @param len         Number of entries.
-/// @param lookup_value The value to search for.
-/// @return            Index of the match, or std::nullopt if not found.
-inline std::optional<int> lookup_index_opt(const int values_map[], int len, int lookup_value) {
-  for (int i = 0; i < len; i++) {
-    if (values_map[i] == lookup_value) {
-      return i;
-    }
-  }
-  return std::nullopt;
-}
-
-/// Look up the index of a string value (case-insensitive), returning std::nullopt on miss.
-///
-/// @param values_map   Array of mapped string values.
-/// @param len         Number of entries.
-/// @param lookup_value The string to search for.
-/// @return            Index of the match, or std::nullopt if not found.
-inline std::optional<int> lookup_index_opt(const char *values_map[], int len, const char *lookup_value) {
-  for (int i = 0; i < len; i++) {
-    if (strcasecmp(values_map[i], lookup_value) == 0) {
-      return i;
-    }
-  }
-  return std::nullopt;
 }
 
 }  // namespace cn105_protocol

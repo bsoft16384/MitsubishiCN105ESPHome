@@ -28,7 +28,13 @@ class FrameParser {
 
   /// Feed one byte from the UART stream.
   /// After each call, check frame_complete() to see if a full frame is ready.
+  /// Bytes fed after a frame completes are ignored until reset() is called, so a
+  /// caller that forgets to reset cannot corrupt the assembled frame.
   void feed(uint8_t byte) {
+    if (frame_complete_) {
+      return;
+    }
+
     if (!found_start_) {
       if (byte == 0xFC) {
         found_start_ = true;
@@ -83,6 +89,12 @@ class FrameParser {
 
   /// True when a complete frame (header + payload + checksum) has been received.
   bool frame_complete() const { return frame_complete_; }
+
+  /// True when a start byte has been seen but the frame is not finished yet.
+  /// A frame truncated mid-transmission leaves the parser here indefinitely, and
+  /// the next frame's bytes would be appended to the stale one. Callers with a
+  /// clock use this to resync after an inter-byte gap.
+  bool in_progress() const { return found_start_ && !frame_complete_; }
 
   /// True when the received checksum matches the computed one.
   /// Only valid after frame_complete() returns true.

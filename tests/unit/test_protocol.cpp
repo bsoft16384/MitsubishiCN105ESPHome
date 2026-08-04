@@ -97,78 +97,41 @@ TEST(ProtocolEncodeRemoteTemp, ClampsHigh) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// lookup_value() / lookup_value_opt() — generic parallel-array lookup
+// normalize_setpoint() — half-degree rounding + clamp to the unit's range
 // ════════════════════════════════════════════════════════════════
 
-static const char *kLabels[] = {"HEAT", "DRY", "COOL", "FAN", "AUTO"};
-static const uint8_t kBytes[] = {0x01, 0x02, 0x03, 0x07, 0x08};
-static const int kInts[] = {31, 30, 29, 28, 27};
-
-TEST(ProtocolLookup, FindsMatch) {
-    EXPECT_STREQ(lookup_value(kLabels, kBytes, 5, 0x03), "COOL");
-    EXPECT_STREQ(lookup_value(kLabels, kBytes, 5, 0x08), "AUTO");
+TEST(ProtocolNormalizeSetpoint, RoundsToHalfDegree) {
+    EXPECT_FLOAT_EQ(normalize_setpoint(22.3f), 22.5f);
+    EXPECT_FLOAT_EQ(normalize_setpoint(22.1f), 22.0f);
+    EXPECT_FLOAT_EQ(normalize_setpoint(20.75f), 21.0f);
 }
 
-TEST(ProtocolLookup, UnknownByteFallsBackToIndex0) {
-    EXPECT_STREQ(lookup_value(kLabels, kBytes, 5, 0xFF), "HEAT");
+TEST(ProtocolNormalizeSetpoint, PassesThroughInRangeValues) {
+    EXPECT_FLOAT_EQ(normalize_setpoint(SETPOINT_MIN_C), SETPOINT_MIN_C);
+    EXPECT_FLOAT_EQ(normalize_setpoint(SETPOINT_MAX_C), SETPOINT_MAX_C);
+    EXPECT_FLOAT_EQ(normalize_setpoint(21.5f), 21.5f);
 }
 
-TEST(ProtocolLookup, IntVariant) {
-    EXPECT_EQ(lookup_value(kInts, kBytes, 5, 0x01), 31);
-    EXPECT_EQ(lookup_value(kInts, kBytes, 5, 0x07), 28);
+// Regression: low-temperature protection asks for low_temp_temp + low_temp_hysteresis,
+// which is 12 C with the shipped defaults. Clamping to anything below the unit's real
+// minimum meant the unit raised it to 16, the readback never matched what we commanded,
+// and the reconciler re-issued the command for as long as LTP stayed active.
+TEST(ProtocolNormalizeSetpoint, ClampsBelowUnitMinimum) {
+    EXPECT_FLOAT_EQ(normalize_setpoint(12.0f), SETPOINT_MIN_C);
+    EXPECT_FLOAT_EQ(normalize_setpoint(8.0f), SETPOINT_MIN_C);
+    EXPECT_FLOAT_EQ(normalize_setpoint(-5.0f), SETPOINT_MIN_C);
 }
 
-TEST(ProtocolLookupOpt, ReturnsValueOnHit) {
-    auto r = lookup_value_opt(kLabels, kBytes, 5, 0x03);
-    ASSERT_TRUE(r.has_value());
-    EXPECT_STREQ(*r, "COOL");
+TEST(ProtocolNormalizeSetpoint, ClampsAboveUnitMaximum) {
+    EXPECT_FLOAT_EQ(normalize_setpoint(35.0f), SETPOINT_MAX_C);
+    EXPECT_FLOAT_EQ(normalize_setpoint(31.4f), SETPOINT_MAX_C);
 }
 
-TEST(ProtocolLookupOpt, ReturnsNulloptOnMiss) {
-    // Unlike lookup_value(), the _opt variant does NOT silently fall back to index 0.
-    EXPECT_FALSE(lookup_value_opt(kLabels, kBytes, 5, 0xFF).has_value());
-}
-
-// ════════════════════════════════════════════════════════════════
-// lookup_index() / lookup_index_opt()
-// ════════════════════════════════════════════════════════════════
-
-TEST(ProtocolLookupIndex, FindsExistingInt) {
-    EXPECT_EQ(lookup_index(kInts, 5, 29), 2);
-}
-
-TEST(ProtocolLookupIndex, ReturnsMinusOneForMissing) {
-    EXPECT_EQ(lookup_index(kInts, 5, 99), -1);
-}
-
-TEST(ProtocolLookupIndex, FindsExistingString) {
-    EXPECT_EQ(lookup_index(kLabels, 5, "COOL"), 2);
-}
-
-TEST(ProtocolLookupIndex, StringCaseInsensitive) {
-    EXPECT_EQ(lookup_index(kLabels, 5, "cool"), 2);
-}
-
-TEST(ProtocolLookupIndex, StringNotFound) {
-    EXPECT_EQ(lookup_index(kLabels, 5, "TURBO"), -1);
-}
-
-TEST(ProtocolLookupIndexOpt, IntFound) {
-    auto r = lookup_index_opt(kInts, 5, 30);
-    ASSERT_TRUE(r.has_value());
-    EXPECT_EQ(*r, 1);
-}
-
-TEST(ProtocolLookupIndexOpt, IntNotFound) {
-    EXPECT_FALSE(lookup_index_opt(kInts, 5, 99).has_value());
-}
-
-TEST(ProtocolLookupIndexOpt, StringFound) {
-    auto r = lookup_index_opt(kLabels, 5, "auto");
-    ASSERT_TRUE(r.has_value());
-    EXPECT_EQ(*r, 4);
-}
-
-TEST(ProtocolLookupIndexOpt, StringNotFound) {
-    EXPECT_FALSE(lookup_index_opt(kLabels, 5, "TURBO").has_value());
+// Every normalized setpoint must survive the encode step the SET packet uses.
+TEST(ProtocolNormalizeSetpoint, RoundTripsThroughEncoding) {
+    for (float raw = 0.0f; raw <= 40.0f; raw += 0.1f) {
+        const float normalized = normalize_setpoint(raw);
+        const uint8_t encoded = encode_temperature_b(normalized);
+        EXPECT_FLOAT_EQ((encoded - 128) / 2.0f, normalized) << "raw=" << raw;
+    }
 }

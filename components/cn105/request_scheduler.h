@@ -111,8 +111,11 @@ class RequestScheduler {
    * @brief Sends a specific request by its code
    * @param code The code of the request to send
    * @param context CN105Climate context to check can_send (can be nullptr)
+   * @return true if the request was sent; false if it is unknown, disabled, or its
+   *         can_send predicate refused — in which case no response will arrive and
+   *         the caller must move on rather than wait for one.
    */
-  void send_request(uint8_t code, CN105Climate *context = nullptr);
+  bool send_request(uint8_t code, CN105Climate *context = nullptr);
 };
 
 }  // namespace esphome

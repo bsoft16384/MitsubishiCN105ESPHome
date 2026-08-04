@@ -37,7 +37,6 @@ from esphome.const import (
     UNIT_HOUR,
     STATE_CLASS_MEASUREMENT,
 )
-from esphome.core import CORE
 from esphome.helpers import cpp_string_escape
 
 # --- AUTO_LOAD, DEPENDENCIES, and CONF_XXX_SENSOR constants ---
@@ -129,22 +128,6 @@ HpUpTimeConnectionSensor = cn105_ns.class_(
 HardwareSettingSelect = cg.esphome_ns.class_(
     "HardwareSettingSelect", select.Select, cg.Component
 )
-
-def get_uart_port_index(core_config, target_uart_id_str):
-    # ESPHome does not expose the controller index directly; we infer it
-    # from the declaration order, or default to 0.
-    # We attempt to associate the object id() to its position.
-    idx = 0
-    for i, uart_conf_item in enumerate(core_config.get("uart", [])):
-        if str(uart_conf_item[CONF_ID]) == target_uart_id_str:
-            idx = i  # often 0 => UART0, 1 => UART1, 2 => UART2
-            break
-    # Clamp 0..2
-    if idx < 0:
-        idx = 0
-    if idx > 2:
-        idx = 2
-    return idx
 
 # Schemas for optional entities
 SELECT_SCHEMA = select.select_schema(VaneOrientationSelect).extend(
@@ -303,8 +286,12 @@ HARDWARE_SETTING_SCHEMA = cv.Schema(
 
 def validate_modes(value):
     modes = cv.ensure_list(climate.validate_climate_mode)(value)
-    if "AUTO" in modes:
-        raise cv.Invalid("AUTO mode is not supported by this component.")
+    for unsupported in ("AUTO", "HEAT_COOL"):
+        if unsupported in modes:
+            raise cv.Invalid(
+                f"{unsupported} mode is not supported by this component. "
+                "The unit's own AUTO mode is reported to Home Assistant as FAN_ONLY."
+            )
     return modes
 
 CONFIG_SCHEMA = (
@@ -381,12 +368,12 @@ CONFIG_SCHEMA = (
                     cv.Optional(CONF_SUPPORTS_HORIZONTAL_VANE_MODE): cv.ensure_list(
                         cv.string
                     ),
+                    # Deprecated: use vane_type instead. Left without a default so an
+                    # explicit vane_type can be told apart from the implicit one.
                     cv.Optional(CONF_HORIZONTAL_VANES, default=1): cv.int_range(
                         min=1, max=2
                     ),
-                    cv.Optional(CONF_VANE_TYPE, default="standard"): cv.enum(
-                        VANE_TYPES, lower=True
-                    ),
+                    cv.Optional(CONF_VANE_TYPE): cv.enum(VANE_TYPES, lower=True),
                 }
             ),
         }
@@ -406,10 +393,6 @@ async def to_code(config):
     cg.add(uart_var.set_parity(UARTParityOptions.UART_CONFIG_PARITY_EVEN))
     cg.add(uart_var.set_stop_bits(1))
 
-    uart_id_str_for_lookup = str(uart_id_object)
-    uart_port_index = get_uart_port_index(CORE.config, uart_id_str_for_lookup)
-    cg.add(var.set_uart_port(uart_port_index))
-
     # Empty list means use all options from WIDEVANE_MAP (C++ is source of truth)
     horizontal_vane_options = []
 
@@ -427,12 +410,16 @@ async def to_code(config):
     # Configure the horizontal vane options
     horizontal_vane_options = supports.get(CONF_SUPPORTS_HORIZONTAL_VANE_MODE, [])
 
-    # Set the number of horizontal vanes (Legacy)
-    cg.add(var.set_horizontal_vanes(supports.get(CONF_HORIZONTAL_VANES, 1)))
-    
-    # Set vane type (New)
-    vane_type_conf = supports.get(CONF_VANE_TYPE, "standard")
-    vane_type_val = VANE_TYPES.get(vane_type_conf, 0)
+    # Resolve the vane type once, in Python. vane_type is the current option and wins
+    # when set explicitly; horizontal_vanes is the deprecated spelling of the same
+    # thing. Emitting both setters unconditionally (as this used to) meant the
+    # vane_type default always ran last and silently reset horizontal_vanes: 2.
+    if CONF_VANE_TYPE in supports:
+        vane_type_val = VANE_TYPES[supports[CONF_VANE_TYPE]]
+    elif supports.get(CONF_HORIZONTAL_VANES, 1) > 1:
+        vane_type_val = VANE_TYPES["split_horizontal"]
+    else:
+        vane_type_val = VANE_TYPES["standard"]
     vane_type_enum = cg.RawExpression(
         f"static_cast<esphome::CN105Climate::VaneType>({vane_type_val})"
     )
