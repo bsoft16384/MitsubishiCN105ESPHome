@@ -168,10 +168,4 @@ HeatpumpFunctionCodes HeatpumpFunctions::get_all_codes() {
 
   return result;
 }
-
-bool HeatpumpFunctions::operator==(const HeatpumpFunctions &rhs) {
-  return this->is_valid() == rhs.is_valid() && memcmp(this->raw, rhs.raw, sizeof(this->raw)) == 0;
-}
-
-bool HeatpumpFunctions::operator!=(const HeatpumpFunctions &rhs) { return !(*this == rhs); }
 // #endregion heatpump_functions

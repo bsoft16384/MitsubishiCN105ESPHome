@@ -52,12 +52,6 @@ void CycleManagement::cycle_ended(bool timed_out) {
            (last_complete_cycle_ms - last_cycle_start_ms) / 1000.0, timed_out ? "YES" : " NO");
 }
 
-bool CycleManagement::has_update_interval_passed(unsigned int update_interval) {
-  if (CUSTOM_MILLIS < last_complete_cycle_ms)
-    return false;  // must be checked because operands are they are unsigned
-  return (CUSTOM_MILLIS - last_complete_cycle_ms) > update_interval;
-}
-
 bool CycleManagement::does_cycle_time_out(unsigned int update_interval) {
   if (CUSTOM_MILLIS < last_cycle_start_ms)
     return false;  // must be checked because operands are they are unsigned

@@ -310,7 +310,6 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   int uart_port_ = -1;
 
   void write_packet(uint8_t *packet, int length, bool check_is_active = true);
-  void prepare_info_packet(uint8_t *packet, int length);
   void prepare_set_packet(uint8_t *packet, int length);
 
   void publish_state_to_ha(HeatpumpSettings &settings);

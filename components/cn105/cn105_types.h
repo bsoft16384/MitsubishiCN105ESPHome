@@ -21,7 +21,6 @@ inline constexpr const char *LOG_UPD_INT_TAG = "UPDT_ITVL";
 inline constexpr const char *LOG_SET_RUN_STATE = "SET_RUN_STATE";
 inline constexpr const char *LOG_OPERATING_STATUS_TAG = "OPERATING_STATUS";
 inline constexpr const char *LOG_TEMP_SENSOR_TAG = "TEMP_SENSOR";
-inline constexpr const char *LOG_DUAL_SP_TAG = "DUAL_SP";
 inline constexpr const char *LOG_FUNCTIONS_TAG = "FUNCTIONS";
 inline constexpr const char *LOG_HARDWARE_SELECT_TAG = "HardwareSelect";
 inline constexpr const char *LOG_CONN_TAG = "CN105_CONN";
@@ -47,18 +46,6 @@ static const uint8_t HEADER[HEADER_LEN] = {0xfc, 0x41, 0x01, 0x30, 0x10, 0x01, 0
 
 static const int INFOHEADER_LEN = 5;
 static const uint8_t INFOHEADER[INFOHEADER_LEN] = {0xfc, 0x42, 0x01, 0x30, 0x10};
-
-static const int RCVD_PKT_NONE = -1;
-static const int RCVD_PKT_FAIL = 0;
-static const int RCVD_PKT_CONNECT_SUCCESS = 1;
-static const int RCVD_PKT_SETTINGS = 2;
-static const int RCVD_PKT_ROOM_TEMP = 3;
-static const int RCVD_PKT_UPDATE_SUCCESS = 4;
-static const int RCVD_PKT_STATUS = 5;
-static const int RCVD_PKT_TIMER = 6;
-static const int RCVD_PKT_FUNCTIONS = 7;
-
-static const int MAX_NON_RESPONSE_REQ = 5;
 
 static const uint8_t CONTROL_PACKET_1[5] = {0x01, 0x02, 0x04, 0x08, 0x10};
 static const uint8_t CONTROL_PACKET_2[1] = {0x01};
@@ -368,7 +355,6 @@ struct HeatpumpSettings {
 struct WantedHeatpumpSettings : HeatpumpSettings {
   bool has_changed = false;
   bool has_been_sent = false;
-  uint8_t nb_deferred_requests = 0;
   uint32_t last_change = 0;
 
   void reset_settings() {

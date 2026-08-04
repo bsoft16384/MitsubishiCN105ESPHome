@@ -52,16 +52,6 @@ void CN105Climate::send_first_connection_packet() {
   }
 }
 
-void CN105Climate::prepare_info_packet(uint8_t *packet, int length) {
-  ESP_LOGV(TAG, "preparing info packet...");
-
-  memset(packet, 0, length * sizeof(uint8_t));
-
-  for (int i = 0; i < INFOHEADER_LEN && i < length; i++) {
-    packet[i] = INFOHEADER[i];
-  }
-}
-
 void CN105Climate::prepare_set_packet(uint8_t *packet, int length) {
   ESP_LOGV(TAG, "preparing Set packet...");
   memset(packet, 0, length * sizeof(uint8_t));

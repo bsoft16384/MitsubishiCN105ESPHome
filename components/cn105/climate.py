@@ -313,12 +313,6 @@ CONFIG_SCHEMA = (
         {
             cv.GenerateID(): cv.declare_id(CN105Climate),
             cv.GenerateID(CONF_UART_ID): cv.use_id(uart.UARTComponent),
-            cv.Optional("baud_rate"): cv.invalid(
-                "baud_rate' option is not supported anymore. Please add a separate UART component with baud_rate configured."
-            ),
-            cv.Optional("hardware_uart"): cv.invalid(
-                "'hardware_uart' options is not supported anymore. Please add a separate UART component with the correct rx and tx pin."
-            ),
             cv.Optional(CONF_UPDATE_INTERVAL, default="2s"): cv.update_interval,
             cv.Optional(CONF_HORIZONTAL_SWING_SELECT): SELECT_SCHEMA,
             cv.Optional(CONF_VERTICAL_SWING_SELECT): SELECT_SCHEMA,

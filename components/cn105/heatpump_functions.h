@@ -34,7 +34,4 @@ class HeatpumpFunctions {
   bool set_value(int code, int value);
 
   HeatpumpFunctionCodes get_all_codes();
-
-  bool operator==(const HeatpumpFunctions &rhs);
-  bool operator!=(const HeatpumpFunctions &rhs);
 };
