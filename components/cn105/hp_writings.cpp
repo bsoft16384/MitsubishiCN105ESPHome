@@ -419,9 +419,29 @@ void CN105Climate::send_remote_temperature_packet() {
 
 void CN105Climate::send_remote_temperature() {
   this->should_send_external_temperature_ = false;
+  this->remote_temp_pending_since_ms_ = 0;
 
   // Send the packet
   this->send_remote_temperature_packet();
+}
+
+bool CN105Climate::send_pending_remote_temperature_() {
+  // Safety net. The remote temperature is normally written by terminate_cycle(), so anything
+  // that stops info cycles also stops the heatpump learning the room temperature — it silently
+  // falls back to its own internal sensor and can overshoot the setpoint by degrees. If the
+  // queued write has been waiting far longer than a cycle should take, write it directly.
+  if (!this->is_heatpump_connection_active() || !this->is_uart_ready()) {
+    // Can't write right now. Restart the stall clock so this branch does not claim
+    // every loop iteration — the write stays queued and the loop is free to start a
+    // cycle (which is what re-establishes communication in the first place).
+    this->remote_temp_pending_since_ms_ = CUSTOM_MILLIS;
+    ESP_LOGD(LOG_REMOTE_TEMP, "Remote temperature write stalled but the link is down; retrying later");
+    return false;
+  }
+
+  ESP_LOGW(LOG_REMOTE_TEMP, "Remote temperature write stalled (no cycle completed); sending it directly");
+  this->send_remote_temperature();
+  return true;
 }
 
 void CN105Climate::send_wanted_run_states() {

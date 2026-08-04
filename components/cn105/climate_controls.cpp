@@ -352,7 +352,7 @@ void CN105Climate::set_remote_temperature(float setting) {
   if (this->last_remote_temp_send_ms_ == 0 || elapsed >= REMOTE_TEMP_MIN_SEND_INTERVAL_MS) {
     // Send immediately
     this->cancel_timeout("deferred_remote_temp_send");
-    this->should_send_external_temperature_ = true;
+    this->queue_remote_temperature_send_();
     ESP_LOGD(LOG_REMOTE_TEMP, "Queueing immediate remote temp write (value: %.1f)", setting);
   } else {
     // Defer the write
@@ -370,6 +370,15 @@ void CN105Climate::clear_remote_temperature() {
   this->stop_remote_temp_keep_alive();
   // Send the revert packet immediately (drop any pending deferred write first).
   this->cancel_timeout("deferred_remote_temp_send");
+  this->queue_remote_temperature_send_();
+}
+
+void CN105Climate::queue_remote_temperature_send_() {
+  // Record when the write was first queued so the loop can notice if the cycle
+  // scheduler never gets around to writing it (see send_pending_remote_temperature_).
+  if (!this->should_send_external_temperature_) {
+    this->remote_temp_pending_since_ms_ = CUSTOM_MILLIS;
+  }
   this->should_send_external_temperature_ = true;
 }
 
@@ -381,7 +390,7 @@ void CN105Climate::send_remote_temperature_deferred() {
   // timer fires (it will be sent on the next completed cycle).
   ESP_LOGD(LOG_REMOTE_TEMP, "Deferred remote temp timer fired, queueing send of %.1f",
            this->remote_temperature_.value_or(NAN));
-  this->should_send_external_temperature_ = true;
+  this->queue_remote_temperature_send_();
 }
 
 void CN105Climate::evaluate_fan_stop_and_ltp() {
@@ -482,10 +491,31 @@ void CN105Climate::evaluate_fan_stop_and_ltp() {
     }
   }
 
-  if (mode_mismatch || temp_mismatch) {
+  // current_settings_ is only refreshed by an info cycle, and issuing a command defers the
+  // next cycle. Re-issuing the same target before a cycle could have confirmed it therefore
+  // cannot resolve the mismatch — it only pushes the confirming cycle further out, which is
+  // enough to starve cycles entirely. Wait out the settle window instead; a genuinely new
+  // target (user change, LTP engaging) differs and is still sent immediately.
+  bool same_target = this->has_issued_command_ && (target_physical_mode == this->last_issued_command_mode_) &&
+                     ((target_physical_mode == climate::CLIMATE_MODE_OFF) ||
+                      (!std::isnan(this->last_issued_command_temp_) && !std::isnan(target_physical_temp) &&
+                       fabsf(target_physical_temp - this->last_issued_command_temp_) < 0.25f));
+  bool suppress_repeat = cn105_policy::should_suppress_repeat_command(
+      this->has_issued_command_, same_target, CUSTOM_MILLIS, this->last_issued_command_ms_, this->update_interval_);
+
+  if ((mode_mismatch || temp_mismatch) && suppress_repeat) {
+    ESP_LOGD("cn105",
+             "evaluate_fan_stop_and_ltp: mismatch on an already-commanded target (%s / %.1f), waiting for readback",
+             climate::climate_mode_to_string(target_physical_mode), target_physical_temp);
+  } else if (mode_mismatch || temp_mismatch) {
     ESP_LOGI("cn105",
              "evaluate_fan_stop_and_ltp: mismatch detected. target_physical_mode: %s, target_physical_temp: %.1f",
              climate::climate_mode_to_string(target_physical_mode), target_physical_temp);
+
+    this->has_issued_command_ = true;
+    this->last_issued_command_mode_ = target_physical_mode;
+    this->last_issued_command_temp_ = target_physical_temp;
+    this->last_issued_command_ms_ = CUSTOM_MILLIS;
 
     this->last_mode_command_time_ms_ = CUSTOM_MILLIS;
     this->last_commanded_real_mode_ = target_physical_mode;

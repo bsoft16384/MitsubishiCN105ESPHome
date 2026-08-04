@@ -482,8 +482,13 @@ void CN105Climate::process_command() {
       this->hp_packet_debug(this->parser_.raw(), this->parser_.frame_size(), LOG_CONN_TAG);
       // isHeatpumpConnected_ replaced by FSM transition in set_heatpump_connected()
       this->set_heatpump_connected(true);
-      // let's say that the last complete cycle was over now
-      this->loop_cycle_.last_complete_cycle_ms = CUSTOM_MILLIS;
+      // let's say that the last complete cycle was over now (also clears any cycle
+      // left running by the connection that just dropped, and re-arms starvation detection)
+      this->loop_cycle_.init();
+      // current_settings_ is cleared below, so the next evaluation must be free to
+      // command the unit rather than being held by the settle window of a command
+      // issued to the previous connection.
+      this->has_issued_command_ = false;
       this->current_settings_.reset_settings();  // each time we connect, we need to reset current setting to force a
                                               // complete sync with ha component state and receievdSettings
       this->current_run_states_.reset_settings();

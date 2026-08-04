@@ -18,6 +18,7 @@
 #include <esphome/components/switch/switch.h>
 #include <esphome/components/text_sensor/text_sensor.h>
 #include "cycle_management.h"
+#include "scheduling_policy.h"
 #include <vector>
 #include <map>
 #include <optional>
@@ -421,5 +422,18 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
 
   climate::ClimateMode last_commanded_real_mode_{climate::CLIMATE_MODE_OFF};
   float last_commanded_real_temp_{22.0f};
+
+  // Last physical target actually pushed by evaluate_fan_stop_and_ltp(). Distinct from
+  // last_commanded_real_* above, which is also rewritten when an external change (IR remote)
+  // is detected and so cannot be used to rate-limit our own repeats.
+  bool has_issued_command_{false};
+  climate::ClimateMode last_issued_command_mode_{climate::CLIMATE_MODE_OFF};
+  float last_issued_command_temp_{NAN};
+  uint32_t last_issued_command_ms_{0};
+
+  // When the pending remote temperature write was queued, for the stall safety net.
+  uint32_t remote_temp_pending_since_ms_{0};
+  void queue_remote_temperature_send_();
+  bool send_pending_remote_temperature_();
 };
 }  // namespace esphome

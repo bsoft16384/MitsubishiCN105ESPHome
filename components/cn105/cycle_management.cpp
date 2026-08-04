@@ -16,6 +16,7 @@ bool CycleManagement::is_cycle_running() { return cycle_running; }
 void CycleManagement::init() {
   cycle_running = false;
   last_complete_cycle_ms = CUSTOM_MILLIS;
+  last_cycle_end_ms = CUSTOM_MILLIS;
 }
 
 void CycleManagement::defer_cycle() {
@@ -37,6 +38,10 @@ void CycleManagement::cycle_started() {
 
 void CycleManagement::cycle_ended(bool timed_out) {
   cycle_running = false;
+
+  // Unconditional: this is the starvation detector's reference point, so it must
+  // not inherit the defer offset applied to last_complete_cycle_ms below.
+  last_cycle_end_ms = CUSTOM_MILLIS;
 
   if (last_complete_cycle_ms < CUSTOM_MILLIS) {  // we check this because of the deferring mechanism
     // a complete cycle is done

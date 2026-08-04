@@ -275,7 +275,7 @@ void CN105Climate::start_remote_temp_keep_alive() {
       ESP_LOGD(LOG_REMOTE_TEMP, "Keep-alive: re-sending remote temperature %.1f", *this->remote_temperature_);
       // Send the temperature packet without resetting the watchdog timeout
       // (watchdog is only reset when HA sends a new value via set_remote_temperature)
-      this->should_send_external_temperature_ = true;
+      this->queue_remote_temperature_send_();
     } else {
       if (!this->is_heatpump_connected()) {
         ESP_LOGW(LOG_REMOTE_TEMP, "Keep-alive skipped: Heatpump not connected!");

@@ -86,33 +86,59 @@ void CN105Climate::loop() {
     if (!can_talk_to_hp) {
       return;
     }
-    if ((this->wanted_settings_.has_changed) && (!this->loop_cycle_.is_cycle_running())) {
-      this->check_pending_wanted_settings();
-    } else if ((this->wanted_run_states_.has_changed) && (!this->loop_cycle_.is_cycle_running())) {
-      this->check_pending_wanted_run_states();
-    } else if ((this->is_set_functions_) && (!this->loop_cycle_.is_cycle_running())) {
-      this->is_set_functions_ = false;
-      this->set_functions(this->functions);
-      // Also request to get function settings from heat pump to update UI with latest values.
-      this->is_get_functions_ = true;
-    } else {
-      if (this->loop_cycle_.is_cycle_running()) {  // if we are  running an update cycle
+    cn105_policy::LoopInputs inputs;
+    inputs.now_ms = CUSTOM_MILLIS;
+    inputs.update_interval_ms = this->get_update_interval();
+    inputs.cycle_running = this->loop_cycle_.is_cycle_running();
+    inputs.last_cycle_end_ms = this->loop_cycle_.last_cycle_end_ms;
+    inputs.last_complete_cycle_ms = this->loop_cycle_.last_complete_cycle_ms;
+    inputs.wanted_settings_changed = this->wanted_settings_.has_changed;
+    inputs.wanted_run_states_changed = this->wanted_run_states_.has_changed;
+    inputs.set_functions_pending = this->is_set_functions_;
+    inputs.remote_temp_send_pending = this->should_send_external_temperature_;
+    inputs.remote_temp_pending_since_ms = this->remote_temp_pending_since_ms_;
+    inputs.last_send_ms = this->last_send_;
+
+    switch (cn105_policy::decide_loop_action(inputs)) {
+      case cn105_policy::LoopAction::CHECK_CYCLE_TIMEOUT:
         this->loop_cycle_.check_timeout(this->update_interval_);
-      } else {  // we are not running a cycle
-        if (this->loop_cycle_.has_update_interval_passed(this->get_update_interval())) {
-          if (this->is_get_functions_) {
-            // Reactivate requests 0x20/0x22 and bypass interval timers.
-            // This must be done before starting a new cycle to prevent a race hazard of
-            // request 0x22 occurring before request 0x20.
-            this->scheduler_.enable_request(0x20);
-            this->scheduler_.timer_bypass(0x20);
-            this->scheduler_.enable_request(0x22);
-            this->scheduler_.timer_bypass(0x22);
-            this->is_get_functions_ = false;
-          }
-          this->build_and_send_requests_info_packets();  // initiate an update cycle with this->cycleStarted();
+        break;
+
+      case cn105_policy::LoopAction::SEND_REMOTE_TEMP:
+        this->send_pending_remote_temperature_();
+        break;
+
+      case cn105_policy::LoopAction::SEND_SETTINGS:
+        this->check_pending_wanted_settings();
+        break;
+
+      case cn105_policy::LoopAction::SEND_RUN_STATES:
+        this->check_pending_wanted_run_states();
+        break;
+
+      case cn105_policy::LoopAction::SET_FUNCTIONS:
+        this->is_set_functions_ = false;
+        this->set_functions(this->functions);
+        // Also request to get function settings from heat pump to update UI with latest values.
+        this->is_get_functions_ = true;
+        break;
+
+      case cn105_policy::LoopAction::START_CYCLE:
+        if (this->is_get_functions_) {
+          // Reactivate requests 0x20/0x22 and bypass interval timers.
+          // This must be done before starting a new cycle to prevent a race hazard of
+          // request 0x22 occurring before request 0x20.
+          this->scheduler_.enable_request(0x20);
+          this->scheduler_.timer_bypass(0x20);
+          this->scheduler_.enable_request(0x22);
+          this->scheduler_.timer_bypass(0x22);
+          this->is_get_functions_ = false;
         }
-      }
+        this->build_and_send_requests_info_packets();  // initiate an update cycle with this->cycleStarted();
+        break;
+
+      case cn105_policy::LoopAction::IDLE:
+        break;
     }
   }
 }
