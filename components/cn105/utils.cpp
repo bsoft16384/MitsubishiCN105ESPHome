@@ -58,39 +58,15 @@ void CN105Climate::publish_select_option_(select::Select *select, const char *op
 }
 
 /**
- * Convert raw input power value to Watts.
- *
- * By default (power_unit_is_btu_ = false) the CN105 protocol already sends
- * the value in native Watts, so no conversion is needed (identity).
- *
- * Set `power_unit_is_btu: true` in YAML for units (e.g. some MSZ-LN models)
- * whose firmware encodes the value in BTU/s instead. In that case the
- * conversion factor is: 1 W = 1 J/s, 1 BTU = 1055.056 J
- *   => raw [BTU/s] * (3600 / 1055.056) = Watts
+ * Unit conversion for the two energy counters. The maths lives in decoder.h so it
+ * is covered by the unit tests; these just bind the configured unit.
  */
 float CN105Climate::convert_input_power_to_w(float raw_input_power) {
-  if (power_unit_is_btu_) {
-    static constexpr float conv_factor = 3600.0f / 1055.05558262f;
-    return raw_input_power * conv_factor;
-  }
-  return raw_input_power;  // already in Watts
+  return cn105_decoder::convert_input_power_to_w(raw_input_power, this->power_unit_is_btu_);
 }
 
-/**
- * Convert the raw energy usage value to kwh.
- *
- * By default (power_unit_is_btu_ = false) the protocol encodes energy as
- * kwh * 10, so we simply divide by 10.
- *
- * Set `power_unit_is_btu: true` for units that encode in kBTU instead:
- *   => raw [kBTU] * (1055.056 / 3 600 000) * 1000 = kwh
- */
 float CN105Climate::convert_energy_usage_to_kwh(float raw_energy_usage) {
-  if (power_unit_is_btu_) {
-    static constexpr float conv_factor = 1055.05585262f / 3600000.0f;
-    return 1000.0f * raw_energy_usage * conv_factor;
-  }
-  return raw_energy_usage / 10.0f;  // already in kwh/10
+  return cn105_decoder::convert_energy_usage_to_kwh(raw_energy_usage, this->power_unit_is_btu_);
 }
 
 /**

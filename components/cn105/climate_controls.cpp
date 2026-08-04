@@ -407,154 +407,90 @@ void CN105Climate::send_remote_temperature_deferred() {
 }
 
 void CN105Climate::evaluate_fan_stop_and_ltp() {
-  float current_temp = this->current_temperature;
+  cn105_policy::ReconcileInputs in;
+  in.now_ms = CUSTOM_MILLIS;
+  in.update_interval_ms = this->update_interval_;
 
-  // 1. Handle Low Temperature Protection (LTP) state machine
-  if (this->low_temp_protection_switch_ != nullptr && this->low_temp_protection_switch_->state) {
-    if (!this->ltp_active_ && !std::isnan(current_temp) && current_temp < this->low_temp_temp_) {
-      this->ltp_active_ = true;
-      ESP_LOGI("cn105", "Low temperature protection activated (current temp: %.1f°C)", current_temp);
-    }
-    if (this->ltp_active_ && !std::isnan(current_temp) &&
-        current_temp > (this->low_temp_temp_ + this->low_temp_hysteresis_)) {
-      this->ltp_active_ = false;
-      ESP_LOGI("cn105", "Low temperature protection deactivated (current temp: %.1f°C)", current_temp);
-    }
-  } else {
-    if (this->ltp_active_) {
-      this->ltp_active_ = false;
+  in.desired_power_on = this->desired_mode_ != climate::CLIMATE_MODE_OFF;
+  in.desired_mode = in.desired_power_on ? climate_mode_to_hp_mode(this->desired_mode_) : std::nullopt;
+  in.desired_temp = this->desired_temp_;
+
+  in.current_power = this->current_settings_.power;
+  in.current_mode = this->current_settings_.mode;
+  in.current_temperature = this->current_settings_.temperature;
+  in.current_temp = this->current_temperature;
+
+  in.ltp_enabled = this->low_temp_protection_switch_ != nullptr && this->low_temp_protection_switch_->state;
+  in.ltp_active = this->ltp_active_;
+  in.low_temp_temp = this->low_temp_temp_;
+  in.low_temp_hysteresis = this->low_temp_hysteresis_;
+
+  in.fan_stop_enabled = this->fan_stop_switch_ != nullptr && this->fan_stop_switch_->state;
+  in.hysteresis = this->hysteresis_;
+
+  in.has_issued_command = this->has_issued_command_;
+  in.last_issued = this->last_issued_command_target_;
+  in.last_issued_ms = this->last_issued_command_ms_;
+
+  const cn105_policy::ReconcileDecision decision = cn105_policy::decide_reconciliation(in);
+
+  if (decision.ltp_active != this->ltp_active_) {
+    if (decision.ltp_active) {
+      ESP_LOGI("cn105", "Low temperature protection activated (current temp: %.1f°C)", in.current_temp);
+    } else if (!in.ltp_enabled) {
       ESP_LOGI("cn105", "Low temperature protection disabled by switch");
+    } else {
+      ESP_LOGI("cn105", "Low temperature protection deactivated (current temp: %.1f°C)", in.current_temp);
     }
+    this->ltp_active_ = decision.ltp_active;
   }
 
-  climate::ClimateMode target_physical_mode = this->desired_mode_;
-  float target_physical_temp = this->desired_temp_;
-
-  if (this->ltp_active_) {
-    // LTP has priority. Force heat mode and target temperature of max(low_temp_temp + low_temp_hysteresis,
-    // desired_temp_)
-    target_physical_mode = climate::CLIMATE_MODE_HEAT;
-    target_physical_temp = std::max(this->low_temp_temp_ + this->low_temp_hysteresis_, this->desired_temp_);
-  } else if (this->fan_stop_switch_ != nullptr && this->fan_stop_switch_->state && !std::isnan(current_temp) &&
-             !std::isnan(this->desired_temp_)) {
-    // Fan stop mode logic
-    if (this->desired_mode_ == climate::CLIMATE_MODE_HEAT) {
-      if (current_temp >= this->desired_temp_ + this->hysteresis_) {
-        target_physical_mode = climate::CLIMATE_MODE_OFF;
-      } else if (current_temp <= this->desired_temp_ - this->hysteresis_) {
-        target_physical_mode = climate::CLIMATE_MODE_HEAT;
-      } else {
-        // Inside hysteresis deadband, maintain current physical state
-        if (this->current_settings_.power == HPPower::OFF) {
-          target_physical_mode = climate::CLIMATE_MODE_OFF;
-        } else {
-          target_physical_mode = climate::CLIMATE_MODE_HEAT;
-        }
-      }
-    } else if (this->desired_mode_ == climate::CLIMATE_MODE_COOL) {
-      if (current_temp <= this->desired_temp_ - this->hysteresis_) {
-        target_physical_mode = climate::CLIMATE_MODE_OFF;
-      } else if (current_temp >= this->desired_temp_ + this->hysteresis_) {
-        target_physical_mode = climate::CLIMATE_MODE_COOL;
-      } else {
-        // Inside hysteresis deadband, maintain current physical state
-        if (this->current_settings_.power == HPPower::OFF) {
-          target_physical_mode = climate::CLIMATE_MODE_OFF;
-        } else {
-          target_physical_mode = climate::CLIMATE_MODE_COOL;
-        }
-      }
-    }
+  // The policy works in heatpump terms; map back for the Home-Assistant-facing
+  // bookkeeping. Only three outcomes are reachable: off, LTP forcing heat, or the
+  // user's own mode (fan stop switches the unit off, it never changes the mode).
+  climate::ClimateMode target_ha_mode = climate::CLIMATE_MODE_OFF;
+  if (decision.target.power_on) {
+    target_ha_mode = decision.ltp_active ? climate::CLIMATE_MODE_HEAT : this->desired_mode_;
   }
 
-  // 2. Perform command if mismatch exists
-  bool mode_mismatch = false;
-  bool temp_mismatch = false;
-
-  // Check power/mode mismatch
-  if (target_physical_mode == climate::CLIMATE_MODE_OFF) {
-    if (this->current_settings_.power != HPPower::OFF) {
-      mode_mismatch = true;
-    }
-  } else {
-    if (this->current_settings_.power != HPPower::ON) {
-      mode_mismatch = true;
-    }
-    auto target_mode_enum = climate_mode_to_hp_mode(target_physical_mode);
-    if (target_mode_enum && this->current_settings_.mode != *target_mode_enum) {
-      mode_mismatch = true;
-    }
-  }
-
-  // Check temperature mismatch
-  if (target_physical_mode != climate::CLIMATE_MODE_OFF) {
-    float normalized_target_temp = this->calculate_temperature_setting(target_physical_temp);
-    if (!this->current_settings_.temperature.has_value() ||
-        fabsf(*this->current_settings_.temperature - normalized_target_temp) >= 0.25f) {
-      temp_mismatch = true;
-    }
-  }
-
-  // current_settings_ is only refreshed by an info cycle, and issuing a command defers the
-  // next cycle. Re-issuing the same target before a cycle could have confirmed it therefore
-  // cannot resolve the mismatch — it only pushes the confirming cycle further out, which is
-  // enough to starve cycles entirely. Wait out the settle window instead; a genuinely new
-  // target (user change, LTP engaging) differs and is still sent immediately.
-  bool same_target = this->has_issued_command_ && (target_physical_mode == this->last_issued_command_mode_) &&
-                     ((target_physical_mode == climate::CLIMATE_MODE_OFF) ||
-                      (!std::isnan(this->last_issued_command_temp_) && !std::isnan(target_physical_temp) &&
-                       fabsf(target_physical_temp - this->last_issued_command_temp_) < 0.25f));
-  bool suppress_repeat = cn105_policy::should_suppress_repeat_command(
-      this->has_issued_command_, same_target, CUSTOM_MILLIS, this->last_issued_command_ms_, this->update_interval_);
-
-  if ((mode_mismatch || temp_mismatch) && suppress_repeat) {
+  if (decision.has_mismatch() && decision.suppressed_repeat) {
     ESP_LOGD("cn105",
              "evaluate_fan_stop_and_ltp: mismatch on an already-commanded target (%s / %.1f), waiting for readback",
-             LOG_STR_ARG(climate::climate_mode_to_string(target_physical_mode)), target_physical_temp);
-  } else if (mode_mismatch || temp_mismatch) {
+             LOG_STR_ARG(climate::climate_mode_to_string(target_ha_mode)), decision.target.temperature);
+  } else if (decision.should_command) {
     ESP_LOGI("cn105",
              "evaluate_fan_stop_and_ltp: mismatch detected. target_physical_mode: %s, target_physical_temp: %.1f",
-             LOG_STR_ARG(climate::climate_mode_to_string(target_physical_mode)), target_physical_temp);
+             LOG_STR_ARG(climate::climate_mode_to_string(target_ha_mode)), decision.target.temperature);
 
     this->has_issued_command_ = true;
-    this->last_issued_command_mode_ = target_physical_mode;
-    this->last_issued_command_temp_ = target_physical_temp;
-    this->last_issued_command_ms_ = CUSTOM_MILLIS;
+    this->last_issued_command_target_ = decision.target;
+    this->last_issued_command_ms_ = in.now_ms;
 
-    this->last_mode_command_time_ms_ = CUSTOM_MILLIS;
-    this->last_commanded_real_mode_ = target_physical_mode;
-    this->last_commanded_real_temp_ = target_physical_temp;
+    this->last_mode_command_time_ms_ = in.now_ms;
+    this->last_commanded_real_mode_ = target_ha_mode;
+    this->last_commanded_real_temp_ = decision.target.temperature;
 
-    if (target_physical_mode == climate::CLIMATE_MODE_OFF) {
+    if (!decision.target.power_on) {
       this->set_power_setting("OFF");
     } else {
       this->set_power_setting("ON");
-      auto target_mode_enum = climate_mode_to_hp_mode(target_physical_mode);
-      if (target_mode_enum) {
-        this->wanted_settings_.mode = *target_mode_enum;
+      if (decision.target.mode.has_value()) {
+        this->wanted_settings_.mode = *decision.target.mode;
       } else {
         ESP_LOGW("cn105", "No heatpump mode maps to %s; leaving the unit's mode unchanged",
-                 LOG_STR_ARG(climate::climate_mode_to_string(target_physical_mode)));
+                 LOG_STR_ARG(climate::climate_mode_to_string(target_ha_mode)));
       }
-
-      this->wanted_settings_.temperature = this->calculate_temperature_setting(target_physical_temp);
+      this->wanted_settings_.temperature = this->calculate_temperature_setting(decision.target.temperature);
     }
 
     this->wanted_settings_.has_changed = true;
     this->wanted_settings_.has_been_sent = false;
-    this->wanted_settings_.last_change = CUSTOM_MILLIS;
+    this->wanted_settings_.last_change = in.now_ms;
   }
 
-  // 3. Update diagnostic status text sensor
+  // Diagnostic status text sensor
   if (this->diagnostic_sensor_ != nullptr) {
-    const char *status = "Normal";
-    if (this->ltp_active_) {
-      status = "Low Temp Protection";
-    } else if (this->fan_stop_switch_ != nullptr && this->fan_stop_switch_->state &&
-               this->current_settings_.power == HPPower::OFF && this->desired_mode_ != climate::CLIMATE_MODE_OFF) {
-      status = "Fan Stop Active";
-    }
-
+    const char *status = cn105_policy::protection_state_to_str(decision.protection);
     if (this->diagnostic_sensor_->state != status) {
       this->diagnostic_sensor_->publish_state(status);
     }

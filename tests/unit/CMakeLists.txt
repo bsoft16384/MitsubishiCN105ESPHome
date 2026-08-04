@@ -37,6 +37,8 @@ add_executable(cn105_tests
     test_frame_parser.cpp
     test_protocol.cpp
     test_scheduling_policy.cpp
+    test_decoder.cpp
+    test_reconciliation.cpp
 )
 
 target_link_libraries(cn105_tests

@@ -19,6 +19,8 @@
 #include <esphome/components/text_sensor/text_sensor.h>
 #include "cycle_management.h"
 #include "scheduling_policy.h"
+#include "reconciliation_policy.h"
+#include "decoder.h"
 #include <vector>
 #include <map>
 #include <optional>
@@ -438,8 +440,7 @@ class CN105Climate : public climate::Climate, public Component, public esphome::
   // last_commanded_real_* above, which is also rewritten when an external change (IR remote)
   // is detected and so cannot be used to rate-limit our own repeats.
   bool has_issued_command_{false};
-  climate::ClimateMode last_issued_command_mode_{climate::CLIMATE_MODE_OFF};
-  float last_issued_command_temp_{NAN};
+  cn105_policy::PhysicalTarget last_issued_command_target_{};
   uint32_t last_issued_command_ms_{0};
 
   // When the pending remote temperature write was queued, for the stall safety net.
